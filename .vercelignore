@@ -1,0 +1,14 @@
+# Không cần đẩy lên Vercel (build chỉ cần src/ + config)
+docs/
+design-system/
+scripts/
+supabase/
+test-connection.mjs
+*.md
+!README.md
+
+# An toàn: không bao giờ upload env/build cục bộ
+.env
+.env.local
+.next/
+node_modules/

@@ -1,0 +1,37 @@
+# GDTX ERP - Quy tắc dự án
+
+## Kiến trúc Multi-tier (ĐA TẦNG: HQ -> Region -> Campus -> Branch)
+- Tổ chức là CÂY trong bảng `organizations` (parent_id + path ltree). `org_id` là tenant key, THAY THẾ `campus_id` cũ.
+- Mọi component và API phải xem xét `org_id`; mọi bảng vận hành (classes, class_sessions, attendance) BẮT BUỘC có `org_id`.
+- Phân quyền theo cấp bậc: RLS + hàm `get_descendant_org_ids(org_id)` — user thấy dữ liệu của org mình và mọi org con/cháu.
+- `selectedCampusId` trong Zustand store (`useCampusStore`) là nguồn sự thật phía client cho org đang thao tác (giá trị là `org_id`).
+
+## Database
+- Luôn sử dụng Soft Delete (`deleted_at`) thay vì DELETE trong database.
+- Mọi query SELECT phải kèm điều kiện `deleted_at IS NULL`.
+- Tất cả các bảng phải có `created_at`, `updated_at`, `deleted_at`.
+- Primary key là UUID.
+
+## Data flow (Next.js 14 App Router)
+- Sử dụng Next.js Server Actions cho mutation và Supabase SSR client cho fetching.
+- Client Component chỉ dùng cho UI tương tác (form, selector...); ưu tiên Server Component.
+- Không gọi Supabase với `service_role` key ở phía client.
+
+## Stack
+- Next.js 14 App Router, TypeScript strict, TailwindCSS, Shadcn UI, Zustand, Supabase (Postgres + pgvector + RLS).
+
+## Skills BẮT BUỘC (đọc trước khi triển khai bất cứ điều gì)
+- MỌI công việc liên quan UI/UX (tạo trang, component, chọn màu/font/layout, review giao diện) PHẢI dùng skill:
+  `C:\Users\PC\.claude\plugins\cache\ui-ux-pro-max-skill\ui-ux-pro-max\2.5.0\.claude\skills\ui-ux-pro-max\SKILL.md`
+  (script search: `...\2.5.0\src\ui-ux-pro-max\scripts\search.py`)
+- MỌI phiên lập trình PHẢI tuân theo quy trình skill:
+  `C:\Users\PC\.claude\plugins\cache\claude-plugins-official\superpowers\6.1.1\skills\using-superpowers\SKILL.md`
+  (kiểm tra skill phù hợp TRƯỚC khi hành động; nếu có ≥1% khả năng skill áp dụng thì bắt buộc dùng)
+
+## Design System (nguồn sự thật duy nhất cho UI)
+- Đọc `design-system/gdtx-erp/MASTER.md` TRƯỚC khi viết bất kỳ UI nào; file trong `design-system/gdtx-erp/pages/` (nếu có) ghi đè Master.
+- Phong cách: BENTO GRID, màu vibrant (indigo #4F46E5 primary + bento tint 6 màu), nền sáng dễ nhìn.
+- Font: Be Vietnam Pro (heading) + Inter (body) — bắt buộc hỗ trợ tiếng Việt, load qua next/font/google.
+- Responsive bắt buộc: mobile 375px / tablet 768px / desktop 1024px+ (mobile-first, sidebar thành drawer trên mobile).
+- Icon: chỉ dùng SVG từ lucide-react, KHÔNG dùng emoji làm icon.
+- Không hardcode màu hex trong component — dùng semantic token đã khai báo trong tailwind.config.ts.
