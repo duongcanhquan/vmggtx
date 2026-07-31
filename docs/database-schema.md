@@ -414,6 +414,22 @@ RLS: học sinh đọc/ghi của mình; super_admin đọc tất cả; campus_ad
 - `summarizeTeacherFeedback(teacherId, orgId)`: **[AI TÓM TẮT]** gom tối đa 100 `feedback_text` mới nhất → gpt-4o-mini viết "Điểm mạnh / Cần cải thiện" (API key theo tenant qua `getAIConfig`, fallback env).
 - (Yêu cầu gốc đặt tên file `012_anonymous_evaluations.sql` nhưng số 012 đã dùng nên migration mang số **022**.)
 
+## Ngân hàng đề — `exam_bank` (migration 024)
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `id` | uuid PK | |
+| `org_id` | uuid → organizations | Đề thuộc đơn vị nào |
+| `subject_id` | uuid → subjects, nullable | Môn học (có thể chưa gắn) |
+| `title` / `description` / `content` | text | `content` = nội dung đề hoặc link tài liệu |
+| `grade_level` | text | VD "Lớp 12", "Ôn thi THPT" |
+| `duration_minutes` | int > 0 | Thời lượng làm bài |
+| `created_by` | uuid → profiles | |
+
+**RLS**: staff/campus_admin toàn quyền trong subtree (`is_org_in_my_subtree`); teacher chỉ SELECT đề của org liên quan (`is_org_related` — dùng chung đề của cấp trên). Migration 024 cũng bổ sung policy `staff_select_teachers_in_subtree` trên `profiles` để academic_staff đọc được TÊN GIÁO VIÊN trong subtree (trước đó 005 chỉ cho xem học sinh → trang Thời khóa biểu/Lớp học của Staff bị RLS che tên GV).
+
+UI: `/staff/exam-bank` (CRUD, soft delete, xem nhanh nội dung đề). Các trang Staff/Admin hoàn thiện cùng đợt: `/staff/timetable` (TKB tuần toàn cơ sở), `/staff/transcripts` (bảng điểm tổng chỉ đọc + xếp hạng, tái dùng `getGradebook`), `/staff/results-approval` (hàng đợi duyệt & chốt sổ, tái dùng actions Kỳ thi), `/admin/organizations` (cây tổ chức + tạo đơn vị — chỉ super_admin), `/admin/revenue` (doanh thu từ `payments`/`invoices` theo subtree).
+
 ## Smart Auth Routing
 
 - **Login chung** `/login`: Email hoặc SĐT + Password → `signInWithPassword`. SĐT được resolve sang email Auth qua Server Action `resolveLoginEmail` (Admin client). Sau login, client đẩy user theo `getHomePathForRole(role)`.

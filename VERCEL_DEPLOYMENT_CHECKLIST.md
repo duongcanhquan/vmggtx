@@ -24,7 +24,8 @@
 
 ## 2. Supabase (làm TRƯỚC khi deploy)
 
-- [ ] Chạy đủ migrations theo thứ tự `supabase/migrations/001 → 023`, rồi `999_final_rls_patch.sql` và `999_performance_indexes.sql` (qua `supabase db push` hoặc SQL Editor).
+- [ ] Chạy đủ migrations theo thứ tự `supabase/migrations/001 → 024`, rồi `999_final_rls_patch.sql` và `999_performance_indexes.sql` (qua `supabase db push` hoặc SQL Editor).
+- [ ] Kiểm tra nhanh database đã đủ bảng/hàm chưa: điền `.env` thật rồi chạy `node scripts/check-db.mjs` — script liệt kê chính xác migration nào còn thiếu.
 - [ ] **QUAN TRỌNG**: `999_final_rls_patch.sql` bật RLS cho `organizations`, `class_sessions`, `attendance`, `subjects` và thêm policy GHI cho `classes` — bắt buộc cho production đa tầng.
 - [ ] Bật Custom Access Token Hook (migration 006) trong Dashboard → Authentication → Hooks để JWT chứa `role`/`org_id`.
 - [ ] (Demo) Chạy seed: `npx tsx scripts/seed.ts` với `.env` chứa `SUPABASE_SERVICE_ROLE_KEY`.
