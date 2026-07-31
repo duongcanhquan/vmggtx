@@ -20,6 +20,7 @@
 | `N8N_WEBHOOK_URL` | Webhook n8n gửi SMS/Zalo thông báo vắng học & cảnh báo học vụ. Không có → hệ thống bỏ qua thông báo, KHÔNG lỗi |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Fallback khi org chọn provider `google` (Gemini) mà không nhập key riêng |
 | `ANTHROPIC_API_KEY` | Fallback khi org chọn provider `anthropic` (Claude) mà không nhập key riêng |
+| `PARENT_SESSION_SECRET` | Secret ký HMAC cookie Parent Portal (chuỗi ngẫu nhiên dài 32+ ký tự). Không đặt → fallback dùng `SUPABASE_SERVICE_ROLE_KEY` làm secret |
 
 ## 2. Supabase (làm TRƯỚC khi deploy)
 
