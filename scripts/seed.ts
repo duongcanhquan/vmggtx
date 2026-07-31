@@ -16,13 +16,21 @@
  *
  * Cấu trúc dữ liệu sinh ra:
  *  - 1 HQ -> 2 Cụm (region) -> mỗi cụm 2 Cơ sở (campus) = 4 campus
- *  - Mỗi campus: 1 campus_admin + 2 staff + 3 teacher + 10 student
- *  - 1 super_admin ở HQ
+ *  - Mỗi campus: 1 campus_admin + 2 staff + 1 tư vấn tuyển sinh
+ *    + 3 teacher + 10 student. 1 super_admin ở HQ. Tổng 69 tài khoản.
  *  - 5 lớp học phân bổ vào các campus, mỗi lớp 2 buổi/tuần
  *    trong khoảng [hôm nay - 30 ngày, hôm nay + 30 ngày]
  *  - Điểm danh cho buổi ĐÃ DIỄN RA: ~90% có mặt, ~10% vắng
  *  - Điểm số cho 3 bài kiểm tra/lớp (hệ số 0.2/0.3/0.5), thang 0-10
  *  - Lớp cuối cùng được CHỐT SỔ để demo tính năng khóa bảng điểm
+ *  - Hạn nhập điểm (grading_deadline): lớp áp chót QUÁ HẠN để demo
+ *    hàng đợi "Xét duyệt kết quả" của Khảo thí, các lớp khác còn hạn
+ *  - Hợp đồng lương cho 12 GV (trộn biên chế/thỉnh giảng/khoán giờ)
+ *    -> chạy được Bảng lương tháng ngay
+ *  - Hóa đơn học phí cho mọi học sinh (đã đóng đủ/một phần/quá hạn)
+ *    + phiếu thu tương ứng -> trang Doanh thu, Công nợ, Học phí có số
+ *  - CRM: ~6 leads/campus đủ các trạng thái + nhật ký chăm sóc
+ *  - Ngân hàng đề: 3 đề/campus (bỏ qua nếu chưa chạy migration 024)
  *
  * Script IDEMPOTENT: chạy lại sẽ tự xóa sạch dữ liệu seed cũ
  * (nhận diện qua email đuôi @gdtx-demo.edu.vn và cây org demo).
@@ -105,6 +113,30 @@ async function cleanupPreviousSeed() {
       // Xóa theo THỨ TỰ NGƯỢC khóa ngoại
       // (mở khóa class_results trước để trigger không chặn xóa grades)
       await supabase.from('class_results').update({ lock_status: 'open' }).in('org_id', ids)
+
+      // Bảng TÙY CHỌN (module mở rộng): thiếu bảng thì chỉ cảnh báo
+      for (const table of [
+        'exam_bank',
+        'student_ai_chats',
+        'evaluation_results',
+        'evaluation_tokens',
+        'evaluation_campaigns',
+        'lead_activities',
+        'leads',
+        'student_warnings',
+        'payrolls',
+        'teacher_contracts',
+        'rate_modifiers',
+        'org_ai_settings',
+        'org_custom_fields',
+        'org_settings',
+        'lesson_materials',
+      ]) {
+        const { error: delError } = await supabase.from(table).delete().in('org_id', ids)
+        if (delError) console.warn(`   (bỏ qua ${table}: ${delError.message})`)
+      }
+
+      // Bảng LÕI: lỗi là dừng ngay
       for (const table of [
         'grades',
         'class_results',
@@ -119,7 +151,6 @@ async function cleanupPreviousSeed() {
         'profiles',
       ]) {
         const { error: delError } = await supabase.from(table).delete().in('org_id', ids)
-        // subjects/profiles có thể chưa có dòng nào thuộc org demo -> bỏ qua lỗi "không có gì"
         if (delError) assertOk(`xóa ${table} cũ`, delError)
       }
 
@@ -237,7 +268,9 @@ async function createAccount(
 }
 
 async function seedPeople(hq: Org, campuses: Org[]) {
-  console.log('2) Tạo tài khoản + hồ sơ (1 super admin, 4 campus admin, 8 staff, 12 GV, 40 HS)...')
+  console.log(
+    '2) Tạo tài khoản + hồ sơ (1 super admin, 4 campus admin, 8 staff, 4 tuyển sinh, 12 GV, 40 HS)...'
+  )
 
   const superAdmin = await createAccount(
     `superadmin@${SEED_EMAIL_DOMAIN}`,
@@ -249,6 +282,7 @@ async function seedPeople(hq: Org, campuses: Org[]) {
   const teachersByCampus: Person[][] = []
   const studentsByCampus: Person[][] = []
   const campusAdmins: Person[] = []
+  const admissionStaffByCampus: Person[] = []
 
   for (let i = 0; i < campuses.length; i++) {
     const campus = campuses[i]
@@ -271,6 +305,16 @@ async function seedPeople(hq: Org, campuses: Org[]) {
         campus.id
       )
     }
+
+    // Tư vấn viên tuyển sinh (CRM Kanban /crm/leads)
+    admissionStaffByCampus.push(
+      await createAccount(
+        `tuyensinh.${tag}@${SEED_EMAIL_DOMAIN}`,
+        faker.person.fullName(),
+        'admission_staff',
+        campus.id
+      )
+    )
 
     const teachers: Person[] = []
     for (let t = 1; t <= 3; t++) {
@@ -297,10 +341,10 @@ async function seedPeople(hq: Org, campuses: Org[]) {
       )
     }
     studentsByCampus.push(students)
-    console.log(`   ${campus.name}: xong 16 tài khoản.`)
+    console.log(`   ${campus.name}: xong 17 tài khoản.`)
   }
 
-  return { superAdmin, campusAdmins, teachersByCampus, studentsByCampus }
+  return { superAdmin, campusAdmins, admissionStaffByCampus, teachersByCampus, studentsByCampus }
 }
 
 // ---------- BƯỚC 3-9: Nghiệp vụ ----------
@@ -308,6 +352,8 @@ async function seedPeople(hq: Org, campuses: Org[]) {
 async function seedBusinessData(
   hq: Org,
   campuses: Org[],
+  campusAdmins: Person[],
+  admissionStaffByCampus: Person[],
   teachersByCampus: Person[][],
   studentsByCampus: Person[][]
 ) {
@@ -434,6 +480,9 @@ async function seedBusinessData(
           name: t.name,
           weight: t.weight,
           max_score: 10,
+          // Hạn nhập điểm còn 14 ngày; lớp áp chót sẽ được LÙI hạn về
+          // quá khứ SAU KHI đã nhập điểm (trigger DB chặn nhập khi quá hạn)
+          grading_deadline: new Date(now.getTime() + 14 * 86400_000).toISOString(),
         }))
       )
       .select('id')
@@ -466,12 +515,165 @@ async function seedBusinessData(
   })
   assertOk('chốt sổ điểm', lockError)
 
+  // 9b. LÙI hạn nhập điểm lớp áp chót về quá khứ (2 ngày trước)
+  //     -> hiện màu VÀNG "Quá hạn - chờ duyệt" ở /staff/exams và
+  //        /staff/results-approval. Làm SAU khi grades đã insert
+  //        vì trigger DB chặn nhập điểm khi quá hạn.
+  const overdueClass = classes![classes!.length - 2]
+  const { error: overdueError } = await supabase
+    .from('assessments')
+    .update({ grading_deadline: new Date(now.getTime() - 2 * 86400_000).toISOString() })
+    .eq('class_id', overdueClass.id)
+  assertOk('lùi hạn nhập điểm lớp demo quá hạn', overdueError)
+
+  // 10. Hợp đồng lương cho 12 giáo viên (trộn 3 loại hợp đồng)
+  console.log('10) Tạo hợp đồng lương giáo viên (biên chế/thỉnh giảng/khoán giờ)...')
+  const contractRows: Record<string, unknown>[] = []
+  const contractStart = new Date(now.getTime() - 180 * 86400_000).toISOString().slice(0, 10)
+  teachersByCampus.forEach((teachers) => {
+    teachers.forEach((teacher, t) => {
+      // GV1: biên chế, GV2: thỉnh giảng, GV3: khoán giờ
+      const type = t === 0 ? 'full_time' : t === 1 ? 'visiting' : 'hourly'
+      contractRows.push({
+        teacher_id: teacher.id,
+        org_id: teacher.orgId,
+        contract_type: type,
+        base_salary: type === 'full_time' ? 12_000_000 : 0,
+        insurance_salary: type === 'full_time' ? 8_000_000 : 0,
+        required_hours_per_month: type === 'full_time' ? 40 : 0,
+        base_hourly_rate: type === 'full_time' ? 150_000 : type === 'visiting' ? 250_000 : 200_000,
+        tax_percentage: 10,
+        insurance_percentage: type === 'full_time' ? 10.5 : 0,
+        start_date: contractStart,
+        end_date: null,
+        is_active: true,
+      })
+    })
+  })
+  await insertChunked('teacher_contracts', contractRows)
+
+  // 11. Hóa đơn học phí + phiếu thu cho MỌI học sinh
+  //     ~50% đã đóng đủ, ~25% đóng một phần, ~25% chưa đóng (một nửa QUÁ HẠN)
+  console.log('11) Tạo hóa đơn học phí + phiếu thu...')
+  const invoiceRows: {
+    org_id: string
+    student_id: string
+    amount: number
+    status: string
+    due_date: string
+    note: string
+  }[] = []
+  studentsByCampus.forEach((students, campusIdx) => {
+    for (const student of students) {
+      const roll = Math.random()
+      const status = roll < 0.5 ? 'paid' : roll < 0.75 ? 'partial' : 'pending'
+      // Hóa đơn 'pending' xen kẽ hạn quá khứ (nợ quá hạn) và tương lai
+      const overdue = status === 'pending' && Math.random() < 0.5
+      invoiceRows.push({
+        org_id: campuses[campusIdx].id,
+        student_id: student.id,
+        amount: 2_000_000,
+        status,
+        due_date: new Date(now.getTime() + (overdue ? -7 : 14) * 86400_000)
+          .toISOString()
+          .slice(0, 10),
+        note: `Học phí tháng ${now.getMonth() + 1}/${now.getFullYear()}`,
+      })
+    }
+  })
+  const { data: invoices, error: invoiceError } = await supabase
+    .from('invoices')
+    .insert(invoiceRows)
+    .select('id, org_id, status, amount')
+  assertOk('tạo invoices', invoiceError)
+
+  const adminByOrg = new Map(campusAdmins.map((admin) => [admin.orgId, admin.id]))
+  const paymentRows: Record<string, unknown>[] = []
+  for (const invoice of invoices!) {
+    if (invoice.status === 'pending') continue
+    paymentRows.push({
+      org_id: invoice.org_id,
+      invoice_id: invoice.id,
+      amount_paid: invoice.status === 'paid' ? Number(invoice.amount) : Number(invoice.amount) / 2,
+      payment_method: Math.random() < 0.5 ? 'cash' : 'transfer',
+      recorded_by: adminByOrg.get(invoice.org_id) ?? null,
+    })
+  }
+  await insertChunked('payments', paymentRows)
+
+  // 12. CRM: leads đủ trạng thái + nhật ký chăm sóc
+  console.log('12) Tạo leads tuyển sinh (CRM Kanban)...')
+  const leadStatuses = ['new', 'new', 'contacted', 'contacted', 'test_scheduled', 'lost']
+  const leadRows: Record<string, unknown>[] = []
+  campuses.forEach((campus, campusIdx) => {
+    const counselor = admissionStaffByCampus[campusIdx]
+    leadStatuses.forEach((status, l) => {
+      leadRows.push({
+        org_id: campus.id,
+        full_name: faker.person.fullName(),
+        phone: vnPhone(),
+        interested_subject_id: subjects![l % subjects!.length].id,
+        status,
+        // Lead 'new' đầu tiên CHƯA có người phụ trách (demo nhận lead)
+        counselor_id: l === 0 ? null : counselor.id,
+        notes: status === 'lost' ? 'Phụ huynh báo đã chọn trung tâm khác.' : faker.lorem.sentence(),
+      })
+    })
+  })
+  const { data: leads, error: leadError } = await supabase
+    .from('leads')
+    .insert(leadRows)
+    .select('id, org_id, counselor_id, status')
+  assertOk('tạo leads', leadError)
+
+  const activityRows: Record<string, unknown>[] = []
+  for (const lead of leads!) {
+    if (lead.status === 'new' || !lead.counselor_id) continue
+    activityRows.push({
+      org_id: lead.org_id,
+      lead_id: lead.id,
+      activity_type: Math.random() < 0.6 ? 'call' : 'meeting',
+      description: 'Đã tư vấn lộ trình học và học phí.',
+      created_by: lead.counselor_id,
+    })
+  }
+  await insertChunked('lead_activities', activityRows)
+
+  // 13. Ngân hàng đề (bảng exam_bank - migration 024; thiếu bảng thì bỏ qua)
+  console.log('13) Tạo ngân hàng đề (3 đề/cơ sở)...')
+  const examBankRows: Record<string, unknown>[] = []
+  campuses.forEach((campus, campusIdx) => {
+    for (let e = 0; e < 3; e++) {
+      const subject = subjects![(campusIdx + e) % subjects!.length]
+      examBankRows.push({
+        org_id: campus.id,
+        subject_id: subject.id,
+        title: `Đề ${e === 0 ? 'giữa kỳ' : e === 1 ? 'cuối kỳ' : 'ôn tập'} ${subject.name} 12 - Mã ${100 + campusIdx * 10 + e}`,
+        description: `Đề ${subject.name} lớp 12, phạm vi chương ${e + 1}-${e + 3}.`,
+        content: `Câu 1 (3đ): ...\nCâu 2 (3đ): ...\nCâu 3 (4đ): ...\n(Đề demo sinh tự động)`,
+        grade_level: 'Lớp 12',
+        duration_minutes: e === 1 ? 90 : 45,
+        created_by: adminByOrg.get(campus.id) ?? null,
+      })
+    }
+  })
+  {
+    const { error: examBankError } = await supabase.from('exam_bank').insert(examBankRows)
+    if (examBankError) {
+      console.warn(`   (bỏ qua exam_bank - hãy chạy migration 024: ${examBankError.message})`)
+    }
+  }
+
   return {
     classCount: classes!.length,
     sessionCount: sessionRows.length,
     attendanceCount: attendanceRows.length,
     gradeCount: gradeRows.length,
     lockedClassName: lastClass.name,
+    overdueClassName: overdueClass.name,
+    contractCount: contractRows.length,
+    invoiceCount: invoiceRows.length,
+    leadCount: leadRows.length,
   }
 }
 
@@ -482,20 +684,35 @@ async function main() {
 
   await cleanupPreviousSeed()
   const { hq, campuses } = await seedOrganizations()
-  const { teachersByCampus, studentsByCampus } = await seedPeople(hq, campuses)
-  const stats = await seedBusinessData(hq, campuses, teachersByCampus, studentsByCampus)
+  const { campusAdmins, admissionStaffByCampus, teachersByCampus, studentsByCampus } =
+    await seedPeople(hq, campuses)
+  const stats = await seedBusinessData(
+    hq,
+    campuses,
+    campusAdmins,
+    admissionStaffByCampus,
+    teachersByCampus,
+    studentsByCampus
+  )
 
   console.log('\n================= SEED HOÀN TẤT =================')
   console.log(`Tổ chức    : 1 HQ, 2 cụm, ${campuses.length} cơ sở`)
-  console.log(`Tài khoản  : 65 (1 super admin, 4 campus admin, 8 staff, 12 GV, 40 HS)`)
-  console.log(`Lớp học    : ${stats.classCount} (đã chốt sổ: ${stats.lockedClassName})`)
+  console.log(`Tài khoản  : 69 (1 super admin, 4 campus admin, 8 giáo vụ, 4 tuyển sinh, 12 GV, 40 HS)`)
+  console.log(`Lớp học    : ${stats.classCount} (đã chốt sổ: ${stats.lockedClassName} | quá hạn nhập điểm: ${stats.overdueClassName})`)
   console.log(`Buổi học   : ${stats.sessionCount} | Điểm danh: ${stats.attendanceCount} | Điểm số: ${stats.gradeCount}`)
-  console.log('\nTài khoản demo (mật khẩu chung: ' + SEED_PASSWORD + ')')
-  console.log(`  super_admin : superadmin@${SEED_EMAIL_DOMAIN}`)
-  console.log(`  campus_admin: admin.cs1@${SEED_EMAIL_DOMAIN} ... admin.cs4@${SEED_EMAIL_DOMAIN}`)
-  console.log(`  staff       : staff1.cs1@${SEED_EMAIL_DOMAIN} ...`)
-  console.log(`  teacher     : teacher1.cs1@${SEED_EMAIL_DOMAIN} ...`)
-  console.log(`  student     : student01.cs1@${SEED_EMAIL_DOMAIN} ...`)
+  console.log(`Hợp đồng GV: ${stats.contractCount} | Hóa đơn: ${stats.invoiceCount} | Leads CRM: ${stats.leadCount}`)
+  console.log('\n=========== TÀI KHOẢN ĐĂNG NHẬP TEST ===========')
+  console.log(`MẬT KHẨU CHUNG cho TẤT CẢ tài khoản: ${SEED_PASSWORD}`)
+  console.log('')
+  console.log(`  Tổng quản trị  : superadmin@${SEED_EMAIL_DOMAIN}            -> /admin`)
+  console.log(`  QL Cơ sở 1..4  : admin.cs1@${SEED_EMAIL_DOMAIN} ... admin.cs4@...  -> /admin`)
+  console.log(`  Giáo vụ        : staff1.cs1@${SEED_EMAIL_DOMAIN}, staff2.cs1@... (mỗi cơ sở 2) -> /staff`)
+  console.log(`  Tuyển sinh     : tuyensinh.cs1@${SEED_EMAIL_DOMAIN} ... (mỗi cơ sở 1) -> /crm/leads`)
+  console.log(`  Giáo viên      : teacher1.cs1@${SEED_EMAIL_DOMAIN} ... teacher3.cs4@... -> /teacher`)
+  console.log(`  Học sinh       : student01.cs1@${SEED_EMAIL_DOMAIN} ... student10.cs4@... -> /student`)
+  console.log('')
+  console.log('  (cs1=HN Cầu Giấy, cs2=HN Hà Đông, cs3=HCM Quận 1, cs4=HCM Thủ Đức)')
+  console.log('  Chi tiết đầy đủ: docs/demo-accounts.md')
 }
 
 main().catch((error) => {
