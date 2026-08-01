@@ -1,6 +1,8 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
+import { isRole, type Role } from '@/lib/auth/roles'
 import { z } from 'zod'
 import { zodFail, type ActionResult } from '@/lib/validation/schemas'
 
@@ -66,3 +68,39 @@ export async function resolveLoginEmail(identifier: string): Promise<ResolveLogi
 
 /** Kiểu tương thích ActionResult cho form (không bắt buộc dùng) */
 export type LoginActionResult = ActionResult
+
+/**
+ * Đọc role sau khi client vừa signIn — ưu tiên JWT, fallback profiles
+ * qua Admin (tránh kẹt khi RLS/JWT hook chưa sẵn sàng).
+ */
+export async function resolveRoleServerSide(): Promise<
+  { error: string } | { error?: undefined; role: Role }
+> {
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const admin = createAdminClient()
+    const { data: profile, error } = await admin
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (error) return { error: `Không đọc được hồ sơ: ${error.message}` }
+    if (!isRole(profile?.role)) {
+      return {
+        error:
+          'Tài khoản chưa có vai trò hợp lệ trong hồ sơ. Liên hệ Super Admin để gán role.',
+      }
+    }
+    return { role: profile.role }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Không xác định được vai trò.',
+    }
+  }
+}

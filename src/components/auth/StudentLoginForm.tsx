@@ -10,7 +10,7 @@ import { BookOpenCheck, Loader2, Lock, Mail, Rocket } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
-import { resolveLoginEmail } from '@/app/login/actions'
+import { resolveLoginEmail, resolveRoleServerSide } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
@@ -96,11 +96,23 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
       return
     }
 
-    const role = await resolveRoleAfterLogin(
+    let role = await resolveRoleAfterLogin(
       supabase,
       data.session?.access_token,
       data.user?.id
     )
+    if (!role) {
+      const serverRole = await resolveRoleServerSide()
+      if (serverRole.error !== undefined || !serverRole.role) {
+        await supabase.auth.signOut()
+        setServerError(
+          serverRole.error ??
+            'Không xác định được vai trò tài khoản. Liên hệ nhà trường.'
+        )
+        return
+      }
+      role = serverRole.role
+    }
     if (role !== 'student' && role !== 'super_admin') {
       await supabase.auth.signOut()
       setWrongPortal(true)

@@ -81,3 +81,8 @@
 ## 2026-08-01 | (commit kế tiếp) | Tach Super Admin /login vs hub /coso
 - Làm: /login chi cho super_admin; /coso danh sach co so; wizard hien link day du;
   list_public_campuses; license table hien /coso/{slug}.
+
+## 2026-08-01 | (commit kế tiếp) | Fix khong dang nhap duoc /login
+- Nguyen nhan: ban preview chan cung chi super_admin → campus_admin bi da ra;
+  role null (JWT hook tat) cung bi chan.
+- Fix: bo chan cung; fallback resolveRoleServerSide; nhan su van login /login.

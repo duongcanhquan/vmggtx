@@ -10,7 +10,7 @@ import { GraduationCap, Loader2, Lock, LogIn, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
-import { resolveLoginEmail } from '@/app/login/actions'
+import { resolveLoginEmail, resolveRoleServerSide } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
@@ -101,32 +101,39 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
       return
     }
 
-    const role = await resolveRoleAfterLogin(
+    let role = await resolveRoleAfterLogin(
       supabase,
       data.session?.access_token,
       data.user?.id
     )
+
+    // Client không đọc được role → hỏi server (Admin client, bỏ qua RLS)
+    if (!role) {
+      const serverRole = await resolveRoleServerSide()
+      if (serverRole.error !== undefined || !serverRole.role) {
+        await supabase.auth.signOut()
+        setServerError(
+          serverRole.error ??
+            'Đăng nhập được nhưng không xác định được vai trò. Kiểm tra hồ sơ hoặc bật JWT hook (migration 006).'
+        )
+        return
+      }
+      role = serverRole.role
+    }
+
     if (role === 'student') {
       await supabase.auth.signOut()
       setWrongPortal(true)
       setServerError(
         campus
           ? 'Đây là cổng dành cho Nhà trường & Giảng viên. Học viên vui lòng đăng nhập tại Cổng Học viên.'
-          : 'Cổng gốc dành cho Super Admin. Học viên hãy vào /coso để chọn cơ sở của mình.'
+          : 'Học viên hãy chọn cơ sở tại /coso rồi vào Cổng Học viên của cơ sở đó.'
       )
       return
     }
 
-    // Cổng gốc (edusystem.com/login) = Super Admin hệ thống
-    if (!campus && role !== 'super_admin') {
-      await supabase.auth.signOut()
-      setWrongPortal(true)
-      setServerError(
-        'Đây là cổng Super Admin (toàn hệ thống). Quản lý / nhân sự / giảng viên đăng nhập tại cổng cơ sở: /coso/…'
-      )
-      return
-    }
-
+    // Cổng gốc: ưu tiên Super Admin. Nhân sự cơ sở VẪN được vào (fallback
+    // khi /coso chưa có slug / chưa chạy 045) — không đá ra nữa.
     if (campus) {
       const gate = await assertUserInCampus(campus.id)
       if (gate.error !== undefined) {
@@ -151,7 +158,7 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
     <AuthShell
       theme="management"
       icon={GraduationCap}
-      badge={campus ? campus.name : 'Super Admin · Hệ thống'}
+      badge={campus ? campus.name : 'Nhà trường · Hệ thống'}
       title={
         <>
           EDU <span className="text-amber-300">SYSTEM</span>
@@ -160,19 +167,20 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
       subtitle={
         campus
           ? `Cổng quản trị cơ sở · ${campus.name}`
-          : 'Đăng nhập Super Admin · Quản trị toàn hệ thống'
+          : 'Super Admin đăng nhập tại đây · Cơ sở nên dùng /coso/…'
       }
       footer={
         <>
           {!campus ? (
             <p>
-              Bạn là Quản lý / GV / Học viên / Phụ huynh của một cơ sở?{' '}
+              Quản lý / GV / Học viên / Phụ huynh theo cơ sở:{' '}
               <Link
                 href="/coso"
                 className="font-bold text-white underline-offset-2 hover:underline"
               >
-                Chọn cơ sở tại /coso
+                chọn cơ sở tại /coso
               </Link>
+              {' '}(khuyến nghị). Cổng này vẫn nhận đăng nhập nhân sự nếu cần.
             </p>
           ) : (
             <>
@@ -257,7 +265,7 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
                 href={campus ? studentHref : '/coso'}
                 className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-bold text-[#162938] hover:bg-white/90"
               >
-                {campus ? 'Sang Cổng Học viên' : 'Chọn cơ sở tại /coso'}
+                {campus ? 'Sang Cổng Học viên' : 'Sang /coso chọn cơ sở'}
               </Link>
             )}
           </div>
