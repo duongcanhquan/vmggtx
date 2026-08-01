@@ -250,7 +250,7 @@ export function ExamBoard({ initialExams }: { initialExams: ExamRow[] }) {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="font-display text-lg font-bold text-slate-900">
+                <h2 className="font-heading text-lg font-bold text-slate-900">
                   Gia hạn nhập điểm
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">

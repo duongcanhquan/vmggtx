@@ -16,7 +16,7 @@ export default async function StaffExamsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-bold text-slate-900">
+      <h1 className="font-heading text-2xl font-bold text-slate-900">
         Quản lý Khảo thí
       </h1>
 

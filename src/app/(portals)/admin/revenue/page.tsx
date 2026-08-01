@@ -68,7 +68,7 @@ export default async function AdminRevenuePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
+      <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-slate-900">
         <TrendingUp className="h-6 w-6 text-indigo-600" aria-hidden="true" />
         Báo cáo Doanh thu
       </h1>
@@ -76,25 +76,22 @@ export default async function AdminRevenuePage() {
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
+          <div key={card.label} className="bento-card p-5">
             <div className={`inline-flex rounded-xl p-2.5 ${card.tone}`}>
               <card.icon className="h-5 w-5" aria-hidden="true" />
             </div>
             <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">
               {card.label}
             </p>
-            <p className="mt-1 font-display text-xl font-bold text-slate-900">{card.value}</p>
+            <p className="mt-1 font-heading text-xl font-bold text-slate-900">{card.value}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Doanh thu theo tháng */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-display text-base font-bold text-slate-900">
+        <div className="bento-card p-5">
+          <h2 className="font-heading text-base font-bold text-slate-900">
             Tiền thu theo tháng
           </h2>
           {report.byMonth.length === 0 ? (
@@ -117,7 +114,7 @@ export default async function AdminRevenuePage() {
                   </div>
                   <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-sky-400"
+                      className="h-full rounded-full bg-gradient-to-r from-[#44403c] to-[#c9a227]"
                       style={{ width: `${Math.round((row.collected / maxMonth) * 100)}%` }}
                     />
                   </div>
@@ -128,8 +125,8 @@ export default async function AdminRevenuePage() {
         </div>
 
         {/* Doanh thu theo đơn vị */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-display text-base font-bold text-slate-900">
+        <div className="bento-card p-5">
+          <h2 className="font-heading text-base font-bold text-slate-900">
             Theo đơn vị
           </h2>
           {report.byOrg.length === 0 ? (

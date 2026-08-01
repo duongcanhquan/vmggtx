@@ -95,7 +95,7 @@ export default function StaffTimetablePage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
+          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-slate-900">
             <CalendarDays className="h-6 w-6 text-indigo-600" aria-hidden="true" />
             Thời khóa biểu
           </h1>

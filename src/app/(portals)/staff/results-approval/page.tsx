@@ -112,7 +112,7 @@ export default function ResultsApprovalPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
+          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-slate-900">
             <ClipboardCheck className="h-6 w-6 text-indigo-600" aria-hidden="true" />
             Xét duyệt kết quả
           </h1>
@@ -155,7 +155,7 @@ export default function ResultsApprovalPage() {
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="flex items-center gap-2 font-display text-base font-bold text-slate-900">
+                  <p className="flex items-center gap-2 font-heading text-base font-bold text-slate-900">
                     {item.className}
                     {item.lockStatus === 'locked' ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-600">

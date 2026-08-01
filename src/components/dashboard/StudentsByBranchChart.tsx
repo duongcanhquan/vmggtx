@@ -43,6 +43,14 @@ export function StudentsByBranchChart({ data }: { data: ChildOrgStat[] }) {
               allowDecimals={false}
               width={48}
             />
+            <defs>
+              {/* Cột gradient than chì -> ánh gold ở chân, tông luxury */}
+              <linearGradient id="branchBarGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#292524" />
+                <stop offset="72%" stopColor="#44403c" />
+                <stop offset="100%" stopColor="#a16207" />
+              </linearGradient>
+            </defs>
             <Tooltip
               cursor={{ fill: '#f3f1ed' }}
               formatter={(value) => [
@@ -50,17 +58,18 @@ export function StudentsByBranchChart({ data }: { data: ChildOrgStat[] }) {
                 'Số học viên',
               ]}
               contentStyle={{
-                borderRadius: 12,
-                border: '1px solid #e7e2da',
-                boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+                borderRadius: 14,
+                border: '1px solid #e5c369',
+                background: '#fffdfa',
+                boxShadow: '0 16px 40px -12px rgba(28,25,23,0.25)',
                 fontSize: 13,
               }}
             />
             <Bar
               dataKey="students"
               name="Số học viên"
-              fill="#1c1917"
-              radius={[8, 8, 0, 0]}
+              fill="url(#branchBarGradient)"
+              radius={[10, 10, 0, 0]}
               maxBarSize={56}
               isAnimationActive={false}
             />

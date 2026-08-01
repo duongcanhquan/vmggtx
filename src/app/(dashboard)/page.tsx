@@ -185,24 +185,85 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Biểu đồ so sánh các nhánh trực thuộc */}
-          <div className="bento-card p-5 sm:p-6">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="bento-icon bg-stone-100 text-stone-700">
-                <BarChart3 className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <h2 className="font-heading text-lg font-bold">
-                Học viên theo đơn vị trực thuộc
-              </h2>
+          {/* Bento: biểu đồ (2/3) + bảng tổng kết chi nhánh (1/3) */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="bento-card p-5 sm:p-6 lg:col-span-2">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="bento-icon bg-stone-100 text-stone-700">
+                  <BarChart3 className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h2 className="font-heading text-lg font-bold">
+                  Học viên theo đơn vị trực thuộc
+                </h2>
+              </div>
+
+              {stats.childrenStats.length > 0 ? (
+                <StudentsByBranchChart data={stats.childrenStats} />
+              ) : (
+                <p className="rounded-xl bg-stone-50 p-6 text-center text-sm text-muted-foreground">
+                  Không có nhánh trực thuộc.
+                </p>
+              )}
             </div>
 
-            {stats.childrenStats.length > 0 ? (
-              <StudentsByBranchChart data={stats.childrenStats} />
-            ) : (
-              <p className="rounded-xl bg-stone-50 p-6 text-center text-sm text-muted-foreground">
-                Không có nhánh trực thuộc.
-              </p>
-            )}
+            <div className="bento-card p-5 sm:p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="bento-icon bg-[#c9a227]/10 text-[#a16207]">
+                  <Building2 className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h2 className="font-heading text-lg font-bold">Xếp hạng chi nhánh</h2>
+              </div>
+
+              {stats.childrenStats.length > 0 ? (
+                <ol className="space-y-4">
+                  {stats.childrenStats.map((child, index) => {
+                    const share =
+                      stats.totalStudents > 0
+                        ? Math.round((child.students / stats.totalStudents) * 100)
+                        : 0
+                    return (
+                      <li key={child.orgId}>
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span
+                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                                index === 0
+                                  ? 'bg-[#c9a227]/15 text-[#a16207] ring-1 ring-[#c9a227]/40'
+                                  : 'bg-stone-100 text-stone-500'
+                              }`}
+                            >
+                              {index + 1}
+                            </span>
+                            <span className="truncate font-medium text-foreground">
+                              {child.name}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-heading text-sm font-bold tabular-nums">
+                            {child.students.toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+                        <div
+                          className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-100"
+                          role="presentation"
+                        >
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#44403c] to-[#c9a227]"
+                            style={{ width: `${Math.max(share, 4)}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-right text-[11px] text-muted-foreground">
+                          {share}% toàn hệ thống
+                        </p>
+                      </li>
+                    )
+                  })}
+                </ol>
+              ) : (
+                <p className="rounded-xl bg-stone-50 p-6 text-center text-sm text-muted-foreground">
+                  Đơn vị cấp cuối — không có chi nhánh con.
+                </p>
+              )}
+            </div>
           </div>
         </>
       )}

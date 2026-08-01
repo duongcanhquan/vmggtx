@@ -67,6 +67,36 @@ const stone = {
   950: '#0c0a09',
 }
 
+/** Đỏ thẫm quý phái — thay cho red/rose tươi chói */
+const crimson = {
+  50: '#fbf3f1',
+  100: '#f6e3df',
+  200: '#ecc8c1',
+  300: '#dda498',
+  400: '#c97a6b',
+  500: '#b25847',
+  600: '#9a3f30',
+  700: '#7f3428',
+  800: '#692c24',
+  900: '#572621',
+  950: '#2f120e',
+}
+
+/** Đồng đỏ ấm — thay cho orange chói */
+const copper = {
+  50: '#fcf6ef',
+  100: '#f7e8d8',
+  200: '#edd0af',
+  300: '#e0b17e',
+  400: '#d18f50',
+  500: '#c07430',
+  600: '#a85c22',
+  700: '#8b491e',
+  800: '#713c1e',
+  900: '#5d321c',
+  950: '#33180c',
+}
+
 /** Xanh thép trầm — thay cho blue/sky chói */
 const steel = {
   50: '#f4f6f7',
@@ -139,7 +169,14 @@ const config: Config = {
         teal: jade,
         emerald: jade,
         green: jade,
+        lime: jade,
+        red: crimson,
+        rose: crimson,
+        pink: crimson,
+        orange: copper,
         gold,
+        crimson,
+        copper,
         bronze,
         charcoal,
         steel,

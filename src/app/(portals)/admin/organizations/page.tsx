@@ -109,7 +109,7 @@ export default function AdminOrganizationsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
+        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-slate-900">
           <Network className="h-6 w-6 text-indigo-600" aria-hidden="true" />
           Quản lý Cơ sở
         </h1>
@@ -157,7 +157,7 @@ export default function AdminOrganizationsPage() {
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="flex items-start justify-between">
-              <h2 className="font-display text-lg font-bold text-slate-900">
+              <h2 className="font-heading text-lg font-bold text-slate-900">
                 Thêm đơn vị mới
               </h2>
               <button
