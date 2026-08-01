@@ -7,7 +7,7 @@ import { CalendarDays, Home, Medal, MonitorPlay, Settings } from 'lucide-react'
 // ============================================================
 // Layout STUDENT PORTAL (/student/*) — TUYỆT ĐỐI MOBILE-FIRST.
 // - KHÔNG sidebar: Bottom Navigation Bar 5 icon như app điện thoại.
-// - Nội dung bó trong khung max-w-[480px], căn giữa trên desktop.
+// - Nội dung bó trong khung max-w-[480px] md:max-w-[640px], căn giữa trên desktop.
 // ============================================================
 
 const STUDENT_MENU = [
@@ -28,13 +28,13 @@ export default function StudentWorkspaceLayout({
   return (
     <div className="flex min-h-dvh justify-center bg-slate-100">
       {/* Khung điện thoại: max 480px */}
-      <div className="relative flex min-h-dvh w-full max-w-[480px] flex-col bg-background shadow-xl">
+      <div className="relative flex min-h-dvh w-full max-w-[480px] md:max-w-[640px] flex-col bg-background shadow-xl">
         <main className="flex-1 pb-24">{children}</main>
 
         {/* ===== Bottom Navigation Bar ===== */}
         <nav
           aria-label="Menu học sinh"
-          className="fixed bottom-0 z-40 w-full max-w-[480px] border-t border-border bg-surface/95 backdrop-blur"
+          className="fixed bottom-0 z-40 w-full max-w-[480px] md:max-w-[640px] border-t border-border bg-surface/95 backdrop-blur"
         >
           <ul className="grid grid-cols-5">
             {STUDENT_MENU.map((item) => {

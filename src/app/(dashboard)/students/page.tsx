@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Eye, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
+import { Eye, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import {
@@ -16,6 +16,7 @@ import { StudentForm, type StudentFormValues } from '@/components/forms/StudentF
 import { getCustomFields } from '@/app/(dashboard)/settings/custom-fields/actions'
 import type { CustomFieldDef, CustomMetadata } from '@/lib/customFields'
 import { createStudent, getStudents, updateStudent, type StudentRow } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Quản lý Học sinh (/students) - SmartTable + StudentForm động.
@@ -212,10 +213,7 @@ export default function StudentsPage() {
 
       {/* ===== SmartTable ===== */}
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang tải danh sách học viên…
-        </div>
+        <FunLoader label="Đang tải danh sách học viên…" />
       ) : (
         <SmartTable
           columns={columns}

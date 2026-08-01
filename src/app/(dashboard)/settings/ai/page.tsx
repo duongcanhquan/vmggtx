@@ -23,6 +23,7 @@ import {
   type AISettingsFormValues,
 } from '@/lib/validation/schemas'
 import { getAISettings, saveAISettings, type AISettingsView } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Cấu hình AI Đa khách hàng (/settings/ai) - Campus Admin.
@@ -170,10 +171,7 @@ export default function AISettingsPage() {
 
         {/* ===== Form ===== */}
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải cấu hình…
-          </div>
+          <FunLoader label="Đang tải cấu hình…" />
         ) : (
           <form
             onSubmit={handleSubmit(onSubmit)}

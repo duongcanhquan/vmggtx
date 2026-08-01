@@ -27,6 +27,7 @@ import {
   saveGlobalSettings,
   type GlobalSettingsResult,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Cài đặt toàn cục (/admin/settings) - CHỈ SuperAdmin.
@@ -164,10 +165,7 @@ export default function AdminSettingsPage() {
 
         {/* ===== Form ===== */}
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải cài đặt…
-          </div>
+          <FunLoader label="Đang tải cài đặt…" />
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
             {/* --- AI --- */}

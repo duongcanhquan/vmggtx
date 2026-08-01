@@ -9,6 +9,7 @@ import {
   updateGrade,
   type Gradebook,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Sổ điểm điện tử (/teacher/grades/[class_id])
@@ -131,10 +132,7 @@ export default function GradebookPage({
 
   if (!book) {
     return (
-      <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Đang tải sổ điểm…
-      </div>
+      <FunLoader label="Đang tải sổ điểm…" />
     )
   }
 

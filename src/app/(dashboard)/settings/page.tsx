@@ -5,6 +5,7 @@ import Link from 'next/link'
 import {
   BookOpenCheck,
   BrainCircuit,
+  IdCard,
   ListPlus,
   Loader2,
   MessageSquareMore,
@@ -12,11 +13,13 @@ import {
   Settings as SettingsIcon,
   Wallet,
 } from 'lucide-react'
+import { STUDENT_CODE_FORMATS } from '@/lib/utils/studentCodeFormats'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { RoleGuard } from '@/components/shared/RoleGuard'
 import { DEFAULT_ORG_CONFIG, type OrgConfig } from '@/lib/validation/schemas'
 import { getOrgSettings, saveOrgSettings } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Cấu hình động theo Cơ sở (/settings) - Campus Admin / Super Admin
@@ -27,12 +30,13 @@ import { getOrgSettings, saveOrgSettings } from './actions'
 //   (hàm SQL get_org_effective_config, migration 016).
 // ============================================================
 
-type TabId = 'academic' | 'communication' | 'finance'
+type TabId = 'academic' | 'communication' | 'finance' | 'identity'
 
 const TABS: { id: TabId; label: string; icon: typeof BookOpenCheck }[] = [
   { id: 'academic', label: 'Học vụ', icon: BookOpenCheck },
   { id: 'communication', label: 'Giao tiếp / SMS', icon: MessageSquareMore },
   { id: 'finance', label: 'Tài chính', icon: Wallet },
+  { id: 'identity', label: 'Mã học viên', icon: IdCard },
 ]
 
 /** Toggle Switch tự dựng theo chuẩn Shadcn Switch (dự án chưa cài Shadcn) */
@@ -261,10 +265,7 @@ export default function SettingsPage() {
 
         {/* ===== Nội dung tab ===== */}
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải cấu hình…
-          </div>
+          <FunLoader label="Đang tải cấu hình…" />
         ) : (
           <div className="space-y-3 rounded-2xl border border-border bg-surface p-5">
             {activeTab === 'academic' && (
@@ -310,6 +311,86 @@ export default function SettingsPage() {
                 checked={config.require_manager_approval_for_refunds}
                 onChange={(v) => patch('require_manager_approval_for_refunds', v)}
               />
+            )}
+
+            {activeTab === 'identity' && (
+              <>
+                {/* Mã cơ sở */}
+                <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-background p-4">
+                  <div>
+                    <label
+                      htmlFor="set-org-code"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      Mã cơ sở
+                    </label>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Chữ/số, tối đa 8 ký tự (VD: CS1, CG, HN2). Để trống sẽ tự suy từ
+                      tên cơ sở.
+                    </p>
+                  </div>
+                  <input
+                    id="set-org-code"
+                    type="text"
+                    maxLength={8}
+                    placeholder="CS1"
+                    value={config.org_code}
+                    onChange={(e) =>
+                      patch(
+                        'org_code',
+                        e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+                      )
+                    }
+                    className="min-h-10 w-28 shrink-0 rounded-xl border border-border bg-surface px-3 text-center text-sm font-bold uppercase tracking-widest focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+
+                {/* 3 quy tắc sinh mã */}
+                <fieldset className="space-y-2.5">
+                  <legend className="text-sm font-semibold text-foreground">
+                    Quy tắc sinh mã học viên
+                  </legend>
+                  <p className="text-xs text-muted-foreground">
+                    Áp dụng khi tạo học viên mới (thêm tay, import Excel, chuyển hóa từ
+                    CRM). Mã đã cấp không đổi.
+                  </p>
+                  {STUDENT_CODE_FORMATS.map((format) => {
+                    const sampleOrg = config.org_code || 'CS1'
+                    const isChecked = config.student_code_format === format.id
+                    return (
+                      <label
+                        key={format.id}
+                        className={`flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4 transition-colors duration-150 ${
+                          isChecked
+                            ? 'border-[#c9a227]/50 bg-[#c9a227]/5 ring-1 ring-[#c9a227]/30'
+                            : 'border-border bg-background hover:border-primary/40'
+                        }`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="student-code-format"
+                            checked={isChecked}
+                            onChange={() => patch('student_code_format', format.id)}
+                            className="h-4 w-4 cursor-pointer accent-[#a16207]"
+                          />
+                          <span>
+                            <span className="block text-sm font-semibold text-foreground">
+                              {format.label}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {format.pattern}
+                            </span>
+                          </span>
+                        </span>
+                        <code className="shrink-0 rounded-lg bg-stone-100 px-2.5 py-1 font-mono text-xs font-bold text-stone-700">
+                          {format.example(sampleOrg, new Date().getFullYear())}
+                        </code>
+                      </label>
+                    )
+                  })}
+                </fieldset>
+              </>
             )}
           </div>
         )}

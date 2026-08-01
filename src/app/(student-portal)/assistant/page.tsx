@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useChat } from 'ai/react'
 import { AlertCircle, Bot, Loader2, SearchX, Send, Sparkles } from 'lucide-react'
 import { getMyEnrolledClasses, type MyClass } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // TRỢ LÝ AI - GIA SƯ RAG (Student Portal, mobile-first)
@@ -42,10 +43,7 @@ export default function StudentAssistantPage() {
 
   if (loadingClasses) {
     return (
-      <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface py-16 text-sm text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-        Đang tải lớp học của bạn…
-      </div>
+      <FunLoader label="Đang tải lớp học của bạn…" />
     )
   }
 

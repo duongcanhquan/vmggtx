@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpenCheck, Loader2, Lock, SearchX } from 'lucide-react'
+import { BookOpenCheck, Lock, SearchX } from 'lucide-react'
 import { getStaffClasses, type StaffClassRow } from '@/app/(dashboard)/staff/classes/actions'
 import { getGradebook, type Gradebook } from '@/app/(dashboard)/teacher/grades/[class_id]/actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // BẢNG ĐIỂM TỔNG (Staff Portal) - CHỈ ĐỌC
@@ -96,10 +97,7 @@ export default function StaffTranscriptsPage() {
       </div>
 
       {loadingClasses || loadingGrades ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-          Đang tải bảng điểm…
-        </div>
+        <FunLoader label="Đang tải bảng điểm…" />
       ) : !gradebook || classes.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-slate-500">
           <SearchX className="h-10 w-10 text-slate-300" aria-hidden="true" />

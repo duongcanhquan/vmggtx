@@ -32,6 +32,7 @@ import {
   type CustomFieldFormValues,
 } from '@/lib/validation/schemas'
 import { deleteCustomField, getCustomFields, saveCustomField } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Cấu hình Trường dữ liệu động (/settings/custom-fields)
@@ -241,10 +242,7 @@ export default function CustomFieldsPage() {
 
         {/* ===== Danh sách trường ===== */}
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải…
-          </div>
+          <FunLoader label="Đang tải…" />
         ) : entityFields.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />

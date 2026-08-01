@@ -38,7 +38,7 @@ export default function StudentPortalLayout({
     <div className="flex min-h-dvh flex-col bg-background">
       {/* ===== Top Navigation Bar ===== */}
       <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
           <Link
             href="/portal"
             className="flex shrink-0 items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -55,7 +55,7 @@ export default function StudentPortalLayout({
         {/* Menu: dải cuộn ngang mobile-first, căn giữa trên desktop */}
         <nav
           aria-label="Menu cổng học sinh"
-          className="mx-auto max-w-5xl overflow-x-auto px-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="mx-auto max-w-7xl overflow-x-auto px-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <ul className="flex w-max min-w-full items-center gap-1 sm:justify-center">
             {PORTAL_MENU.map((item) => {
@@ -83,7 +83,7 @@ export default function StudentPortalLayout({
       </header>
 
       {/* ===== Nội dung ===== */}
-      <main className="mx-auto w-full max-w-5xl flex-1 p-4 sm:p-6">{children}</main>
+      <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>
 
       <footer className="border-t border-border bg-surface py-4 text-center text-xs text-muted-foreground">
         GDTX ERP · Cổng thông tin Học sinh &amp; Phụ huynh

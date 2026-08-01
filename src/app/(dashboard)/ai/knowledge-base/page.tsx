@@ -18,6 +18,7 @@ import {
   processDocumentForAI,
   type KnowledgeDoc,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // KHO TRI THỨC AI (/ai/knowledge-base)
@@ -230,10 +231,7 @@ export default function KnowledgeBasePage() {
             </h2>
 
             {loading ? (
-              <div className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Đang tải…
-              </div>
+              <FunLoader label="Đang tải…" />
             ) : docs.length === 0 ? (
               <div className="flex flex-col items-center gap-2 p-12 text-center">
                 <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />

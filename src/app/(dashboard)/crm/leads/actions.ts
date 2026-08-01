@@ -10,6 +10,8 @@ import {
   requiredId,
   zodFail,
 } from '@/lib/validation/schemas'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { generateStudentCode } from '@/lib/utils/studentCode'
 
 // ============================================================
 // CRM Tuyển sinh (/crm/leads)
@@ -109,15 +111,8 @@ export async function getLeads(
   try {
     const supabase = createClient()
 
-    // Lọc theo subtree của org đang chọn (RLS vẫn cắt thêm lần 2)
-    const { data: orgIdRows, error: orgError } = await supabase.rpc(
-      'get_descendant_org_ids',
-      { p_org_id: orgId }
-    )
-    if (orgError) throw orgError
-    const orgIds = (orgIdRows ?? []).map((row: { id?: string } | string) =>
-      typeof row === 'string' ? row : (row.id as string)
-    )
+    // Lọc theo subtree của org đang chọn (cache 5', RLS vẫn cắt thêm lần 2)
+    const orgIds = await getDescendantOrgIds(supabase, orgId)
 
     const { data, error } = await supabase
       .from('leads')
@@ -156,21 +151,17 @@ export async function getLeads(
   }
 }
 
-/** Môn học (dropdown "Môn quan tâm") + Lớp học (modal chuyển hóa) */
+/** Môn học + Lớp học + Người tuyển sinh (lọc/gán người phụ trách) */
 export async function getCrmOptions(orgId: string): Promise<{
   subjects: Option[]
   classes: Option[]
+  counselors: Option[]
 }> {
   try {
     const supabase = createClient()
-    const { data: orgIdRows } = await supabase.rpc('get_descendant_org_ids', {
-      p_org_id: orgId,
-    })
-    const orgIds = (orgIdRows ?? []).map((row: { id?: string } | string) =>
-      typeof row === 'string' ? row : (row.id as string)
-    )
+    const scopeOrgIds = await getDescendantOrgIds(supabase, orgId)
 
-    const [subjectResult, classResult] = await Promise.all([
+    const [subjectResult, classResult, counselorResult] = await Promise.all([
       supabase
         .from('subjects')
         .select('id, name')
@@ -180,14 +171,26 @@ export async function getCrmOptions(orgId: string): Promise<{
       supabase
         .from('classes')
         .select('id, name')
-        .in('org_id', orgIds.length > 0 ? orgIds : [orgId])
+        .in('org_id', scopeOrgIds)
         .is('deleted_at', null)
         .order('name'),
+      // Người có thể phụ trách lead: tuyển sinh + giáo vụ + QL cơ sở
+      supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('org_id', scopeOrgIds)
+        .in('role', ['admission_staff', 'academic_staff', 'campus_admin'])
+        .is('deleted_at', null)
+        .order('full_name'),
     ])
 
     return {
       subjects: (subjectResult.data ?? []) as Option[],
       classes: (classResult.data ?? []) as Option[],
+      counselors: (counselorResult.data ?? []).map((row) => ({
+        id: row.id,
+        name: row.full_name as string,
+      })),
     }
   } catch {
     return {
@@ -199,6 +202,46 @@ export async function getCrmOptions(orgId: string): Promise<{
         { id: 'cls-1', name: 'Toán 12A (demo)' },
         { id: 'cls-2', name: 'Anh văn giao tiếp (demo)' },
       ],
+      counselors: [{ id: 'mock-counselor', name: 'Lê Thu Trang (demo)' }],
+    }
+  }
+}
+
+/**
+ * Gán / đổi người tuyển sinh phụ trách lead.
+ * RLS 014 kiểm soát: admission_staff chỉ trên lead của mình,
+ * campus_admin/academic_staff trên mọi lead trong subtree.
+ */
+export async function assignLeadCounselor(
+  leadId: string,
+  counselorId: string | null
+): Promise<ActionResult> {
+  const idParsed = requiredId('Thiếu lead id.').safeParse(leadId)
+  if (!idParsed.success) return zodFail(idParsed.error)
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { error, count } = await supabase
+      .from('leads')
+      .update({ counselor_id: counselorId || null }, { count: 'exact' })
+      .eq('id', idParsed.data)
+      .is('deleted_at', null)
+    if (error) return { error: `Không thể gán người phụ trách: ${error.message}` }
+    if (count === 0) {
+      return { error: 'Lead không tồn tại hoặc bạn không có quyền trên lead này.' }
+    }
+
+    revalidatePath('/crm/leads')
+    return {}
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : 'Lỗi không xác định khi gán người phụ trách.',
     }
   }
 }
@@ -375,14 +418,24 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
     }
     const studentId = created.user.id
 
-    const { error: profileError } = await admin.from('profiles').insert({
+    // Mã học viên theo quy tắc của cơ sở (null nếu chưa chạy migration 028)
+    const studentCode = await generateStudentCode(admin, lead.org_id)
+    const newProfile: Record<string, unknown> = {
       id: studentId,
       full_name: lead.full_name,
       email: values.email,
       phone: lead.phone,
       role: 'student',
       org_id: lead.org_id,
-    })
+    }
+    const newProfileWithCode = studentCode
+      ? { ...newProfile, student_code: studentCode }
+      : newProfile
+    let { error: profileError } = await admin.from('profiles').insert(newProfileWithCode)
+    if (profileError && /student_code/i.test(profileError.message)) {
+      const retry = await admin.from('profiles').insert(newProfile)
+      profileError = retry.error
+    }
     if (profileError) {
       // Rollback: không để tài khoản auth mồ côi
       await admin.auth.admin.deleteUser(studentId)

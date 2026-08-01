@@ -235,7 +235,9 @@ export function PortalShell({
           <div className="ml-auto flex items-center gap-3">{headerRight}</div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>
+        <main className="mx-auto w-full max-w-screen-2xl flex-1 p-4 sm:p-6 xl:px-8">
+          {children}
+        </main>
       </div>
     </div>
   )

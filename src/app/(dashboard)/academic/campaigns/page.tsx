@@ -19,6 +19,7 @@ import { RoleGuard } from '@/components/shared/RoleGuard'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { campaignSchema, type CampaignValues } from '@/lib/validation/schemas'
 import { createCampaign, getCampaigns, type CampaignRow } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // DANH SÁCH ĐỢT KHẢO SÁT GIÁO VIÊN (/academic/campaigns)
@@ -117,10 +118,7 @@ export default function CampaignsPage() {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải danh sách đợt khảo sát…
-          </div>
+          <FunLoader label="Đang tải danh sách đợt khảo sát…" />
         ) : campaigns.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { getExamBoard, lockClassResults, type ExamRow } from '../exams/actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // XÉT DUYỆT KẾT QUẢ (Staff Portal - phòng Khảo thí)
@@ -127,10 +128,7 @@ export default function ResultsApprovalPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-          Đang tải hàng đợi xét duyệt…
-        </div>
+        <FunLoader label="Đang tải hàng đợi xét duyệt…" />
       ) : loadError ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm font-medium text-rose-700">
           {loadError}

@@ -26,6 +26,7 @@ import {
   type CampaignClassRow,
   type CampaignRow,
 } from '../actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // PHÂN PHỐI MÃ ĐÁNH GIÁ (/academic/campaigns/[id])
@@ -161,10 +162,7 @@ export default function CampaignDetailPage() {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải dữ liệu đợt khảo sát…
-          </div>
+          <FunLoader label="Đang tải dữ liệu đợt khảo sát…" />
         ) : (
           campaign && (
             <div className="grid gap-4 lg:grid-cols-[1fr_440px]">

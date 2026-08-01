@@ -6,12 +6,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Loader2,
   MapPin,
   SearchX,
   User,
 } from 'lucide-react'
 import { getOrgTimetable, type TimetableSession } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // THỜI KHÓA BIỂU TUẦN TOÀN CƠ SỞ (Staff Portal)
@@ -133,10 +133,7 @@ export default function StaffTimetablePage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-          Đang tải thời khóa biểu…
-        </div>
+        <FunLoader label="Đang tải thời khóa biểu…" />
       ) : loadError ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm font-medium text-rose-700">
           {loadError}

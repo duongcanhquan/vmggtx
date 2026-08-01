@@ -11,7 +11,6 @@ import {
   FileWarning,
   GraduationCap,
   Inbox,
-  Loader2,
   Printer,
   Receipt,
   ShieldAlert,
@@ -21,6 +20,7 @@ import {
 import dynamic from 'next/dynamic'
 import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
 import { getStudent360, type Student360 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // Lazy-load recharts: chỉ tải khi mở tab có biểu đồ -> trang mở tức thì
 const SubjectRadarChart = dynamic(
@@ -152,10 +152,7 @@ export default function Student360Page({ params }: { params: { id: string } }) {
   // ---------- Trạng thái tải / lỗi ----------
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-16 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Đang tải hồ sơ 360°…
-      </div>
+      <FunLoader label="Đang tải hồ sơ 360°…" />
     )
   }
 

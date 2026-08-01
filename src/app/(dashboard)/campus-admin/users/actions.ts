@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createUserSchema, zodFail } from '@/lib/validation/schemas'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 
 // ============================================================
 // Module Quản lý Nhân sự (Campus Admin)
@@ -122,10 +123,7 @@ async function getMyScopeOrgIds(
   if (me.role === 'super_admin') return null
   if (!me.org_id) throw new Error('no-org-assigned')
 
-  const { data: subtree } = await supabase.rpc('get_descendant_org_ids', {
-    p_org_id: me.org_id,
-  })
-  return (subtree as string[] | null) ?? [me.org_id]
+  return await getDescendantOrgIds(supabase, me.org_id)
 }
 
 /**

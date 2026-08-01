@@ -14,6 +14,7 @@ import {
   type ManagedOrg,
   type StaffRow,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Quản lý Nhân sự - khu vực Campus Admin (/campus-admin/users)
@@ -226,10 +227,7 @@ export default function CampusAdminUsersPage() {
       {/* ===== Bảng nhân sự ===== */}
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải danh sách nhân sự…
-          </div>
+          <FunLoader label="Đang tải danh sách nhân sự…" />
         ) : users.length === 0 ? (
           <div className="flex flex-col items-center gap-2 p-12 text-center">
             <Users className="h-8 w-8 text-muted-foreground" aria-hidden="true" />

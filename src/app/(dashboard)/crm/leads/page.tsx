@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
+  BarChart3,
   GraduationCap,
   Inbox,
   Loader2,
@@ -12,13 +13,17 @@ import {
   Phone,
   Plus,
   Save,
+  Search,
   UserRound,
+  UserRoundCog,
   X,
 } from 'lucide-react'
+import { useMemo } from 'react'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { convertLeadSchema, leadSchema } from '@/lib/validation/schemas'
 import {
+  assignLeadCounselor,
   convertLeadToStudent,
   createLead,
   getCrmOptions,
@@ -28,6 +33,7 @@ import {
   type LeadStatus,
   type Option,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // CRM Tuyển sinh - Kanban Board (/crm/leads)
@@ -418,6 +424,50 @@ function ConvertLeadModal({
 }
 
 // ============================================================
+// Báo cáo tổng kết tuyển sinh (tính từ danh sách lead đã tải)
+// ============================================================
+type CounselorReport = {
+  counselorId: string | null
+  counselorName: string
+  total: number
+  enrolled: number
+  lost: number
+  inProgress: number
+  conversionRate: number
+}
+
+function buildCounselorReport(leads: LeadCard[]): CounselorReport[] {
+  const byCounselor = new Map<string, CounselorReport>()
+  for (const lead of leads) {
+    const key = lead.counselor_id ?? '__none__'
+    let report = byCounselor.get(key)
+    if (!report) {
+      report = {
+        counselorId: lead.counselor_id,
+        counselorName: lead.counselor_name ?? 'Chưa phân công',
+        total: 0,
+        enrolled: 0,
+        lost: 0,
+        inProgress: 0,
+        conversionRate: 0,
+      }
+      byCounselor.set(key, report)
+    }
+    report.total += 1
+    if (lead.status === 'enrolled') report.enrolled += 1
+    else if (lead.status === 'lost') report.lost += 1
+    else report.inProgress += 1
+  }
+  return [...byCounselor.values()]
+    .map((report) => ({
+      ...report,
+      conversionRate:
+        report.total > 0 ? Math.round((report.enrolled / report.total) * 100) : 0,
+    }))
+    .sort((a, b) => b.enrolled - a.enrolled || b.total - a.total)
+}
+
+// ============================================================
 // Trang Kanban chính
 // ============================================================
 export default function CrmLeadsPage() {
@@ -426,6 +476,7 @@ export default function CrmLeadsPage() {
   const [leads, setLeads] = useState<LeadCard[]>([])
   const [subjects, setSubjects] = useState<Option[]>([])
   const [classes, setClasses] = useState<Option[]>([])
+  const [counselors, setCounselors] = useState<Option[]>([])
   const [isDemo, setIsDemo] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -433,6 +484,11 @@ export default function CrmLeadsPage() {
   const [convertLead, setConvertLead] = useState<LeadCard | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<LeadStatus | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
+
+  // Bộ lọc & báo cáo
+  const [searchText, setSearchText] = useState('')
+  const [counselorFilter, setCounselorFilter] = useState<string>('all')
+  const [showReport, setShowReport] = useState(false)
 
   const loadData = useCallback(async () => {
     if (!currentOrgId) {
@@ -448,8 +504,50 @@ export default function CrmLeadsPage() {
     setIsDemo(leadResult.demo)
     setSubjects(options.subjects)
     setClasses(options.classes)
+    setCounselors(options.counselors)
     setLoading(false)
   }, [currentOrgId])
+
+  // Áp bộ lọc tìm kiếm + người tuyển sinh lên board
+  const filteredLeads = useMemo(() => {
+    const keyword = searchText.trim().toLowerCase()
+    return leads.filter((lead) => {
+      if (counselorFilter === 'none' && lead.counselor_id) return false
+      if (
+        counselorFilter !== 'all' &&
+        counselorFilter !== 'none' &&
+        lead.counselor_id !== counselorFilter
+      )
+        return false
+      if (!keyword) return true
+      return (
+        lead.full_name.toLowerCase().includes(keyword) ||
+        lead.phone.includes(keyword) ||
+        (lead.notes ?? '').toLowerCase().includes(keyword)
+      )
+    })
+  }, [leads, searchText, counselorFilter])
+
+  const report = useMemo(() => buildCounselorReport(leads), [leads])
+  const totalEnrolled = leads.filter((l) => l.status === 'enrolled').length
+  const totalLost = leads.filter((l) => l.status === 'lost').length
+  const overallRate = leads.length > 0 ? Math.round((totalEnrolled / leads.length) * 100) : 0
+
+  async function handleAssignCounselor(leadId: string, counselorId: string) {
+    const previous = leads
+    const nextId = counselorId || null
+    const nextName = counselors.find((c) => c.id === counselorId)?.name ?? null
+    setLeads((current) =>
+      current.map((l) =>
+        l.id === leadId ? { ...l, counselor_id: nextId, counselor_name: nextName } : l
+      )
+    )
+    const result = await assignLeadCounselor(leadId, nextId)
+    if (result.error) {
+      setLeads(previous)
+      setToast({ type: 'error', message: result.error })
+    }
+  }
 
   useEffect(() => {
     loadData()
@@ -501,14 +599,29 @@ export default function CrmLeadsPage() {
             Tuyển sinh (CRM)
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={() => setNewLeadOpen(true)}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Thêm Lead
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowReport((prev) => !prev)}
+            aria-pressed={showReport}
+            className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              showReport
+                ? 'border-[#c9a227]/40 bg-[#c9a227]/10 text-[#854d0e]'
+                : 'border-border bg-surface text-foreground hover:bg-stone-50'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" aria-hidden="true" />
+            Báo cáo
+          </button>
+          <button
+            type="button"
+            onClick={() => setNewLeadOpen(true)}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Thêm Lead
+          </button>
+        </div>
       </div>
 
       {isDemo && (
@@ -517,16 +630,144 @@ export default function CrmLeadsPage() {
         </p>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang tải pipeline tuyển sinh…
+      {/* ===== Thanh tìm kiếm + lọc theo người tuyển sinh ===== */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Tìm theo tên, SĐT, ghi chú…"
+            aria-label="Tìm kiếm lead"
+            className="min-h-11 w-full rounded-xl border border-border bg-surface pl-10 pr-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
         </div>
+        <div className="relative sm:w-64">
+          <UserRoundCog
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <select
+            value={counselorFilter}
+            onChange={(e) => setCounselorFilter(e.target.value)}
+            aria-label="Lọc theo người tuyển sinh"
+            className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-surface pl-10 pr-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="all">Tất cả người phụ trách</option>
+            <option value="none">Chưa phân công</option>
+            {counselors.map((counselor) => (
+              <option key={counselor.id} value={counselor.id}>
+                {counselor.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ===== Báo cáo tổng kết tuyển sinh ===== */}
+      {showReport && !loading && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Tổng quan pipeline */}
+          <div className="bento-card-dark p-5">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-[#e5c369]">
+              Tổng quan pipeline
+            </p>
+            <p className="mt-3 font-heading text-4xl font-bold tabular-nums">
+              {leads.length}
+              <span className="ml-2 text-base font-medium text-stone-400">lead</span>
+            </p>
+            <div className="mt-4 space-y-2 text-sm">
+              <p className="flex justify-between">
+                <span className="text-stone-400">Đã nhập học</span>
+                <span className="font-bold text-[#e5c369] tabular-nums">{totalEnrolled}</span>
+              </p>
+              <p className="flex justify-between">
+                <span className="text-stone-400">Mất lead</span>
+                <span className="font-bold tabular-nums">{totalLost}</span>
+              </p>
+              <p className="flex justify-between">
+                <span className="text-stone-400">Tỷ lệ chốt toàn cơ sở</span>
+                <span className="font-bold text-[#e5c369] tabular-nums">{overallRate}%</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Bảng theo người tuyển sinh */}
+          <div className="bento-card overflow-x-auto p-5 lg:col-span-2">
+            <h2 className="font-heading text-base font-bold">
+              Kết quả theo người tuyển sinh
+            </h2>
+            <table className="mt-3 w-full min-w-[480px] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="py-2 pr-3 font-semibold">Người phụ trách</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Tổng lead</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Đang chăm sóc</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Nhập học</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Mất</th>
+                  <th className="py-2 text-right font-semibold">Tỷ lệ chốt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.map((row) => (
+                  <tr
+                    key={row.counselorId ?? '__none__'}
+                    className="border-b border-stone-100 last:border-0"
+                  >
+                    <td className="py-2.5 pr-3 font-medium">
+                      {row.counselorName}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums">{row.total}</td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums text-sky-700">
+                      {row.inProgress}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right font-semibold tabular-nums text-emerald-700">
+                      {row.enrolled}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums text-muted-foreground">
+                      {row.lost}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
+                          row.conversionRate >= 50
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : row.conversionRate >= 20
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-stone-100 text-stone-500'
+                        }`}
+                      >
+                        {row.conversionRate}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {report.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-muted-foreground">
+                      Chưa có lead nào để tổng kết.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <FunLoader label="Đang tải pipeline tuyển sinh…" />
       ) : (
         /* ===== Kanban Board ===== */
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
           {COLUMNS.map((column) => {
-            const columnLeads = leads.filter((lead) => lead.status === column.status)
+            const columnLeads = filteredLeads.filter(
+              (lead) => lead.status === column.status
+            )
             const isOver = dragOverColumn === column.status
             return (
               <section
@@ -590,11 +831,21 @@ export default function CrmLeadsPage() {
                           {lead.notes}
                         </p>
                       )}
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        {lead.counselor_name
-                          ? `TVV: ${lead.counselor_name}`
-                          : 'Chưa có người phụ trách'}
-                      </p>
+                      {/* Gán người tuyển sinh phụ trách ngay trên thẻ */}
+                      <select
+                        value={lead.counselor_id ?? ''}
+                        onChange={(e) => handleAssignCounselor(lead.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Người phụ trách lead ${lead.full_name}`}
+                        className="mt-2 w-full cursor-pointer rounded-lg border border-border bg-surface px-2 py-1.5 text-[11px] text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <option value="">— Chưa phân công —</option>
+                        {counselors.map((counselor) => (
+                          <option key={counselor.id} value={counselor.id}>
+                            {counselor.name}
+                          </option>
+                        ))}
+                      </select>
                     </article>
                   ))}
                 </div>

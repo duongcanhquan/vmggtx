@@ -381,6 +381,41 @@ export const orgConfigSchema = z.object({
   require_manager_approval_for_refunds: z.boolean({
     invalid_type_error: 'Giá trị duyệt hoàn phí không hợp lệ.',
   }),
+  /** Mã cơ sở dùng để sinh mã học viên (VD: CS1, CG, HN2) */
+  org_code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{0,8}$/, 'Mã cơ sở chỉ gồm chữ/số, tối đa 8 ký tự.')
+    .default(''),
+  /** Quy tắc sinh mã học viên của cơ sở (migration 028) */
+  student_code_format: z
+    .enum(['org_year_seq', 'org_seq', 'year_org_seq'], {
+      invalid_type_error: 'Quy tắc mã học viên không hợp lệ.',
+    })
+    .default('org_year_seq'),
+  /** Cá nhân hóa Dashboard: thứ tự + ẩn/hiện widget (kéo thả ở /dashboard) */
+  dashboard_widgets: z
+    .array(
+      z.object({
+        id: z.enum([
+          'kpi_students',
+          'kpi_revenue',
+          'kpi_classes',
+          'branch_chart',
+          'branch_ranking',
+        ]),
+        visible: z.boolean(),
+      })
+    )
+    .max(10)
+    .default([
+      { id: 'kpi_students', visible: true },
+      { id: 'kpi_revenue', visible: true },
+      { id: 'kpi_classes', visible: true },
+      { id: 'branch_chart', visible: true },
+      { id: 'branch_ranking', visible: true },
+    ]),
 })
 
 export type OrgConfig = z.infer<typeof orgConfigSchema>
@@ -391,6 +426,15 @@ export const DEFAULT_ORG_CONFIG: OrgConfig = {
   max_absence_warning: 3,
   grading_locked_days: 7,
   require_manager_approval_for_refunds: true,
+  org_code: '',
+  student_code_format: 'org_year_seq',
+  dashboard_widgets: [
+    { id: 'kpi_students', visible: true },
+    { id: 'kpi_revenue', visible: true },
+    { id: 'kpi_classes', visible: true },
+    { id: 'branch_chart', visible: true },
+    { id: 'branch_ranking', visible: true },
+  ],
 }
 
 // ====== Cài đặt toàn cục của SuperAdmin (/admin/settings) ======

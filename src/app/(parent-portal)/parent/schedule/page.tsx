@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, Clock, DoorOpen, Loader2 } from 'lucide-react'
+import { CalendarDays, Clock, DoorOpen } from 'lucide-react'
 import {
   getParentStudent,
   getWeekSessions,
   type WeekSession,
 } from '../../actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Lịch học của con (7 ngày tới) - nhóm theo ngày, mobile-first.
@@ -53,10 +54,7 @@ export default function ParentSchedulePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60dvh] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Đang tải lịch học…
-      </div>
+      <FunLoader label="Đang tải lịch học…" />
     )
   }
 

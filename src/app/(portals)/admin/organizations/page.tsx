@@ -18,6 +18,7 @@ import {
   getOrgManagementData,
   type OrgManagementRow,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // QUẢN LÝ CƠ SỞ (Admin Portal) - cây tổ chức đa tầng + thêm đơn vị.
@@ -126,10 +127,7 @@ export default function AdminOrganizationsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-          Đang tải cây tổ chức…
-        </div>
+        <FunLoader label="Đang tải cây tổ chức…" />
       ) : loadError ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm font-medium text-rose-700">
           {loadError}

@@ -19,6 +19,7 @@ import {
   type WarningStatus,
   type WarningType,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Cảnh báo học vụ sớm (/academic/warnings) - Campus Admin/Giáo vụ
@@ -208,10 +209,7 @@ export default function AcademicWarningsPage() {
       {/* ===== Bảng cảnh báo ===== */}
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải danh sách cảnh báo…
-          </div>
+          <FunLoader label="Đang tải danh sách cảnh báo…" />
         ) : warnings.length === 0 ? (
           <div className="flex flex-col items-center gap-2 p-12 text-center">
             <AlertTriangle className="h-8 w-8 text-muted-foreground" aria-hidden="true" />

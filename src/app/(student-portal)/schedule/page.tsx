@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CalendarDays, Clock, Loader2, MapPin, User } from 'lucide-react'
+import { CalendarDays, Clock, MapPin, User } from 'lucide-react'
 import { getMySchedule, type PortalSession } from '../actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Lịch học cá nhân (/schedule - Cổng Học sinh)
@@ -68,10 +69,7 @@ export default function StudentSchedulePage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang tải lịch học…
-        </div>
+        <FunLoader label="Đang tải lịch học…" />
       ) : sessions.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
           <CalendarDays className="h-8 w-8 text-muted-foreground" aria-hidden="true" />

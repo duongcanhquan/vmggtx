@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Medal } from 'lucide-react'
+import { Medal } from 'lucide-react'
 import {
   getParentGradeReport,
   getParentStudent,
   type ParentGradeReport,
 } from '../../actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Sổ điểm của con - nhóm theo lớp, kèm ĐTB có trọng số.
@@ -46,10 +47,7 @@ export default function ParentGradesPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60dvh] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Đang tải sổ điểm…
-      </div>
+      <FunLoader label="Đang tải sổ điểm…" />
     )
   }
 

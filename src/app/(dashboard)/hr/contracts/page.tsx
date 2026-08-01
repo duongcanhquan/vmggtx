@@ -31,6 +31,7 @@ import {
   calculateMonthlyPayroll,
   type PayrollResultRow,
 } from '../payroll/actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Quản lý Hợp đồng Giáo viên (/hr/contracts) - Campus Admin
@@ -697,10 +698,7 @@ export default function HrContractsPage() {
           Giáo viên thuộc cơ sở đang chọn
         </h2>
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải danh sách giáo viên…
-          </div>
+          <FunLoader label="Đang tải danh sách giáo viên…" />
         ) : (
           <SmartTable
             columns={columns}

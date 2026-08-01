@@ -24,6 +24,7 @@ import {
   type StaffClassRow,
   type StaffContext,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Vận hành - Giáo vụ (/staff/classes)
@@ -175,10 +176,7 @@ export default function StaffClassesPage() {
       {/* ===== Bảng lớp học ===== */}
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải danh sách lớp…
-          </div>
+          <FunLoader label="Đang tải danh sách lớp…" />
         ) : classes.length === 0 ? (
           <div className="flex flex-col items-center gap-2 p-12 text-center">
             <BookOpen className="h-8 w-8 text-muted-foreground" aria-hidden="true" />

@@ -15,6 +15,7 @@ import {
   type InvoiceRow,
   type PaymentMethod,
 } from './actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Quản lý Học phí & Công nợ (/finance/invoices)
@@ -457,10 +458,7 @@ export default function InvoicesPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang tải danh sách hóa đơn…
-        </div>
+        <FunLoader label="Đang tải danh sách hóa đơn…" />
       ) : (
         <SmartTable
           columns={columns}

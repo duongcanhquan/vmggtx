@@ -15,6 +15,8 @@ import {
   type ActionResult,
 } from '@/lib/validation/schemas'
 import { validateCustomValues, type CustomFieldDef } from '@/lib/customFields'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { generateStudentCode } from '@/lib/utils/studentCode'
 
 export type ImportRowInput = {
   fullName: string
@@ -327,18 +329,29 @@ export async function getStudents(
   try {
     const supabase = createClient()
 
-    const { data: subtree } = await supabase.rpc('get_descendant_org_ids', {
-      p_org_id: orgId,
-    })
-    const orgIds: string[] = (subtree as string[] | null) ?? [orgId]
+    const orgIds = await getDescendantOrgIds(supabase, orgId)
 
-    const { data, error } = await supabase
+    const scope = orgIds.includes(orgId) ? orgIds : [orgId, ...orgIds]
+    let { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, phone, custom_metadata, organizations(name)')
+      .select('id, full_name, email, phone, custom_metadata, student_code, organizations(name)')
       .eq('role', 'student')
-      .in('org_id', orgIds.includes(orgId) ? orgIds : [orgId, ...orgIds])
+      .in('org_id', scope)
       .is('deleted_at', null)
       .order('full_name')
+
+    // DB chưa chạy migration 028 (thiếu cột student_code) -> truy vấn lại không có cột
+    if (error && /student_code/i.test(error.message)) {
+      const retry = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, custom_metadata, organizations(name)')
+        .eq('role', 'student')
+        .in('org_id', scope)
+        .is('deleted_at', null)
+        .order('full_name')
+      data = retry.data as typeof data
+      error = retry.error
+    }
 
     if (error || !data || data.length === 0) {
       return { data: MOCK_STUDENT_ROWS, demo: true }
@@ -348,7 +361,9 @@ export async function getStudents(
       const org = row.organizations as { name: string } | { name: string }[] | null
       return {
         id: row.id,
-        code: `HV-${row.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`,
+        code:
+          ((row as { student_code?: string | null }).student_code ?? null) ||
+          `HV-${row.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`,
         full_name: row.full_name,
         email: row.email,
         phone: (row.phone as string | null) ?? null,
@@ -445,7 +460,10 @@ export async function createStudent(
       return { error: `Không thể tạo tài khoản: ${createError?.message ?? 'lỗi không rõ'}` }
     }
 
-    const { error: profileError } = await admin.from('profiles').insert({
+    // Mã học viên theo quy tắc của cơ sở (null nếu chưa chạy migration 028)
+    const studentCode = await generateStudentCode(admin, orgParsed.data)
+
+    const baseProfile: Record<string, unknown> = {
       id: created.user.id,
       full_name: values.fullName,
       email: values.email,
@@ -453,7 +471,16 @@ export async function createStudent(
       role: 'student',
       org_id: orgParsed.data,
       custom_metadata: customResult.data,
-    })
+    }
+    const profileWithCode = studentCode
+      ? { ...baseProfile, student_code: studentCode }
+      : baseProfile
+    let { error: profileError } = await admin.from('profiles').insert(profileWithCode)
+    // Cột student_code chưa có (thiếu 028) -> tạo lại KHÔNG kèm mã
+    if (profileError && /student_code/i.test(profileError.message)) {
+      const retry = await admin.from('profiles').insert(baseProfile)
+      profileError = retry.error
+    }
     if (profileError) {
       // Rollback: không để auth user mồ côi
       await admin.auth.admin.deleteUser(created.user.id)
@@ -609,7 +636,7 @@ export async function bulkImportStudents(
             throw new Error(createError?.message ?? 'Không tạo được tài khoản auth.')
           }
 
-          const { error: profileError } = await admin.from('profiles').insert({
+          const importProfile: Record<string, unknown> = {
             id: created.user.id,
             full_name: row.fullName,
             email: row.email,
@@ -618,7 +645,18 @@ export async function bulkImportStudents(
             role: 'student',
             // [BẢO MẬT] Ép cứng org đích - không nhận từ file
             org_id: orgParsed.data,
-          })
+          }
+          const importCode = await generateStudentCode(admin, orgParsed.data)
+          const importProfileWithCode = importCode
+            ? { ...importProfile, student_code: importCode }
+            : importProfile
+          let { error: profileError } = await admin
+            .from('profiles')
+            .insert(importProfileWithCode)
+          if (profileError && /student_code/i.test(profileError.message)) {
+            const retry = await admin.from('profiles').insert(importProfile)
+            profileError = retry.error
+          }
           if (profileError) {
             await admin.auth.admin.deleteUser(created.user.id)
             throw new Error(profileError.message)

@@ -7,7 +7,6 @@ import dynamic from 'next/dynamic'
 import {
   CalendarDays,
   ChevronRight,
-  Loader2,
   LogOut,
   Medal,
   UserRound,
@@ -23,6 +22,7 @@ import {
   type RecentGrade,
   type WeekSession,
 } from '../actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // Lazy-load recharts: dashboard phụ huynh mở tức thì trên mobile
 const AttendanceRadialChart = dynamic(
@@ -97,10 +97,7 @@ export default function ParentDashboardPage() {
 
   if (loading || !student || !attendance) {
     return (
-      <div className="flex min-h-[60dvh] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Đang tải sổ liên lạc…
-      </div>
+      <FunLoader label="Đang tải sổ liên lạc…" />
     )
   }
 

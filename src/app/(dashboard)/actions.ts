@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 
 /** Học phí trung bình MOCK (chưa có bảng enrollments/invoices) */
 const MOCK_TUITION_PER_STUDENT = 1_500_000
@@ -55,16 +56,19 @@ export async function getDashboardStats(
       return { data: null, error: 'TỪ CHỐI: Cơ sở này không thuộc phạm vi của bạn.' }
     }
 
-    // 1. Toàn bộ org trong subtree
-    const { data: subtreeIds, error: rpcError } = await supabase.rpc(
-      'get_descendant_org_ids',
-      { p_org_id: orgId }
-    )
-    if (rpcError) {
-      return { data: null, error: `Lỗi truy vấn cây tổ chức: ${rpcError.message}` }
+    // 1. Toàn bộ org trong subtree (cache 5 phút - đỡ 1 round-trip)
+    let ids: string[]
+    try {
+      ids = await getDescendantOrgIds(supabase, orgId)
+    } catch (rpcError) {
+      return {
+        data: null,
+        error: `Lỗi truy vấn cây tổ chức: ${
+          rpcError instanceof Error ? rpcError.message : 'không xác định'
+        }`,
+      }
     }
-    const ids = (subtreeIds ?? []) as string[]
-    if (!ids.includes(orgId)) ids.push(orgId)
+    if (!ids.includes(orgId)) ids = [...ids, orgId]
 
     // 2. Chạy song song: danh sách org (để dựng cây con), số lớp đang mở, học viên theo org
     const today = new Date().toISOString().slice(0, 10)

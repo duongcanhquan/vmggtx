@@ -400,13 +400,45 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
     const supabase = admin()
     const notices: ParentNotice[] = []
 
-    const { data: warnings } = await supabase
-      .from('student_warnings')
-      .select('id, warning_type, description, created_at, classes(name)')
-      .eq('student_id', studentId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(20)
+    // [PERF] 4 truy vấn độc lập chạy SONG SONG thay vì nối tiếp
+    const [
+      { data: warnings },
+      { data: gradeNotes },
+      { data: attendanceNotes },
+      { data: enrolledClasses },
+    ] = await Promise.all([
+      supabase
+        .from('student_warnings')
+        .select('id, warning_type, description, created_at, classes(name)')
+        .eq('student_id', studentId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('grades')
+        .select('id, note, created_at, assessments(name, classes(name))')
+        .eq('student_id', studentId)
+        .not('note', 'is', null)
+        .neq('note', '')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('attendance')
+        .select('id, note, created_at, class_sessions(classes(name))')
+        .eq('student_id', studentId)
+        .not('note', 'is', null)
+        .neq('note', '')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('enrollments')
+        .select('class_id')
+        .eq('student_id', studentId)
+        .eq('status', 'active')
+        .is('deleted_at', null),
+    ])
 
     for (const warning of warnings ?? []) {
       const cls = warning.classes as { name?: string } | { name?: string }[] | null
@@ -420,16 +452,6 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
         date: warning.created_at,
       })
     }
-
-    const { data: gradeNotes } = await supabase
-      .from('grades')
-      .select('id, note, created_at, assessments(name, classes(name))')
-      .eq('student_id', studentId)
-      .not('note', 'is', null)
-      .neq('note', '')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(20)
 
     for (const grade of gradeNotes ?? []) {
       const assessment = (Array.isArray(grade.assessments)
@@ -450,15 +472,32 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
       })
     }
 
-    const { data: attendanceNotes } = await supabase
-      .from('attendance')
-      .select('id, note, created_at, class_sessions(classes(name))')
-      .eq('student_id', studentId)
-      .not('note', 'is', null)
-      .neq('note', '')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(20)
+    // Dặn dò phụ huynh của buổi học (sổ đầu bài 027) — theo các lớp em đang học
+    const classIds = (enrolledClasses ?? []).map((row) => row.class_id)
+
+    if (classIds.length > 0) {
+      const { data: parentNotes } = await supabase
+        .from('class_sessions')
+        .select('id, parent_note, start_time, classes(name)')
+        .in('class_id', classIds)
+        .not('parent_note', 'is', null)
+        .neq('parent_note', '')
+        .is('deleted_at', null)
+        .order('start_time', { ascending: false })
+        .limit(20)
+
+      for (const session of parentNotes ?? []) {
+        const cls = session.classes as { name?: string } | { name?: string }[] | null
+        const className = Array.isArray(cls) ? cls[0]?.name : cls?.name
+        notices.push({
+          id: `p-${session.id}`,
+          kind: 'comment',
+          title: `Dặn dò phụ huynh${className ? ` · ${className}` : ''}`,
+          description: session.parent_note as string,
+          date: session.start_time,
+        })
+      }
+    }
 
     for (const att of attendanceNotes ?? []) {
       const session = (Array.isArray(att.class_sessions)

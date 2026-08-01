@@ -7,7 +7,7 @@ import { Bell, CalendarDays, Home, Medal } from 'lucide-react'
 // ============================================================
 // Layout PARENT PORTAL - Sổ Liên Lạc Điện Tử cho Phụ huynh.
 // Mobile-First tuyệt đối:
-//  - Nội dung bó trong max-w-[480px], căn giữa trên desktop.
+//  - Nội dung bó trong max-w-[480px] md:max-w-[640px], căn giữa trên desktop.
 //  - Bottom Navigation Bar cố định (chuẩn app điện thoại).
 //  - Trang /parent/login ẩn bottom nav (chưa có session).
 // ============================================================
@@ -30,14 +30,14 @@ export default function ParentPortalLayout({
   return (
     <div className="flex min-h-dvh justify-center bg-slate-100">
       {/* Khung điện thoại: max 480px, căn giữa trên desktop */}
-      <div className="relative flex min-h-dvh w-full max-w-[480px] flex-col bg-background shadow-xl">
+      <div className="relative flex min-h-dvh w-full max-w-[480px] md:max-w-[640px] flex-col bg-background shadow-xl">
         <main className={`flex-1 ${isLogin ? '' : 'pb-20'}`}>{children}</main>
 
         {/* ===== Bottom Navigation Bar ===== */}
         {!isLogin && (
           <nav
             aria-label="Menu phụ huynh"
-            className="fixed bottom-0 z-40 w-full max-w-[480px] border-t border-border bg-surface/95 backdrop-blur"
+            className="fixed bottom-0 z-40 w-full max-w-[480px] md:max-w-[640px] border-t border-border bg-surface/95 backdrop-blur"
           >
             <ul className="grid grid-cols-4">
               {PARENT_MENU.map((item) => {

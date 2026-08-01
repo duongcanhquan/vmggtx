@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Medal } from 'lucide-react'
+import { Medal } from 'lucide-react'
 import { getMyGrades, type PortalClassGrades } from '../actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Báo cáo điểm (/grades - Cổng Học sinh)
@@ -51,10 +52,7 @@ export default function StudentGradesPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-12 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang tải bảng điểm…
-        </div>
+        <FunLoader label="Đang tải bảng điểm…" />
       ) : classGrades.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
           <Medal className="h-8 w-8 text-muted-foreground" aria-hidden="true" />

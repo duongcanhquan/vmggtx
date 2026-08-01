@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { paymentSchema, zodFail } from '@/lib/validation/schemas'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 
 // ============================================================
 // Tài chính - Học phí & Công nợ (Campus Admin / Staff)
@@ -111,10 +112,7 @@ export async function getInvoices(
   try {
     const supabase = createClient()
 
-    const { data: subtree } = await supabase.rpc('get_descendant_org_ids', {
-      p_org_id: orgId,
-    })
-    const orgIds: string[] = (subtree as string[] | null) ?? [orgId]
+    const orgIds = await getDescendantOrgIds(supabase, orgId)
 
     const { data, error } = await supabase
       .from('invoices')

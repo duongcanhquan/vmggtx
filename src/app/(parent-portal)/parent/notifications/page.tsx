@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Flag, Loader2, MessageSquareHeart } from 'lucide-react'
+import { Bell, Flag, MessageSquareHeart } from 'lucide-react'
 import {
   getParentNotices,
   getParentStudent,
   type ParentNotice,
 } from '../../actions'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // Báo bài & Nhận xét (tab Thông báo):
@@ -50,10 +51,7 @@ export default function ParentNotificationsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60dvh] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Đang tải thông báo…
-      </div>
+      <FunLoader label="Đang tải thông báo…" />
     )
   }
 

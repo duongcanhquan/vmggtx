@@ -37,7 +37,7 @@ export default function TeacherPortalLayout({
     <div className="flex min-h-dvh flex-col bg-background">
       {/* ===== Header: brand + Điểm danh nhanh ===== */}
       <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             href="/teacher"
             className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -61,7 +61,7 @@ export default function TeacherPortalLayout({
         {/* ===== Top Navigation (tablet-first, cuộn ngang nếu chật) ===== */}
         <nav
           aria-label="Menu giáo viên"
-          className="mx-auto w-full max-w-5xl overflow-x-auto px-2 sm:px-4"
+          className="mx-auto w-full max-w-7xl overflow-x-auto px-2 sm:px-4"
         >
           <ul className="flex min-w-max items-center gap-1 pb-2">
             {TEACHER_MENU.map((item) => {
@@ -91,7 +91,7 @@ export default function TeacherPortalLayout({
         </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 p-4 sm:p-6">{children}</main>
+      <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>
     </div>
   )
 }

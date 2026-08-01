@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { notifyAbsenceToN8n } from '@/lib/integrations/n8n'
 import { resolveSetting } from '@/lib/utils/settingsResolver'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 
 /** Trạng thái điểm danh theo CHECK constraint của bảng `attendance`. */
 export type AttendanceStatus = 'present' | 'excused' | 'absent'
@@ -11,9 +12,178 @@ export type AttendanceStatus = 'present' | 'excused' | 'absent'
 export type AttendanceRecord = {
   studentId: string
   status: AttendanceStatus
+  /** Nhận xét riêng học sinh trong buổi (hiển thị Sổ Liên Lạc phụ huynh) */
+  note?: string
 }
 
 export type SubmitResult = { error: string } | { success: true; absentCount: number }
+
+export type RosterStudent = {
+  id: string
+  fullName: string
+  /** Trạng thái đã lưu trước đó (điểm danh lại) */
+  savedStatus: AttendanceStatus | null
+  savedNote: string | null
+}
+
+export type SessionRoster = {
+  className: string
+  startTime: string
+  endTime: string
+  room: string | null
+  sessionNote: string | null
+  parentNote: string | null
+  students: RosterStudent[]
+}
+
+export type TodaySession = {
+  sessionId: string
+  classId: string
+  className: string
+  room: string | null
+  startTime: string
+  endTime: string
+  /** Buổi đã chốt điểm danh (status completed) */
+  done: boolean
+  cancelled: boolean
+}
+
+/**
+ * Danh sách buổi học HÔM NAY (giờ Việt Nam) trong phạm vi org đang chọn.
+ * RLS tự cắt thêm theo quyền của người dùng.
+ */
+export async function getTodaySessions(
+  orgId: string
+): Promise<{ data: TodaySession[]; demo: boolean }> {
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error('unauthenticated')
+
+    const orgIds = await getDescendantOrgIds(supabase, orgId)
+
+    // Ranh giới ngày theo múi giờ VN (+7), server có thể chạy UTC
+    const vnOffsetMs = 7 * 3600_000
+    const nowVn = new Date(Date.now() + vnOffsetMs)
+    const startUtc = new Date(
+      Date.UTC(nowVn.getUTCFullYear(), nowVn.getUTCMonth(), nowVn.getUTCDate()) - vnOffsetMs
+    )
+    const endUtc = new Date(startUtc.getTime() + 24 * 3600_000)
+
+    const { data, error } = await supabase
+      .from('class_sessions')
+      .select('id, class_id, room, start_time, end_time, status, classes(name)')
+      .in('org_id', orgIds)
+      .gte('start_time', startUtc.toISOString())
+      .lt('start_time', endUtc.toISOString())
+      .is('deleted_at', null)
+      .order('start_time')
+    if (error) throw error
+
+    const rows: TodaySession[] = (data ?? []).map((row) => {
+      const cls = row.classes as { name?: string } | { name?: string }[] | null
+      return {
+        sessionId: row.id,
+        classId: row.class_id,
+        className: (Array.isArray(cls) ? cls[0]?.name : cls?.name) ?? 'Lớp học',
+        room: row.room,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        done: row.status === 'completed',
+        cancelled: row.status === 'cancelled',
+      }
+    })
+    return { data: rows, demo: false }
+  } catch {
+    return { data: [], demo: true }
+  }
+}
+
+/**
+ * Nạp danh sách học viên THẬT của buổi học (enrollments active của lớp)
+ * + trạng thái/nhận xét đã lưu (nếu điểm danh lại) + sổ đầu bài của buổi.
+ */
+export async function getSessionRoster(
+  sessionId: string
+): Promise<{ error: string } | { error?: undefined; roster: SessionRoster }> {
+  if (!sessionId) return { error: 'Thiếu session_id của buổi học.' }
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập. Vui lòng đăng nhập lại.' }
+
+    const { data: session } = await supabase
+      .from('class_sessions')
+      .select('id, class_id, org_id, room, start_time, end_time, session_note, parent_note, classes(name)')
+      .eq('id', sessionId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!session) return { error: 'Buổi học không tồn tại hoặc đã bị xóa.' }
+
+    const cls = session.classes as { name?: string } | { name?: string }[] | null
+    const className = (Array.isArray(cls) ? cls[0]?.name : cls?.name) ?? 'Lớp học'
+
+    // Học viên đang theo học lớp + bản ghi điểm danh đã có (song song)
+    const [enrollResult, savedResult] = await Promise.all([
+      supabase
+        .from('enrollments')
+        .select('student_id, profiles!enrollments_student_id_fkey(full_name)')
+        .eq('class_id', session.class_id)
+        .eq('status', 'active')
+        .is('deleted_at', null),
+      supabase
+        .from('attendance')
+        .select('student_id, status, note')
+        .eq('session_id', sessionId)
+        .is('deleted_at', null),
+    ])
+    if (enrollResult.error) {
+      return { error: `Lỗi đọc danh sách lớp: ${enrollResult.error.message}` }
+    }
+
+    const savedByStudent = new Map(
+      (savedResult.data ?? []).map((row) => [
+        row.student_id,
+        { status: row.status as AttendanceStatus, note: row.note as string | null },
+      ])
+    )
+
+    const students: RosterStudent[] = (enrollResult.data ?? [])
+      .map((row) => {
+        const profile = row.profiles as { full_name?: string } | { full_name?: string }[] | null
+        const fullName =
+          (Array.isArray(profile) ? profile[0]?.full_name : profile?.full_name) ?? 'Học viên'
+        const saved = savedByStudent.get(row.student_id)
+        return {
+          id: row.student_id,
+          fullName,
+          savedStatus: saved?.status ?? null,
+          savedNote: saved?.note ?? null,
+        }
+      })
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'))
+
+    return {
+      roster: {
+        className,
+        startTime: session.start_time,
+        endTime: session.end_time,
+        room: session.room,
+        sessionNote: (session as { session_note?: string | null }).session_note ?? null,
+        parentNote: (session as { parent_note?: string | null }).parent_note ?? null,
+        students,
+      },
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Lỗi không xác định'
+    return { error: `Không thể kết nối database: ${message}` }
+  }
+}
 
 /**
  * Lưu điểm danh cho một buổi học (Server Action cho mutation theo .cursorrules).
@@ -22,13 +192,27 @@ export type SubmitResult = { error: string } | { success: true; absentCount: num
  */
 export async function submitAttendance(
   sessionId: string,
-  records: AttendanceRecord[]
+  records: AttendanceRecord[],
+  sessionNotes?: { sessionNote?: string; parentNote?: string }
 ): Promise<SubmitResult> {
   if (!sessionId) {
     return { error: 'Thiếu session_id của buổi học.' }
   }
   if (!records || records.length === 0) {
     return { error: 'Không có bản ghi điểm danh nào để lưu.' }
+  }
+  // QA: chặn payload bất thường (note quá dài / quá nhiều bản ghi)
+  if (records.length > 200) return { error: 'Quá nhiều bản ghi điểm danh.' }
+  for (const record of records) {
+    if (record.note && record.note.length > 500) {
+      return { error: 'Nhận xét học sinh tối đa 500 ký tự.' }
+    }
+  }
+  if ((sessionNotes?.sessionNote ?? '').length > 1000) {
+    return { error: 'Nhận xét buổi học tối đa 1000 ký tự.' }
+  }
+  if ((sessionNotes?.parentNote ?? '').length > 1000) {
+    return { error: 'Dặn dò phụ huynh tối đa 1000 ký tự.' }
   }
 
   try {
@@ -72,6 +256,7 @@ export async function submitAttendance(
         session_id: sessionId,
         student_id: record.studentId,
         status: record.status,
+        note: record.note?.trim() || null,
       })),
       { onConflict: 'session_id,student_id' }
     )
@@ -81,12 +266,30 @@ export async function submitAttendance(
     }
 
     // Chốt điểm danh = buổi ĐÃ DẠY THẬT -> đánh dấu completed để
-    // Engine Tính Lương (payrollService) đếm tiết công cho giáo viên
-    await supabase
+    // Engine Tính Lương (payrollService) đếm tiết công cho giáo viên.
+    // Đồng thời lưu SỔ ĐẦU BÀI: nhận xét buổi học + dặn dò phụ huynh.
+    const sessionUpdate: Record<string, unknown> = { status: 'completed' }
+    if (sessionNotes !== undefined) {
+      sessionUpdate.session_note = sessionNotes.sessionNote?.trim() || null
+      sessionUpdate.parent_note = sessionNotes.parentNote?.trim() || null
+    }
+    const { error: noteError } = await supabase
       .from('class_sessions')
-      .update({ status: 'completed' })
+      .update(sessionUpdate)
       .eq('id', sessionId)
       .neq('status', 'cancelled')
+    if (noteError && sessionNotes !== undefined) {
+      // Cột 027 chưa migrate -> vẫn chốt buổi, báo rõ cho người dùng
+      await supabase
+        .from('class_sessions')
+        .update({ status: 'completed' })
+        .eq('id', sessionId)
+        .neq('status', 'cancelled')
+      return {
+        error:
+          'Đã lưu điểm danh nhưng CHƯA lưu được sổ đầu bài (thiếu migration 027_attendance_notes.sql).',
+      }
+    }
 
     // Lọc học viên VẮNG KHÔNG PHÉP -> thông báo n8n
     const absentStudentIds = records

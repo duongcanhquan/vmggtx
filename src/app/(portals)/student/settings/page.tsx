@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building2, Loader2, LogOut, Mail, Settings, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // CÀI ĐẶT HỌC SINH (/student/settings) — mobile-first.
@@ -83,10 +84,7 @@ export default function StudentSettingsPage() {
       </h1>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-10 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang tải thông tin…
-        </div>
+        <FunLoader label="Đang tải thông tin…" />
       ) : (
         account && (
           <>
