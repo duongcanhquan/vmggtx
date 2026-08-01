@@ -25,6 +25,7 @@ export type AssignableRole =
   | 'campus_admin'
   | 'academic_staff'
   | 'admission_staff'
+  | 'accountant'
   | 'teacher'
   | 'student'
 
@@ -41,6 +42,7 @@ export type StaffRow = {
   id: string
   full_name: string
   email: string | null
+  phone: string | null
   role: string
   org_id: string | null
   org_name: string
@@ -61,6 +63,7 @@ const MOCK_USERS: StaffRow[] = [
     id: 'mock-u1',
     full_name: 'Trần Thị Hồng Nhung',
     email: 'nhung.tran@gdtx.edu.vn',
+    phone: '0912000001',
     role: 'academic_staff',
     org_id: 'org-cs-hn1',
     org_name: 'Cơ sở Hà Nội 1',
@@ -70,6 +73,7 @@ const MOCK_USERS: StaffRow[] = [
     id: 'mock-u2',
     full_name: 'Phạm Quang Huy',
     email: 'huy.pham@gdtx.edu.vn',
+    phone: '0912000002',
     role: 'teacher',
     org_id: 'org-cn-caugiay',
     org_name: 'Chi nhánh Cầu Giấy',
@@ -79,6 +83,7 @@ const MOCK_USERS: StaffRow[] = [
     id: 'mock-u3',
     full_name: 'Lê Minh Anh',
     email: 'anh.le@gdtx.edu.vn',
+    phone: null,
     role: 'teacher',
     org_id: 'org-cn-dongda',
     org_name: 'Chi nhánh Đống Đa',
@@ -88,6 +93,7 @@ const MOCK_USERS: StaffRow[] = [
     id: 'mock-u4',
     full_name: 'Nguyễn Văn Toàn',
     email: 'toan.nguyen@student.gdtx.edu.vn',
+    phone: null,
     role: 'student',
     org_id: 'org-cn-caugiay',
     org_name: 'Chi nhánh Cầu Giấy',
@@ -97,6 +103,7 @@ const MOCK_USERS: StaffRow[] = [
     id: 'mock-u5',
     full_name: 'Đỗ Thu Hà',
     email: 'ha.do@student.gdtx.edu.vn',
+    phone: null,
     role: 'student',
     org_id: 'org-cn-dongda',
     org_name: 'Chi nhánh Đống Đa',
@@ -153,7 +160,9 @@ export async function getManagedOrgs(): Promise<{
     if (scope) query = query.in('id', scope)
 
     const { data, error } = await query
-    if (error || !data || data.length === 0) {
+    // CHỈ rơi về mock khi LỖI thật sự — danh sách rỗng là dữ liệu thật,
+    // không được thay bằng dữ liệu demo gây nhầm lẫn.
+    if (error || !data) {
       return { data: MOCK_MANAGED_ORGS, demo: true }
     }
     return { data: data as ManagedOrg[], demo: false }
@@ -169,6 +178,8 @@ export async function getManagedOrgs(): Promise<{
 export async function getUsersInScope(filters: {
   role?: string
   orgId?: string
+  /** Tìm theo tên hoặc email (không phân biệt hoa thường) */
+  search?: string
 }): Promise<{ data: StaffRow[]; demo: boolean; error?: string }> {
   try {
     const supabase = createClient()
@@ -176,18 +187,26 @@ export async function getUsersInScope(filters: {
 
     let query = supabase
       .from('profiles')
-      .select('id, full_name, email, role, org_id, created_at, organizations(name)')
+      .select('id, full_name, email, phone, role, org_id, created_at, organizations(name)')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
     if (scope) query = query.in('org_id', scope)
 
     if (filters.role) query = query.eq('role', filters.role)
     if (filters.orgId) query = query.eq('org_id', filters.orgId)
+    if (filters.search) {
+      // Escape ký tự đặc biệt của PostgREST or-filter
+      const term = filters.search.replace(/[%_,()]/g, ' ').trim()
+      if (term) {
+        query = query.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+      }
+    }
 
     const { data, error } = await query
 
-    if (error || !data || data.length === 0) {
-      // Demo: áp bộ lọc lên mock để UI vẫn hoạt động đúng
+    // CHỈ rơi về mock khi LỖI thật sự — cơ sở mới chưa có nhân sự phải
+    // thấy danh sách RỖNG thật, không phải 5 người demo gây nhầm lẫn.
+    if (error || !data) {
       const rows = MOCK_USERS.filter(
         (u) =>
           (!filters.role || u.role === filters.role) &&
@@ -202,6 +221,7 @@ export async function getUsersInScope(filters: {
         id: row.id,
         full_name: row.full_name,
         email: row.email,
+        phone: (row.phone as string | null) ?? null,
         role: row.role,
         org_id: row.org_id,
         org_name: Array.isArray(org) ? org[0]?.name ?? '—' : org?.name ?? '—',
@@ -238,10 +258,11 @@ export async function createUserAccount(
     fullName: String(formData.get('fullName') ?? ''),
     role: String(formData.get('role') ?? ''),
     orgId: String(formData.get('orgId') ?? ''),
+    phone: String(formData.get('phone') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
 
-  const { email, password, fullName, role, orgId } = parsed.data
+  const { email, password, fullName, role, orgId, phone } = parsed.data
 
   try {
     const supabase = createClient()
@@ -308,6 +329,7 @@ export async function createUserAccount(
       id: created.user.id,
       full_name: fullName,
       email,
+      phone: phone || null,
       role,
       org_id: orgId,
     })
@@ -389,6 +411,42 @@ async function requireManageableTarget(
 }
 
 /**
+ * [CHỐNG "ĐƠN VỊ VÔ CHỦ"] Kiểm tra target có phải là campus_admin
+ * CUỐI CÙNG trong cây Đơn vị (cấp 1) của họ không. Dùng trước khi
+ * xóa hoặc hạ cấp role một campus_admin.
+ */
+async function isLastCampusAdminOfUnit(targetOrgId: string): Promise<boolean> {
+  const admin = createAdminClient()
+
+  // Đi lên tìm gốc Đơn vị cấp 1 (node có cha là gốc hệ thống)
+  let unitRootId = targetOrgId
+  for (let step = 0; step < 8; step++) {
+    const { data: node } = await admin
+      .from('organizations')
+      .select('id, parent_id')
+      .eq('id', unitRootId)
+      .maybeSingle()
+    if (!node || node.parent_id === null) break
+    const { data: parent } = await admin
+      .from('organizations')
+      .select('id, parent_id')
+      .eq('id', node.parent_id)
+      .maybeSingle()
+    if (!parent || parent.parent_id === null) break // cha là gốc -> node hiện tại là Đơn vị cấp 1
+    unitRootId = node.parent_id
+  }
+
+  const subtreeIds = await getDescendantOrgIds(admin, unitRootId)
+  const { count } = await admin
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('role', 'campus_admin')
+    .in('org_id', subtreeIds)
+    .is('deleted_at', null)
+  return (count ?? 0) <= 1
+}
+
+/**
  * SỬA tài khoản nhân sự/học viên: họ tên, role (không super_admin),
  * chi nhánh (phải thuộc subtree của người thao tác).
  */
@@ -400,9 +458,10 @@ export async function updateUserAccount(
     fullName: String(formData.get('fullName') ?? ''),
     role: String(formData.get('role') ?? ''),
     orgId: String(formData.get('orgId') ?? ''),
+    phone: String(formData.get('phone') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
-  const { userId, fullName, role, orgId } = parsed.data
+  const { userId, fullName, role, orgId, phone } = parsed.data
 
   try {
     const gate = await requireManageableTarget(userId)
@@ -419,10 +478,20 @@ export async function updateUserAccount(
       return { error: 'TỪ CHỐI: Chi nhánh đích không thuộc quyền quản lý của bạn.' }
     }
 
+    // [CHỐNG VÔ CHỦ] Hạ cấp campus_admin CUỐI CÙNG của Đơn vị -> chặn
+    if (gate.target.role === 'campus_admin' && role !== 'campus_admin') {
+      if (await isLastCampusAdminOfUnit(gate.target.org_id)) {
+        return {
+          error:
+            'Đây là Quản lý (Admin) CUỐI CÙNG của Đơn vị — hãy tạo/bổ nhiệm Admin khác trước khi đổi vai trò người này.',
+        }
+      }
+    }
+
     const admin = createAdminClient()
     const { error } = await admin
       .from('profiles')
-      .update({ full_name: fullName, role, org_id: orgId })
+      .update({ full_name: fullName, role, org_id: orgId, phone: phone || null })
       .eq('id', userId)
     if (error) return { error: `Không cập nhật được tài khoản: ${error.message}` }
   } catch (err) {
@@ -468,6 +537,16 @@ export async function deleteUserAccount(userId: string): Promise<UsersActionResu
   try {
     const gate = await requireManageableTarget(userId, { blockSelf: true })
     if (gate.error !== undefined) return { error: gate.error }
+
+    // [CHỐNG VÔ CHỦ] Không xóa campus_admin CUỐI CÙNG của Đơn vị
+    if (gate.target.role === 'campus_admin') {
+      if (await isLastCampusAdminOfUnit(gate.target.org_id)) {
+        return {
+          error:
+            'Đây là Quản lý (Admin) CUỐI CÙNG của Đơn vị — hãy tạo Admin mới trước rồi mới xóa, để Đơn vị không bị vô chủ.',
+        }
+      }
+    }
 
     const admin = createAdminClient()
     const { error } = await admin

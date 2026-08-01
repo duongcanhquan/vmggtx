@@ -169,12 +169,13 @@ export const createUserSchema = z.object({
   password: passwordSchema,
   fullName: safeText('Họ tên'),
   role: z.enum(
-    ['campus_admin', 'academic_staff', 'admission_staff', 'teacher', 'student'],
+    ['campus_admin', 'academic_staff', 'admission_staff', 'accountant', 'teacher', 'student'],
     {
       errorMap: () => ({ message: 'Role không hợp lệ. Không thể gán quyền này.' }),
     }
   ),
   orgId: requiredId('Vui lòng chọn chi nhánh cho nhân sự mới.'),
+  phone: z.union([z.literal(''), phoneVNSchema]).default(''),
 })
 
 // ====== Quản lý tài sản (/assets - migration 041) ======
@@ -241,12 +242,13 @@ export const updateUserSchema = z.object({
   userId: requiredId('Thiếu ID người dùng.'),
   fullName: safeText('Họ tên'),
   role: z.enum(
-    ['campus_admin', 'academic_staff', 'admission_staff', 'teacher', 'student'],
+    ['campus_admin', 'academic_staff', 'admission_staff', 'accountant', 'teacher', 'student'],
     {
       errorMap: () => ({ message: 'Role không hợp lệ. Không thể gán quyền này.' }),
     }
   ),
   orgId: requiredId('Vui lòng chọn chi nhánh.'),
+  phone: z.union([z.literal(''), phoneVNSchema]).default(''),
 })
 
 /** Form Cấp lại mật khẩu (Campus Admin) */

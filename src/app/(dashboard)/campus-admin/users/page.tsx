@@ -9,6 +9,7 @@ import {
   Loader2,
   Pencil,
   Save,
+  Search,
   ShieldAlert,
   Trash2,
   UserPlus,
@@ -39,6 +40,7 @@ const ROLE_LABELS: Record<string, string> = {
   campus_admin: 'Quản lý cơ sở',
   academic_staff: 'Giáo vụ',
   admission_staff: 'Tư vấn tuyển sinh',
+  accountant: 'Kế toán',
   teacher: 'Giáo viên',
   student: 'Học viên',
 }
@@ -47,15 +49,18 @@ const ROLE_BADGE_CLASSES: Record<string, string> = {
   campus_admin: 'bg-violet-50 text-violet-700',
   academic_staff: 'bg-sky-50 text-sky-700',
   admission_staff: 'bg-fuchsia-50 text-fuchsia-700',
+  accountant: 'bg-teal-50 text-teal-700',
   teacher: 'bg-amber-50 text-amber-700',
   student: 'bg-emerald-50 text-emerald-700',
 }
 
-/** Bộ lọc Role trên bảng (theo spec: Staff / Teacher / Student) */
+/** Bộ lọc Role trên bảng */
 const FILTER_ROLES = [
   { value: '', label: 'Tất cả vai trò' },
+  { value: 'campus_admin', label: 'Quản lý cơ sở' },
   { value: 'academic_staff', label: 'Giáo vụ (Staff)' },
   { value: 'admission_staff', label: 'Tư vấn tuyển sinh' },
+  { value: 'accountant', label: 'Kế toán' },
   { value: 'teacher', label: 'Giáo viên' },
   { value: 'student', label: 'Học viên' },
 ]
@@ -65,6 +70,7 @@ const ASSIGNABLE_ROLE_OPTIONS = [
   { value: 'campus_admin', label: 'Quản lý cơ sở (campus_admin)' },
   { value: 'academic_staff', label: 'Giáo vụ (academic_staff)' },
   { value: 'admission_staff', label: 'Tư vấn tuyển sinh (admission_staff)' },
+  { value: 'accountant', label: 'Kế toán (accountant)' },
   { value: 'teacher', label: 'Giáo viên (teacher)' },
   { value: 'student', label: 'Học viên (student)' },
 ]
@@ -81,7 +87,8 @@ function FieldError({ message }: { message?: string }) {
 
 const fieldErrorClass = 'border-red-400 focus-visible:ring-red-400'
 
-type CreateUserValues = z.infer<typeof createUserSchema>
+// z.input: phone có .default('') nên là optional ở ĐẦU VÀO form
+type CreateUserValues = z.input<typeof createUserSchema>
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('vi-VN', {
@@ -99,6 +106,14 @@ export default function CampusAdminUsersPage() {
 
   const [roleFilter, setRoleFilter] = useState('')
   const [orgFilter, setOrgFilter] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+
+  // Debounce ô tìm kiếm 300ms để không dội query theo từng phím
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   const [formOpen, setFormOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -125,6 +140,7 @@ export default function CampusAdminUsersPage() {
       fullName: '',
       role: 'teacher',
       orgId: '',
+      phone: '',
     },
   })
 
@@ -133,11 +149,12 @@ export default function CampusAdminUsersPage() {
     const result = await getUsersInScope({
       role: roleFilter || undefined,
       orgId: orgFilter || undefined,
+      search: search || undefined,
     })
     setUsers(result.data)
     setIsDemo(result.demo)
     setLoading(false)
-  }, [roleFilter, orgFilter])
+  }, [roleFilter, orgFilter, search])
 
   useEffect(() => {
     getManagedOrgs().then((result) => setOrgs(result.data))
@@ -157,6 +174,7 @@ export default function CampusAdminUsersPage() {
     formData.set('fullName', values.fullName)
     formData.set('role', values.role)
     formData.set('orgId', values.orgId)
+    formData.set('phone', values.phone ?? '')
 
     const result = await createUserAccount(formData)
     setSubmitting(false)
@@ -215,6 +233,28 @@ export default function CampusAdminUsersPage() {
 
       {/* ===== Bộ lọc ===== */}
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label
+            htmlFor="user-search"
+            className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            Tìm kiếm
+          </label>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              id="user-search"
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Tên hoặc email…"
+              className="min-h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+        </div>
         <div className="flex-1">
           <label
             htmlFor="role-filter"
@@ -276,6 +316,7 @@ export default function CampusAdminUsersPage() {
                 <tr className="border-b border-border bg-indigo-50/50 text-xs uppercase tracking-wide text-muted-foreground">
                   <th scope="col" className="px-4 py-3 font-semibold">Họ tên</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Email</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">SĐT</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Vai trò</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Tổ chức</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Ngày tạo</th>
@@ -293,6 +334,9 @@ export default function CampusAdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {user.email ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {user.phone ?? '—'}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -436,6 +480,21 @@ export default function CampusAdminUsersPage() {
                 <FieldError message={errors.fullName?.message} />
               </div>
 
+              <div>
+                <label htmlFor="new-phone" className="mb-1.5 block text-sm font-medium">
+                  Số điện thoại (tùy chọn)
+                </label>
+                <input
+                  id="new-phone"
+                  type="tel"
+                  placeholder="VD: 0912345678"
+                  aria-invalid={!!errors.phone}
+                  className={`min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${errors.phone ? fieldErrorClass : ''}`}
+                  {...register('phone')}
+                />
+                <FieldError message={errors.phone?.message} />
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="new-role" className="mb-1.5 block text-sm font-medium">
@@ -554,6 +613,7 @@ function EditUserModal({
   onError: (message: string) => void
 }) {
   const [fullName, setFullName] = useState(user.full_name)
+  const [phone, setPhone] = useState(user.phone ?? '')
   const [role, setRole] = useState(user.role)
   const [orgId, setOrgId] = useState(user.org_id ?? '')
   const [saving, setSaving] = useState(false)
@@ -566,6 +626,7 @@ function EditUserModal({
     formData.set('fullName', fullName)
     formData.set('role', role)
     formData.set('orgId', orgId)
+    formData.set('phone', phone)
     const result = await updateUserAccount(formData)
     setSaving(false)
     if (result.error) {
@@ -614,6 +675,20 @@ function EditUserModal({
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="edit-phone" className="mb-1.5 block text-sm font-medium">
+              Số điện thoại
+            </label>
+            <input
+              id="edit-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="VD: 0912345678"
               className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
