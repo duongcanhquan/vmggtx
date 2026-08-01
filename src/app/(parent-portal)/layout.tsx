@@ -1,8 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, CalendarDays, Home, Medal, Wallet } from 'lucide-react'
+import { Bell, CalendarDays, Home, Loader2, Medal, Wallet } from 'lucide-react'
 
 // ============================================================
 // Layout PARENT PORTAL - Sổ Liên Lạc Điện Tử cho Phụ huynh.
@@ -27,6 +28,12 @@ export default function ParentPortalLayout({
 }) {
   const pathname = usePathname()
   const isLogin = pathname === '/parent/login' || pathname === '/login'
+  // Phản hồi TỨC THÌ: spinner ngay trên tab vừa bấm
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPendingHref(null)
+  }, [pathname])
 
   // Trang đăng nhập: full-screen kính mờ (AuthShell tự lo nền),
   // không bó trong khung điện thoại.
@@ -50,23 +57,31 @@ export default function ParentPortalLayout({
               {PARENT_MENU.map((item) => {
                 const Icon = item.icon
                 const isActive = pathname.startsWith(item.href)
+                const isPending = pendingHref === item.href && !isActive
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      onClick={() => {
+                        if (!isActive) setPendingHref(item.href)
+                      }}
                       aria-current={isActive ? 'page' : undefined}
                       className={`flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                        isActive
+                        isActive || isPending
                           ? 'text-primary'
                           : 'text-muted-foreground hover:text-primary'
                       }`}
                     >
                       <span
                         className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors duration-200 ${
-                          isActive ? 'bg-indigo-100' : ''
+                          isActive || isPending ? 'bg-indigo-100' : ''
                         }`}
                       >
-                        <Icon className="h-5 w-5" aria-hidden="true" />
+                        {isPending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        )}
                       </span>
                       {item.label}
                     </Link>

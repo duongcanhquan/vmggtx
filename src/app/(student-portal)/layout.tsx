@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -7,6 +8,7 @@ import {
   CalendarDays,
   GraduationCap,
   Home,
+  Loader2,
   Medal,
   MonitorPlay,
   Wallet,
@@ -33,6 +35,12 @@ export default function StudentPortalLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  // Phản hồi TỨC THÌ: spinner ngay trên tab vừa bấm
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPendingHref(null)
+  }, [pathname])
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -61,18 +69,28 @@ export default function StudentPortalLayout({
             {PORTAL_MENU.map((item) => {
               const Icon = item.icon
               const isActive = pathname.startsWith(item.href)
+              const isPending = pendingHref === item.href && !isActive
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    onClick={() => {
+                      if (!isActive) setPendingHref(item.href)
+                    }}
                     aria-current={isActive ? 'page' : undefined}
                     className={`flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       isActive
                         ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-indigo-50 hover:text-primary'
+                        : isPending
+                          ? 'bg-indigo-50 text-primary'
+                          : 'text-muted-foreground hover:bg-indigo-50 hover:text-primary'
                     }`}
                   >
-                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {isPending ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    )}
                     {item.label}
                   </Link>
                 </li>

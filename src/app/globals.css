@@ -131,6 +131,50 @@ body {
   }
 }
 
+/* ============================================================
+   PHẢN HỒI TỨC THÌ (INSTANT FEEDBACK)
+   - Mọi nút bấm co nhẹ NGAY khi nhấn -> não bộ nhận biết "đã ăn".
+   - Bỏ tap-highlight + delay 300ms trên mobile.
+   - Thanh tiến trình chuyển trang (NavProgress).
+   ============================================================ */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role='button'],
+select,
+label {
+  touch-action: manipulation;
+}
+
+/* Nút co nhẹ khi nhấn. Loại trừ nút overlay full-màn (class absolute/inset-0)
+   để tránh lớp phủ modal bị co giật khi bấm ra ngoài. */
+button:not(:disabled):not(.absolute):active {
+  transform: scale(0.97);
+  transition: transform 60ms ease-out;
+}
+
+/* Thanh tiến trình chuyển trang: phóng nhanh tới ~80% rồi bò chậm dần */
+@keyframes nav-progress-grow {
+  0% {
+    width: 0%;
+  }
+  30% {
+    width: 55%;
+  }
+  60% {
+    width: 78%;
+  }
+  100% {
+    width: 94%;
+  }
+}
+.nav-progress-bar {
+  animation: nav-progress-grow 6s cubic-bezier(0.15, 0.6, 0.3, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

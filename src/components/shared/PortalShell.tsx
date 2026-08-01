@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   GraduationCap,
+  Loader2,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -52,6 +53,12 @@ function NavLinks({
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
+  // Phản hồi TỨC THÌ: spinner ngay trên item vừa bấm cho tới khi trang mới vào
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPendingHref(null)
+  }, [pathname])
 
   return (
     <nav className="flex-1 space-y-4 overflow-y-auto p-3" aria-label="Menu chính">
@@ -69,11 +76,15 @@ function NavLinks({
                 item.href === '/'
                   ? pathname === '/'
                   : pathname === item.href || pathname.startsWith(`${item.href}/`)
+              const isPending = pendingHref === item.href && !isActive
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={onNavigate}
+                  onClick={() => {
+                    if (!isActive) setPendingHref(item.href)
+                    onNavigate?.()
+                  }}
                   title={collapsed ? item.label : undefined}
                   aria-current={isActive ? 'page' : undefined}
                   className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
@@ -81,10 +92,19 @@ function NavLinks({
                   } ${
                     isActive
                       ? 'border border-[#c9a227]/30 bg-[#c9a227]/10 text-[#e5c369] shadow-sm'
-                      : 'text-stone-400 hover:bg-white/5 hover:text-stone-100'
+                      : isPending
+                        ? 'bg-white/10 text-stone-100'
+                        : 'text-stone-400 hover:bg-white/5 hover:text-stone-100'
                   }`}
                 >
-                  <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                  {isPending ? (
+                    <Loader2
+                      className="h-5 w-5 shrink-0 animate-spin text-[#e5c369]"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                  )}
                   {!collapsed && <span className="truncate">{item.label}</span>}
                 </Link>
               )

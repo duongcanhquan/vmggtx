@@ -221,18 +221,43 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // ---- Trích xuất role (JWT claims → fallback profiles) ----
+  // ---- Trích xuất role (JWT claims → cookie hint → fallback profiles) ----
+  // TỐI ƯU TỐC ĐỘ: nếu JWT chưa gắn custom claims (hook chưa bật), tránh
+  // query DB trên MỖI lần chuyển trang bằng cookie `role_hint` (TTL 10 phút,
+  // gắn theo user id). Cookie chỉ dùng cho ĐIỀU HƯỚNG — mọi thao tác dữ liệu
+  // vẫn bị RLS + kiểm tra role server-side chặn (cùng mức tin cậy với việc
+  // decode JWT không verify chữ ký phía trên).
+  const ROLE_HINT_COOKIE = 'role_hint'
+
   async function resolveRole(): Promise<Role | null> {
     if (!session) return null
     let role: Role | null = readClaimsFromAccessToken(session.access_token).role
-    if (!role) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .is('deleted_at', null)
-        .maybeSingle()
-      role = isRole(profile?.role) ? profile.role : null
+    if (role) return role
+
+    // Cache hint: "userId:role"
+    const hint = request.cookies.get(ROLE_HINT_COOKIE)?.value
+    if (hint) {
+      const [hintUserId, hintRole] = hint.split(':')
+      if (hintUserId === session.user.id && isRole(hintRole)) {
+        return hintRole
+      }
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    role = isRole(profile?.role) ? profile.role : null
+
+    if (role) {
+      response.cookies.set(ROLE_HINT_COOKIE, `${session.user.id}:${role}`, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 600,
+      })
     }
     return role
   }

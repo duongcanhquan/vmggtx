@@ -1,8 +1,17 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, Home, Medal, MonitorPlay, Settings, TicketCheck } from 'lucide-react'
+import {
+  CalendarDays,
+  Home,
+  Loader2,
+  Medal,
+  MonitorPlay,
+  Settings,
+  TicketCheck,
+} from 'lucide-react'
 
 // ============================================================
 // Layout STUDENT PORTAL (/student/*) — TUYỆT ĐỐI MOBILE-FIRST.
@@ -25,6 +34,12 @@ export default function StudentWorkspaceLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  // Phản hồi TỨC THÌ: spinner ngay trên tab vừa bấm
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPendingHref(null)
+  }, [pathname])
 
   return (
     <div className="flex min-h-dvh justify-center bg-slate-100">
@@ -44,21 +59,31 @@ export default function StudentWorkspaceLayout({
                 item.href === '/student'
                   ? pathname === '/student'
                   : pathname === item.href || pathname.startsWith(`${item.href}/`)
+              const isPending = pendingHref === item.href && !isActive
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    onClick={() => {
+                      if (!isActive) setPendingHref(item.href)
+                    }}
                     aria-current={isActive ? 'page' : undefined}
                     className={`flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary'
+                      isActive || isPending
+                        ? 'text-primary'
+                        : 'text-muted-foreground hover:text-primary'
                     }`}
                   >
                     <span
                       className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors duration-200 ${
-                        isActive ? 'bg-indigo-100' : ''
+                        isActive || isPending ? 'bg-indigo-100' : ''
                       }`}
                     >
-                      <Icon className="h-5 w-5" aria-hidden="true" />
+                      {isPending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      )}
                     </span>
                     {item.label}
                   </Link>
