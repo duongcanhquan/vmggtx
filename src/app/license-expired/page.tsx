@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarClock, Loader2, LogOut, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { readLoginPortal } from '@/lib/auth/loginPortal'
 
 // ============================================================
 // Trang chặn khi LICENSE cơ sở hết hạn / bị tạm ngưng (044).
@@ -21,7 +22,7 @@ export default function LicenseExpiredPage() {
     } catch {
       /* phiên đã hỏng - vẫn đưa về login */
     }
-    router.replace('/login')
+    router.replace(readLoginPortal() ?? '/login')
   }
 
   return (

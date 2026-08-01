@@ -19,6 +19,8 @@ import { resolveLoginEmail, resolveRoleByUserId } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
 import { parentLogin } from '@/app/(parent-portal)/actions'
 import { useOrgStore } from '@/lib/store/useOrgStore'
+import { campusLoginPath } from '@/lib/utils/orgSlug'
+import { rememberLoginPortal } from '@/lib/auth/loginPortal'
 import type { CampusContext } from '@/components/auth/StaffLoginForm'
 
 // ============================================================
@@ -122,6 +124,11 @@ export function FamilyLoginForm({ campus }: { campus?: CampusContext }) {
       if (contextOrgId) setCurrentOrgId(contextOrgId)
     }
 
+    // Ghi nhớ cổng: đăng xuất/hết phiên quay về đúng cổng cơ sở (tab Gia đình)
+    rememberLoginPortal(
+      campus ? campusLoginPath(campus.slug, 'student') : '/student/login'
+    )
+
     router.replace(role === 'super_admin' ? '/admin/organizations' : '/portal')
     router.refresh()
   }
@@ -141,6 +148,10 @@ export function FamilyLoginForm({ campus }: { campus?: CampusContext }) {
       setError(result.error)
       return
     }
+    // Ghi nhớ cổng phụ huynh (tab Gia đình của cơ sở)
+    rememberLoginPortal(
+      campus ? campusLoginPath(campus.slug, 'parent') : '/parent/login'
+    )
     router.push('/dashboard')
     router.refresh()
   }

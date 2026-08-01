@@ -3,8 +3,8 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-01 - campus_admin TOÀN QUYỀN bỏ qua ma trận menu (ma trận chỉ ràng
-  cấp dưới; fix menu mới bị override cũ che); sửa hồ sơ GV tại /teachers; gán lớp nhanh tại /students
+**Cập nhật lần cuối**: 2026-08-01 - cookie `login_portal` nhớ cổng đăng nhập /coso/[slug]/login:
+  signout + hết phiên quay về ĐÚNG cổng cơ sở (không đá về /login chung); áp cho mọi form login/logout
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.

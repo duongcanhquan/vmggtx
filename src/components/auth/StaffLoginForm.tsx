@@ -14,6 +14,7 @@ import { resolveLoginEmail, resolveRoleByUserId } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
+import { rememberLoginPortal } from '@/lib/auth/loginPortal'
 
 const loginFormSchema = z.object({
   identifier: z
@@ -154,6 +155,10 @@ export function StaffLoginForm({
       const contextOrgId = gate.userOrgId ?? gate.campusId
       if (contextOrgId) setCurrentOrgId(contextOrgId)
     }
+
+    // GHI NHỚ cổng đã dùng: đăng xuất / hết phiên sẽ quay về ĐÚNG cổng này
+    // (cơ sở về /coso/[slug]/login, không bị đá về /login chung).
+    rememberLoginPortal(campus ? campusLoginPath(campus.slug) : '/login')
 
     // role null: vẫn vào / — middleware đọc profiles khi cookie đã ổn
     router.replace(getHomePathForRole(role))

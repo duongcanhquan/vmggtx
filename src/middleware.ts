@@ -336,7 +336,7 @@ function campusSlugFromPath(pathname: string): string | null {
   return m?.[1] ?? null
 }
 
-function loginPathFor(pathname: string): string {
+function loginPathFor(pathname: string, request?: NextRequest): string {
   const slug = campusSlugFromPath(pathname)
   if (slug) {
     // 1 cổng login duy nhất/cơ sở — tab Gia đình cho khu vực HV/PH
@@ -348,6 +348,22 @@ function loginPathFor(pathname: string): string {
     }
     return `/coso/${slug}/login`
   }
+
+  // NGƯỜI DÙNG CƠ SỞ: đã đăng nhập qua /coso/[slug]/login thì cookie
+  // login_portal ghi nhớ cổng đó -> hết phiên quay về ĐÚNG cổng cơ sở,
+  // không đá về /login chung của hệ thống. Chỉ nhận path nội bộ /coso/…
+  const saved = request?.cookies.get('login_portal')?.value
+  if (saved) {
+    try {
+      const portal = decodeURIComponent(saved)
+      if (portal.startsWith('/coso/') && !portal.includes('//') && portal.length < 200) {
+        return portal
+      }
+    } catch {
+      /* cookie hỏng - dùng logic mặc định */
+    }
+  }
+
   if (isParentArea(pathname)) return '/parent/login'
   return STUDENT_AREA_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
     ? '/student/login'
@@ -581,7 +597,7 @@ export async function middleware(request: NextRequest) {
   const rule = ROUTE_RULES.find((r) => matchesPrefix(pathname, r.prefix))
   if (rule) {
     if (!session) {
-      return redirectTo(request, loginPathFor(pathname))
+      return redirectTo(request, loginPathFor(pathname, request))
     }
     const role = await resolveRole()
     if (!role) {
@@ -619,7 +635,7 @@ export async function middleware(request: NextRequest) {
       }
       return redirectTo(request, '/parent/login', response)
     }
-    return redirectTo(request, loginPathFor(pathname), response)
+    return redirectTo(request, loginPathFor(pathname, request), response)
   }
 
   // Đối tác doanh nghiệp chỉ được ở trong không gian /b2b

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building2, Loader2, LogOut, Mail, Settings, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { readLoginPortal } from '@/lib/auth/loginPortal'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
@@ -74,7 +75,8 @@ export default function StudentSettingsPage() {
     setSigningOut(true)
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.replace('/student/login')
+    // Quay về đúng cổng đã đăng nhập (cơ sở -> /coso/[slug]/login?tab=family)
+    router.replace(readLoginPortal() ?? '/student/login')
     router.refresh()
   }
 

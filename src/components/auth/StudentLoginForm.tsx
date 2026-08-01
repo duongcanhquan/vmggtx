@@ -14,6 +14,7 @@ import { resolveLoginEmail, resolveRoleByUserId } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
+import { rememberLoginPortal } from '@/lib/auth/loginPortal'
 import type { CampusContext } from '@/components/auth/StaffLoginForm'
 
 const loginFormSchema = z.object({
@@ -143,6 +144,11 @@ export function StudentLoginForm({
       const contextOrgId = gate.userOrgId ?? gate.campusId
       if (contextOrgId) setCurrentOrgId(contextOrgId)
     }
+
+    // Ghi nhớ cổng: đăng xuất/hết phiên quay về đúng cổng cơ sở
+    rememberLoginPortal(
+      campus ? campusLoginPath(campus.slug, 'student') : '/student/login'
+    )
 
     router.replace(role === 'super_admin' ? getHomePathForRole(role) : '/portal')
     router.refresh()

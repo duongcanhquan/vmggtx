@@ -22,6 +22,7 @@ import {
   type RecentGrade,
   type WeekSession,
 } from '../actions'
+import { readLoginPortal } from '@/lib/auth/loginPortal'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // Lazy-load recharts: dashboard phụ huynh mở tức thì trên mobile
@@ -92,7 +93,8 @@ export default function ParentDashboardPage() {
 
   async function handleLogout() {
     await parentLogout()
-    router.replace('/parent/login')
+    // Quay về đúng cổng đã đăng nhập (cơ sở -> /coso/[slug]/login tab Gia đình)
+    router.replace(readLoginPortal() ?? '/parent/login')
   }
 
   if (loading || !student || !attendance) {
