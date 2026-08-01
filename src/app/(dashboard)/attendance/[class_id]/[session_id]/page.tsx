@@ -28,6 +28,7 @@ import {
   type SessionRoster,
 } from '../../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { BehaviorPanel } from './BehaviorPanel'
 
 // ============================================================
 // ĐIỂM DANH + SỔ ĐẦU BÀI ĐIỆN TỬ (/attendance/[class]/[session])
@@ -309,6 +310,12 @@ export default function AttendanceSessionPage({ params }: PageProps) {
               </tbody>
             </table>
           </div>
+
+          {/* ===== ĐIỂM RÈN LUYỆN + CẢNH BÁO TÂM LÝ (038) ===== */}
+          <BehaviorPanel
+            sessionId={params.session_id}
+            students={roster.students.map((s) => ({ id: s.id, fullName: s.fullName }))}
+          />
 
           {/* ===== TỔNG KẾT BUỔI HỌC (Sổ đầu bài 033) ===== */}
           <div className="bento-card p-5">

@@ -37,6 +37,8 @@ export const SETTING_DEFAULTS = {
   // Các key đã dùng từ migration 016 - resolver thay thế dần RPC
   auto_attendance_sms: true,
   max_absence_warning: 3,
+  /** Tổng điểm rèn luyện THÁNG dưới mốc này -> auto ticket Tư vấn Tâm lý (038) */
+  behavior_alert_threshold: -15,
   grading_locked_days: 7,
   require_manager_approval_for_refunds: true,
 } as const satisfies Record<string, string | number | boolean>
