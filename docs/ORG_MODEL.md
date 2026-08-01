@@ -92,7 +92,7 @@ Thực thi: middleware (chặn URL) + menu (ẩn mục) + RLS (chặn dữ liệ
 | G1 | Ẩn `hq`/`region` khỏi UI — Super Admin chỉ tạo Đơn vị (`campus`), Admin Đơn vị tạo Cơ sở/Trung tâm (`branch`) | ✅ XONG (2026-08-01) — schema tạo/sửa chỉ còn 2 loại; dữ liệu hq/region cũ giữ nguyên chỉ-đọc |
 | G2 | Hồ sơ Đơn vị cho Super Admin | ✅ XONG — `/admin/organizations/[id]`: đếm admin/NV/GV/HS gộp cả cây, module active/off/chưa ghép, license, danh sách Cơ sở bên trong |
 | G3 | Đổi nhãn toàn UI: `campus` → "Đơn vị (Trường)", `branch` → "Cơ sở / Trung tâm" | ✅ XONG — `ORG_TYPE_LABELS`, menu, trang tổ chức |
-| G4 | Con người thuộc Đơn vị (đếm theo cây) | ✅ Đúng sẵn — bổ sung sau: nút "chuyển Cơ sở" trong hồ sơ HS/GV |
+| G4 | Con người thuộc Đơn vị (đếm theo cây) | ✅ XONG — nút "Chuyển Cơ sở" trong hồ sơ học viên 360° (chỉ trong cùng cây Đơn vị, chặn chuyển chéo Trường); nhân sự/GV chuyển org tại trang Tài khoản (có sẵn) |
 | G5 | Chính sách ghi đè 3 mức theo nhóm cài đặt (Học vụ / Giao tiếp / Tài chính / Mã học viên): `inherit` (kế thừa & ghi đè) / `locked` (khóa cứng) / `required` (bắt buộc tự cấu hình) | ✅ XONG — lưu `org_settings.config.override_policies` trên Đơn vị gốc; server chặn lưu nhóm locked; UI /settings hiện badge Kế thừa/Khóa/Bắt buộc + selector cho Admin Đơn vị |
 | G6 | Gói module gắn đúng cấp Đơn vị | ✅ Đúng sẵn |
 

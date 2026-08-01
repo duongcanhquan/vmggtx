@@ -1,6 +1,9 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { requiredId, zodFail } from '@/lib/validation/schemas'
 
 // ============================================================
@@ -332,4 +335,167 @@ export async function getStudent360(studentId: string): Promise<Student360Result
 function extractOrgName(org: unknown): string {
   if (Array.isArray(org)) return (org[0] as { name?: string })?.name ?? '—'
   return (org as { name?: string } | null)?.name ?? '—'
+}
+
+// ============================================================
+// CHUYỂN CƠ SỞ [ORG_MODEL.md G4]
+// Học viên LÀ NGƯỜI CỦA ĐƠN VỊ — chuyển cơ sở chỉ là đổi org_id
+// sang một Cơ sở/Trung tâm KHÁC TRONG CÙNG CÂY Đơn vị. Không phải
+// chuyển trường: lớp, điểm, hóa đơn, lịch sử giữ nguyên.
+// Quyền: campus_admin (hoặc super_admin) có cả org hiện tại lẫn
+// org đích trong phạm vi quản lý.
+// ============================================================
+
+/** Tìm Đơn vị gốc (type='campus') của một org — đi lên tối đa 6 cấp */
+async function findUnitRootId(orgId: string): Promise<string | null> {
+  const admin = createAdminClient()
+  let cursorId: string | null = orgId
+  for (let i = 0; i < 6 && cursorId; i++) {
+    const { data } = await admin
+      .from('organizations')
+      .select('id, type, parent_id')
+      .eq('id', cursorId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    const org = data as { id: string; type: string; parent_id: string | null } | null
+    if (!org) return null
+    if (org.type === 'campus') return org.id
+    cursorId = org.parent_id ?? null
+  }
+  return null
+}
+
+export type TransferTargetsResult =
+  | { error: string }
+  | {
+      error?: undefined
+      currentOrgId: string
+      /** Các cơ sở đích hợp lệ (cùng Đơn vị, trong phạm vi người thao tác) */
+      targets: { id: string; name: string; type: string }[]
+    }
+
+/** Danh sách cơ sở đích hợp lệ để chuyển học viên */
+export async function getTransferTargets(studentId: string): Promise<TransferTargetsResult> {
+  const idParsed = requiredId('Thiếu ID học sinh.').safeParse(studentId)
+  if (!idParsed.success) return zodFail(idParsed.error)
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser()
+    if (!currentUser) return { error: 'Bạn chưa đăng nhập.' }
+
+    const admin = createAdminClient()
+    const { data: student } = await admin
+      .from('profiles')
+      .select('id, org_id')
+      .eq('id', idParsed.data)
+      .eq('role', 'student')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!student?.org_id) return { error: 'Học sinh không tồn tại.' }
+
+    // Quyền campus_admin trên org hiện tại của học viên
+    const { data: authorized } = await supabase.rpc('is_authorized', {
+      p_user_id: currentUser.id,
+      p_target_org_id: student.org_id,
+      p_required_role: 'campus_admin',
+    })
+    if (authorized !== true) {
+      return { error: 'TỪ CHỐI: Chỉ Admin Đơn vị được chuyển cơ sở cho học viên.' }
+    }
+
+    // Đích hợp lệ = mọi org trong CÙNG CÂY Đơn vị (trừ org hiện tại)
+    const unitRootId = (await findUnitRootId(student.org_id)) ?? student.org_id
+    const unitOrgIds = await getDescendantOrgIds(admin, unitRootId)
+    const { data: orgs } = await admin
+      .from('organizations')
+      .select('id, name, type')
+      .in('id', unitOrgIds)
+      .is('deleted_at', null)
+      .order('name')
+
+    return {
+      currentOrgId: student.org_id,
+      targets: (orgs ?? [])
+        .filter((org) => org.id !== student.org_id)
+        .map((org) => ({ id: org.id, name: org.name, type: org.type as string })),
+    }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
+  }
+}
+
+/** Chuyển học viên sang cơ sở khác trong cùng Đơn vị */
+export async function transferStudentOrg(
+  studentId: string,
+  targetOrgId: string
+): Promise<{ error?: string }> {
+  const idParsed = requiredId('Thiếu ID học sinh.').safeParse(studentId)
+  if (!idParsed.success) return zodFail(idParsed.error)
+  const orgParsed = requiredId('Thiếu cơ sở đích.').safeParse(targetOrgId)
+  if (!orgParsed.success) return zodFail(orgParsed.error)
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser()
+    if (!currentUser) return { error: 'Bạn chưa đăng nhập.' }
+
+    const admin = createAdminClient()
+    const { data: student } = await admin
+      .from('profiles')
+      .select('id, org_id, full_name')
+      .eq('id', idParsed.data)
+      .eq('role', 'student')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!student?.org_id) return { error: 'Học sinh không tồn tại.' }
+    if (student.org_id === orgParsed.data) {
+      return { error: 'Học viên đã ở cơ sở này rồi.' }
+    }
+
+    // Quyền campus_admin trên CẢ org hiện tại LẪN org đích
+    const [{ data: authSource }, { data: authTarget }] = await Promise.all([
+      supabase.rpc('is_authorized', {
+        p_user_id: currentUser.id,
+        p_target_org_id: student.org_id,
+        p_required_role: 'campus_admin',
+      }),
+      supabase.rpc('is_authorized', {
+        p_user_id: currentUser.id,
+        p_target_org_id: orgParsed.data,
+        p_required_role: 'campus_admin',
+      }),
+    ])
+    if (authSource !== true || authTarget !== true) {
+      return { error: 'TỪ CHỐI: Cơ sở nằm ngoài phạm vi quản lý của bạn.' }
+    }
+
+    // [ORG_MODEL] Cùng CÂY Đơn vị — không chuyển chéo giữa 2 Trường
+    const [sourceUnit, targetUnit] = await Promise.all([
+      findUnitRootId(student.org_id),
+      findUnitRootId(orgParsed.data),
+    ])
+    if (sourceUnit !== targetUnit) {
+      return {
+        error:
+          'Chỉ chuyển cơ sở TRONG CÙNG một Đơn vị (Trường). Chuyển sang Đơn vị khác là chuyển trường — cần quy trình riêng.',
+      }
+    }
+
+    const { error } = await admin
+      .from('profiles')
+      .update({ org_id: orgParsed.data })
+      .eq('id', idParsed.data)
+    if (error) return { error: `Không chuyển được cơ sở: ${error.message}` }
+
+    revalidatePath(`/students/${idParsed.data}`)
+    revalidatePath('/students')
+    return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
+  }
 }

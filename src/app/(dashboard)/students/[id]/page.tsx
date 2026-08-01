@@ -1,25 +1,35 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
+  ArrowRightLeft,
   BookOpen,
   Bot,
+  Building2,
   CalendarClock,
   CircleDollarSign,
   FileWarning,
   GraduationCap,
   Inbox,
+  Loader2,
   Printer,
   Receipt,
   ShieldAlert,
   Sparkles,
   UserRound,
+  X,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
-import { getStudent360, type Student360 } from './actions'
+import { useMyRole } from '@/lib/hooks/useMyRole'
+import {
+  getStudent360,
+  getTransferTargets,
+  transferStudentOrg,
+  type Student360,
+} from './actions'
 import { EnrollmentManager } from './EnrollmentManager'
 import { FunLoader } from '@/components/shared/FunLoader'
 
@@ -82,22 +92,21 @@ export default function Student360Page({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabId>('overview')
 
-  useEffect(() => {
-    let cancelled = false
+  const load = useCallback(async () => {
     setLoading(true)
-    getStudent360(params.id).then((result) => {
-      if (cancelled) return
-      if (result.error !== undefined) {
-        setErrorState({ message: result.error, status: result.status })
-      } else {
-        setData(result.data)
-      }
-      setLoading(false)
-    })
-    return () => {
-      cancelled = true
+    const result = await getStudent360(params.id)
+    if (result.error !== undefined) {
+      setErrorState({ message: result.error, status: result.status })
+    } else {
+      setErrorState(null)
+      setData(result.data)
     }
+    setLoading(false)
   }, [params.id])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const stats = useMemo(() => {
     if (!data) return null
@@ -249,6 +258,12 @@ export default function Student360Page({ params }: { params: { id: string } }) {
             </div>
           )}
         </div>
+        <TransferOrgButton
+          studentId={profile.id}
+          studentName={profile.fullName}
+          currentOrgName={profile.orgName}
+          onDone={() => void load()}
+        />
       </div>
 
       {/* ===== Tabs ===== */}
@@ -601,5 +616,170 @@ export default function Student360Page({ params }: { params: { id: string } }) {
         </div>
       )}
     </div>
+  )
+}
+
+// ============================================================
+// CHUYỂN CƠ SỞ [ORG_MODEL.md G4] — chỉ Admin Đơn vị / Super Admin.
+// Học viên vẫn thuộc Đơn vị, chỉ đổi nơi học trong cùng cây;
+// lớp, điểm, hóa đơn, lịch sử giữ nguyên.
+// ============================================================
+function TransferOrgButton({
+  studentId,
+  studentName,
+  currentOrgName,
+  onDone,
+}: {
+  studentId: string
+  studentName: string
+  currentOrgName: string
+  onDone: () => void
+}) {
+  const role = useMyRole()
+  const [open, setOpen] = useState(false)
+  const [targets, setTargets] = useState<{ id: string; name: string; type: string }[] | null>(
+    null
+  )
+  const [selectedId, setSelectedId] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  if (role !== 'campus_admin' && role !== 'super_admin') return null
+
+  async function openModal() {
+    setOpen(true)
+    setError(null)
+    setSelectedId('')
+    setTargets(null)
+    const result = await getTransferTargets(studentId)
+    if (result.error !== undefined) {
+      setError(result.error)
+      setTargets([])
+      return
+    }
+    setTargets(result.targets)
+  }
+
+  async function handleTransfer() {
+    if (!selectedId) return
+    setSaving(true)
+    setError(null)
+    const result = await transferStudentOrg(studentId, selectedId)
+    setSaving(false)
+    if (result.error !== undefined) {
+      setError(result.error)
+      return
+    }
+    setOpen(false)
+    onDone()
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => void openModal()}
+        title="Chuyển học viên sang cơ sở khác trong cùng Đơn vị"
+        className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 self-start rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />
+        Chuyển Cơ sở
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <h2 className="font-heading text-lg font-bold text-slate-900">
+                Chuyển Cơ sở
+              </h2>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <p className="mt-2 text-sm text-slate-600">
+              <strong>{studentName}</strong> đang ở <strong>{currentOrgName}</strong>. Chuyển
+              cơ sở chỉ đổi nơi học trong cùng Đơn vị — lớp, điểm, hóa đơn, lịch sử giữ
+              nguyên.
+            </p>
+
+            {targets === null ? (
+              <p className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Đang tải danh sách cơ sở…
+              </p>
+            ) : targets.length === 0 && !error ? (
+              <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
+                Đơn vị chưa có cơ sở nào khác để chuyển tới.
+              </p>
+            ) : (
+              <div className="mt-4 max-h-60 space-y-1.5 overflow-y-auto pr-1">
+                {targets.map((target) => (
+                  <label
+                    key={target.id}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                      selectedId === target.id
+                        ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200'
+                        : 'border-slate-200 hover:border-indigo-200'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="transfer-target"
+                      checked={selectedId === target.id}
+                      onChange={() => setSelectedId(target.id)}
+                      className="h-4 w-4 cursor-pointer accent-indigo-600"
+                    />
+                    <Building2 className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
+                      {target.name}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {error && (
+              <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={!selectedId || saving}
+                onClick={() => void handleTransfer()}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />
+                )}
+                Xác nhận chuyển
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
