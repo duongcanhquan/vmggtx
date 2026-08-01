@@ -24,6 +24,8 @@ Mỗi quyết định 1-3 dòng. Thêm mới vào CUỐI danh sách với mã D 
 - **D11** Cây tổ chức: tối đa 3 cấp dưới 1 Cơ sở (campus→nhánh→nhánh con), chặn tầng 4 trong
   createOrganization (đếm ngược lên campus gần nhất).
 - **D12** Kế hoạch thương mại: bán account theo cơ sở bằng tầng LICENSE (gói = tổ hợp menu_keys
-  + hạn dùng + giới hạn HV) trên chung 1 DB; instance riêng chỉ là gói premium về sau. CHƯA triển khai.
+  + hạn dùng + giới hạn HV) trên chung 1 DB; instance riêng chỉ là gói premium về sau.
+  ĐÃ TRIỂN KHAI (migration 044): không license = fail-open full quyền; license áp dụng
+  kế thừa xuống nhánh con; module cap được GIAO vào get_my_menu_keys.
 - **D13** Commit trên Windows PowerShell: build sạch trước, message qua file .git-commit-msg.txt
   (không dấu), không dùng && / heredoc.

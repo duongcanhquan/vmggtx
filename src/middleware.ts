@@ -26,6 +26,11 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     allowedRoles: ['super_admin'],
   },
   {
+    // Tầng License - bán account cơ sở (044)
+    prefix: '/admin/licenses',
+    allowedRoles: ['super_admin'],
+  },
+  {
     prefix: '/dashboard/admin',
     allowedRoles: ['super_admin'],
   },
@@ -187,6 +192,7 @@ const PUBLIC_EXACT = new Set([
   '/student/login',
   '/unauthorized',
   '/parent/login',
+  '/license-expired',
 ])
 const PUBLIC_PREFIXES = ['/evaluations', '/hdsd']
 
@@ -403,6 +409,48 @@ export async function middleware(request: NextRequest) {
     return allowed.includes(menuKey)
   }
 
+  // ---- TẦNG LICENSE (tenant_licenses - migration 044) ----
+  // Cơ sở hết hạn / bị tạm ngưng -> mọi user của cơ sở (trừ super_admin)
+  // bị đưa về /license-expired. Cache cookie `license_hint` 10 phút
+  // ("userId:ok" hoặc "userId:blocked"). FAIL-OPEN khi RPC lỗi /
+  // migration chưa chạy / cơ sở không có license (hệ thống nội bộ).
+  const LICENSE_HINT_COOKIE = 'license_hint'
+
+  async function enforceLicense(role: Role): Promise<boolean> {
+    if (role === 'super_admin' || !session) return true
+
+    const hint = request.cookies.get(LICENSE_HINT_COOKIE)?.value
+    if (hint) {
+      const [hintUserId, verdict] = hint.split(':')
+      if (hintUserId === session.user.id) return verdict !== 'blocked'
+    }
+
+    let allowed = true
+    try {
+      const { data, error } = await supabase.rpc('get_my_license')
+      if (!error && data && typeof data === 'object') {
+        const license = data as { status?: string; valid_until?: string | null }
+        if (license.status === 'suspended') allowed = false
+        if (allowed && license.valid_until) {
+          // "Hôm nay" theo giờ Việt Nam (định dạng YYYY-MM-DD để so chuỗi)
+          const today = new Date().toLocaleDateString('en-CA', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+          })
+          if (license.valid_until < today) allowed = false
+        }
+      }
+    } catch {
+      /* fail-open */
+    }
+
+    response.cookies.set(
+      LICENSE_HINT_COOKIE,
+      `${session.user.id}:${allowed ? 'ok' : 'blocked'}`,
+      { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 600 }
+    )
+    return allowed
+  }
+
   // ===== 3. Khu vực có ROUTE_RULES =====
   const rule = ROUTE_RULES.find((r) => matchesPrefix(pathname, r.prefix))
   if (rule) {
@@ -413,6 +461,9 @@ export async function middleware(request: NextRequest) {
     if (!role || !rule.allowedRoles.includes(role)) {
       // Sai role: về /unauthorized (và vẫn có thể tự về home từ trang đó)
       return redirectTo(request, '/unauthorized')
+    }
+    if (!(await enforceLicense(role))) {
+      return redirectTo(request, '/license-expired')
     }
     if (!(await enforceMenuMatrix(role))) {
       return redirectTo(request, '/unauthorized')
@@ -440,6 +491,9 @@ export async function middleware(request: NextRequest) {
   const role = await resolveRole()
   if (role === 'enterprise_partner') {
     return redirectTo(request, '/b2b')
+  }
+  if (role && !(await enforceLicense(role))) {
+    return redirectTo(request, '/license-expired')
   }
   if (role && !(await enforceMenuMatrix(role))) {
     return redirectTo(request, '/unauthorized')

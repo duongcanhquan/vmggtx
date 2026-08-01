@@ -27,6 +27,7 @@ import {
   Settings,
   BookMarked,
   Globe,
+  PackageOpen,
   Star,
   Wallet,
   type LucideIcon,
@@ -242,6 +243,7 @@ const MENU: MenuEntry[] = [
 // ============================================================
 const SUPER_MENU: MenuEntry[] = [
   { label: 'Tổng quan Hệ thống', href: '/', icon: LayoutDashboard },
+  { label: 'Gói dịch vụ & License', href: '/admin/licenses', icon: PackageOpen },
   { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
   { label: 'Tài khoản Admin cơ sở', href: '/campus-admin/users', icon: Users },
   { label: 'Phân quyền truy cập', href: '/admin/permissions', icon: ShieldCheck },

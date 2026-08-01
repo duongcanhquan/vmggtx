@@ -3,7 +3,7 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-01 - commit `ddb3d70`
+**Cập nhật lần cuối**: 2026-08-01 - tầng LICENSE (migration 044, /admin/licenses)
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
@@ -12,8 +12,8 @@
 - "Phó giám đốc" = tài khoản campus_admin gắn vào org con (không có role riêng).
 
 ## Migrations
-- Đã có file: `001 → 043` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
-- ⚠️ **CHƯA chạy trên DB thật: 042 (overview report), 043 (menu permissions)** - user phải chạy tay
+- Đã có file: `001 → 044` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
+- ⚠️ **CHƯA chạy trên DB thật: 042 (overview report), 043 (menu permissions), 044 (tenant licenses)** - user phải chạy tay
   qua Supabase SQL Editor. Code đã fail-safe khi RPC chưa tồn tại (dashboard fallback demo, menu fail-open).
 - ⚠️ `scripts/apply-migration.mjs` lỗi "password authentication failed" - DATABASE_URL trong .env sai
   mật khẩu. Muốn tự động hóa phải xin user cập nhật.
@@ -35,13 +35,22 @@
   (/admin/permissions, menuRegistry, RPC get_my_menu_keys).
 
 ## Tồn đọng / việc tiếp theo
-1. **Tầng LICENSE bán account cơ sở** (ĐÃ TƯ VẤN, user quan tâm, CHƯA làm): bảng tenant_licenses
-   (gói = tổ hợp menu_keys, hạn dùng, giới hạn HV), wizard super_admin tạo cơ sở trọn gói,
-   middleware chặn khi hết hạn. Chờ user chốt danh sách gói. Giữ chung 1 DB (xem DECISIONS D12).
-2. Migration 042/043 chờ user chạy tay (xem trên).
-3. Subdomain per cơ sở (cosoA.domain.vn) - đã tư vấn, làm sau khi có license.
+1. Migration 042/043/044 chờ user chạy tay (xem trên).
+2. Subdomain per cơ sở (cosoA.domain.vn) - đã tư vấn, làm sau khi license chạy thực tế.
+3. License: phụ huynh (cookie HMAC, không session) CHƯA bị chặn khi cơ sở hết hạn - chấp nhận
+   được (chỉ xem sổ liên lạc); muốn chặt hơn thì check license trong các trang parent.
 4. Backlog nhỏ: matrix phân quyền hiển thị cả key mà static ROUTE_RULES chặn (tick cũng không
    có tác dụng với role thấp) - chỉ gây bối rối nhẹ, chưa cần sửa.
+
+## Tầng LICENSE (mới - 2026-08-01)
+- Gói = tổ hợp module (MenuKey). 3 preset trong `src/lib/licensing/packages.ts`
+  (basic/advanced/full) + custom tick tay. settings_global KHÔNG bán.
+- UI: `/admin/licenses` (super only): danh sách cơ sở + sửa gói + tạm ngưng/kích hoạt
+  + WIZARD 3 bước tạo cơ sở trọn gói (org + license + tài khoản campus_admin, có rollback).
+- Enforcement: RPC `get_my_menu_keys` = ma trận 043 GIAO module license; middleware chặn
+  hết hạn/tạm ngưng qua cookie `license_hint` (10 phút) -> `/license-expired`; sĩ số
+  max_students chặn ở createUserAccount + bulkImportStudents (`src/lib/licensing/capacity.ts`).
+- Không có license = full quyền (fail-open, hệ thống nội bộ/legacy).
 
 ## Quirks môi trường (đọc để khỏi vấp lại)
 - Windows PowerShell: KHÔNG dùng `&&`, KHÔNG heredoc. Commit qua file `.git-commit-msg.txt`

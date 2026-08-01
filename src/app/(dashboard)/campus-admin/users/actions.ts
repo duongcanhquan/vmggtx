@@ -10,6 +10,7 @@ import {
   zodFail,
 } from '@/lib/validation/schemas'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { checkStudentCapacity } from '@/lib/licensing/capacity'
 
 // ============================================================
 // Module Quản lý Nhân sự (Campus Admin)
@@ -281,6 +282,12 @@ export async function createUserAccount(
 
     // ===== Qua bài test bảo mật: dùng Service Role tạo tài khoản =====
     const admin = createAdminClient()
+
+    // [LICENSE 044] Học viên mới phải còn chỗ trong giới hạn gói của cơ sở
+    if (role === 'student') {
+      const capacityError = await checkStudentCapacity(admin, orgId, 1)
+      if (capacityError) return { error: capacityError }
+    }
 
     const { data: created, error: createError } =
       await admin.auth.admin.createUser({

@@ -26,6 +26,13 @@
   vào menu campus_admin; chặn tạo tầng 4 dưới 1 campus trong createOrganization; cập nhật hướng dẫn.
 - Chốt: phó giám đốc = campus_admin gắn org con (D10, D11). Tư vấn SaaS license (D12) - chưa code.
 
-## 2026-08-01 | (phiên này) | Bộ quy định + tài liệu trạng thái cho agent
+## 2026-08-01 | d1f72b0 | Bộ quy định + tài liệu trạng thái cho agent
 - Làm: .cursor/rules (00-core, 10-server-code, 20-migrations, 30-ui) + docs/STATE.md,
   ARCHITECTURE.md, DECISIONS.md, WORKLOG.md. Định nghĩa session protocol đọc/ghi STATE.
+
+## 2026-08-01 | (commit kế tiếp) | Tầng LICENSE - bán account cơ sở theo module
+- Làm: migration 044 (tenant_licenses + get_my_license + get_my_menu_keys giao license);
+  packages.ts (3 gói preset + custom); /admin/licenses (danh sách, sửa gói, tạm ngưng,
+  wizard 3 bước tạo cơ sở trọn gói có rollback); middleware chặn hết hạn (license_hint)
+  + trang /license-expired; capacity.ts chặn max_students ở tạo account + import.
+- Tồn: migration 044 chưa chạy DB thật; parent chưa bị chặn license (chấp nhận).

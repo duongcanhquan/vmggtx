@@ -17,6 +17,7 @@ import {
 } from '@/lib/validation/schemas'
 import { validateCustomValues, type CustomFieldDef } from '@/lib/customFields'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { checkStudentCapacity } from '@/lib/licensing/capacity'
 import { generateStudentCode } from '@/lib/utils/studentCode'
 
 export type ImportRowInput = {
@@ -625,6 +626,16 @@ export async function bulkImportStudents(
         profile,
       ])
     )
+
+    // [LICENSE 044] Chặn vượt giới hạn học viên của gói dịch vụ:
+    // chỉ tính các dòng sẽ INSERT MỚI (đã tồn tại = update, không tốn slot).
+    const newCount = masvSupported
+      ? codes.filter((code) => !existingByMasv.has(code)).length
+      : phones.filter((phone) => !existingByPhone.has(phone)).length
+    if (newCount > 0) {
+      const capacityError = await checkStudentCapacity(admin, orgParsed.data, newCount)
+      if (capacityError) return { error: capacityError }
+    }
 
     const outcomes: BulkImportRowOutcome[] = []
 

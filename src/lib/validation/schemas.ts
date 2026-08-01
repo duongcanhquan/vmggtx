@@ -665,6 +665,45 @@ export const aiSettingsSchema = z.object({
 export type AISettingsFormInput = z.input<typeof aiSettingsSchema>
 export type AISettingsFormValues = z.output<typeof aiSettingsSchema>
 
+// ====== Tầng License - bán account cơ sở (/admin/licenses - migration 044) ======
+
+const moduleKeysSchema = z
+  .array(z.string().trim().min(1))
+  .min(1, 'Phải chọn ít nhất 1 module cho gói dịch vụ.')
+  .max(50, 'Danh sách module không hợp lệ.')
+
+const licenseMaxStudentsSchema = z
+  .string()
+  .trim()
+  .regex(/^\d*$/, 'Giới hạn học viên phải là số nguyên dương.')
+  .default('')
+
+export const saveLicenseSchema = z.object({
+  orgId: requiredId('Thiếu cơ sở cần gán license.'),
+  planName: safeText('Tên gói', 2, 50),
+  moduleKeys: moduleKeysSchema,
+  maxStudents: licenseMaxStudentsSchema, // '' = không giới hạn
+  validUntil: optionalDateSchema, // '' = vĩnh viễn
+  status: z.enum(['active', 'suspended'], {
+    errorMap: () => ({ message: 'Trạng thái license không hợp lệ.' }),
+  }),
+})
+
+export const provisionCampusSchema = z.object({
+  campusName: safeText('Tên cơ sở', 2, 120),
+  parentId: z.string().trim().default(''), // '' = gắn dưới gốc hệ thống
+  planName: safeText('Tên gói', 2, 50),
+  moduleKeys: moduleKeysSchema,
+  maxStudents: licenseMaxStudentsSchema,
+  validUntil: optionalDateSchema,
+  adminEmail: emailSchema,
+  adminPassword: passwordSchema,
+  adminFullName: safeText('Họ tên admin cơ sở'),
+})
+
+export type SaveLicenseValues = z.infer<typeof saveLicenseSchema>
+export type ProvisionCampusValues = z.infer<typeof provisionCampusSchema>
+
 // Kiểu suy ra cho react-hook-form
 export type ClassFormValues = z.infer<typeof classFormSchema>
 export type CreateUserFormValues = z.infer<typeof createUserSchema>

@@ -221,6 +221,10 @@ console.log('\n-- Migration 043 (ma trận phân quyền menu động) --')
 await checkTable('menu_permissions', '043_menu_permissions.sql')
 await checkFunction('get_my_menu_keys', {}, '043_menu_permissions.sql')
 
+console.log('\n-- Migration 044 (tầng license - bán account cơ sở) --')
+await checkTable('tenant_licenses', '044_tenant_licenses.sql')
+await checkFunction('get_my_license', {}, '044_tenant_licenses.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
