@@ -35,6 +35,12 @@ export type OrgManagementResult =
       canManage: boolean
       /** org gốc của user - campus_admin KHÔNG được xóa đơn vị này */
       myOrgId: string | null
+      /**
+       * Các org được phép thao tác (cây con của user).
+       * null = không giới hạn (super_admin). Các org NGOÀI danh sách này
+       * (cấp trên hiển thị nhờ RLS) chỉ được XEM, không hiện nút sửa/xóa.
+       */
+      manageableIds: string[] | null
     }
 
 export async function getOrgManagementData(): Promise<OrgManagementResult> {
@@ -81,11 +87,20 @@ export async function getOrgManagementData(): Promise<OrgManagementResult> {
     }))
 
     const role = profile?.role ?? ''
+    // [ĐA TẦNG] campus_admin chỉ thao tác trong cây con của mình.
+    // RLS vẫn cho THẤY các cấp trên (để vẽ cây) nhưng UI phải ẩn nút sửa/xóa.
+    let manageableIds: string[] | null = null
+    if (role === 'campus_admin' && profile?.org_id) {
+      manageableIds = await getDescendantOrgIds(supabase, profile.org_id)
+    } else if (role !== 'super_admin') {
+      manageableIds = []
+    }
     return {
       orgs,
       isSuperAdmin: role === 'super_admin',
       canManage: role === 'super_admin' || role === 'campus_admin',
       myOrgId: profile?.org_id ?? null,
+      manageableIds,
     }
   } catch (error) {
     return {

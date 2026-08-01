@@ -46,6 +46,8 @@ export default function AdminOrganizationsPage() {
   const [rows, setRows] = useState<OrgManagementRow[]>([])
   const [canManage, setCanManage] = useState(false)
   const [myOrgId, setMyOrgId] = useState<string | null>(null)
+  // null = không giới hạn (super_admin); mảng = chỉ các org trong cây con
+  const [manageableIds, setManageableIds] = useState<string[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
@@ -68,6 +70,7 @@ export default function AdminOrganizationsPage() {
     setRows(result.orgs)
     setCanManage(result.canManage)
     setMyOrgId(result.myOrgId)
+    setManageableIds(result.manageableIds)
   }, [])
 
   useEffect(() => {
@@ -120,12 +123,16 @@ export default function AdminOrganizationsPage() {
 
   const countById = new Map(rows.map((row) => [row.id, row]))
   const tree = buildOrgTree(rows) as OrgNode[]
+  // Đơn vị NGOÀI cây con (cấp trên hiển thị để vẽ cây) -> chỉ xem
+  const inMyScope = (id: string) => manageableIds === null || manageableIds.includes(id)
+  const manageableRows = rows.filter((org) => inMyScope(org.id))
 
   function renderNode(node: OrgNode, depth: number): React.ReactNode {
     const counts = countById.get(node.id)
     const hasChildren = node.children.length > 0
     const isMyRoot = node.id === myOrgId
     const isDeleting = deletingId === node.id
+    const canTouch = canManage && inMyScope(node.id)
     return (
       <div key={node.id}>
         <div
@@ -144,6 +151,14 @@ export default function AdminOrganizationsPage() {
               Cơ sở của bạn
             </span>
           )}
+          {canManage && !inMyScope(node.id) && (
+            <span
+              className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500"
+              title="Đơn vị cấp trên - bạn chỉ xem, không sửa được"
+            >
+              Cấp trên · chỉ xem
+            </span>
+          )}
           <span className="ml-auto flex shrink-0 items-center gap-4 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1">
               <Users className="h-3.5 w-3.5" aria-hidden="true" />
@@ -155,8 +170,8 @@ export default function AdminOrganizationsPage() {
             </span>
           </span>
 
-          {/* Thao tác: thêm con / sửa / xóa */}
-          {canManage && (
+          {/* Thao tác: thêm con / sửa / xóa - CHỈ với đơn vị trong phạm vi */}
+          {canTouch && (
             <span className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
@@ -301,7 +316,7 @@ export default function AdminOrganizationsPage() {
                 defaultValue={createParentId || undefined}
                 className={inputClass}
               >
-                {rows.map((org) => (
+                {manageableRows.map((org) => (
                   <option key={org.id} value={org.id}>
                     {ORG_TYPE_LABELS[org.type]} · {org.name}
                   </option>
