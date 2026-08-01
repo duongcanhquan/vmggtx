@@ -16,9 +16,22 @@ export interface ModuleFeature {
   routePrefix?: string
 }
 
+/** Nhóm module — dùng làm TAB ở Trung tâm Module cho dễ theo dõi */
+export type ModuleGroupKey = 'students' | 'academic' | 'teachers' | 'finance' | 'system'
+
+export const MODULE_GROUPS: { key: ModuleGroupKey; label: string; description: string }[] = [
+  { key: 'students', label: 'Học viên & Tuyển sinh', description: 'Hồ sơ, CRM lead, thông báo tới gia đình.' },
+  { key: 'academic', label: 'Đào tạo & Khảo thí', description: 'Lớp học, điểm danh, kỳ thi, cảnh báo học vụ.' },
+  { key: 'teachers', label: 'Giáo viên & Nhân sự', description: 'Lịch dạy, đơn từ, đánh giá, tài khoản nhân viên.' },
+  { key: 'finance', label: 'Tài chính & Tài sản', description: 'Học phí, lương, hợp đồng, tài sản khấu hao.' },
+  { key: 'system', label: 'Hệ thống & AI', description: 'Kho tri thức AI, cài đặt, tổ chức, phân quyền.' },
+]
+
 export interface ModuleInfo {
   key: MenuKey
   label: string
+  /** Nhóm hiển thị (tab) ở Trung tâm Module */
+  group: ModuleGroupKey
   /** Mô tả ngắn: module phục vụ gì */
   summary: string
   /** Cách hoạt động: luồng nghiệp vụ chính */
@@ -30,6 +43,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'students',
     label: 'Hồ sơ Học sinh',
+    group: 'students',
     summary: 'Quản lý hồ sơ, mã học viên (MaSV), nhập liệu hàng loạt bằng Excel.',
     howItWorks:
       'Giáo vụ/tuyển sinh tạo hồ sơ từng em hoặc import Excel (bắt buộc cột MaSV). Mã học viên sinh tự động theo quy tắc riêng của từng cơ sở. Hồ sơ gắn cơ sở, lớp, phụ huynh và theo suốt vòng đời học tập.',
@@ -50,6 +64,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'crm',
     label: 'Tuyển sinh (CRM)',
+    group: 'students',
     summary: 'Pipeline lead từ tiếp nhận đến nhập học, báo cáo theo người tuyển sinh.',
     howItWorks:
       'Nhân viên tuyển sinh ghi nhận lead, theo dõi trạng thái (mới → liên hệ → hẹn → nhập học), ghi log hoạt động. Trưởng bộ phận xem báo cáo chuyển đổi theo nhân viên, nguồn, thời gian.',
@@ -61,6 +76,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'announcements',
     label: 'Thông báo chung',
+    group: 'students',
     summary: 'Phát thông báo toàn cơ sở tới phụ huynh, học viên, giáo viên.',
     howItWorks:
       'Quản lý/giáo vụ soạn thông báo, chọn đối tượng nhận (tất cả / PH / HV / GV). Thông báo hiện trong cổng tương ứng và sổ liên lạc điện tử.',
@@ -69,6 +85,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'classes',
     label: 'Lớp học & Gia sư AI',
+    group: 'academic',
     summary: 'Quản lý lớp, sĩ số tối đa, ghi danh; Gia sư AI trả lời theo tài liệu lớp.',
     howItWorks:
       'Giáo vụ mở lớp, gán giáo viên và lịch học, kiểm soát sĩ số. Học viên ghi danh/chuyển lớp/bảo lưu. Gia sư AI dùng RAG trên tài liệu bài giảng của đúng lớp đó.',
@@ -80,6 +97,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'attendance',
     label: 'Điểm danh & Sổ liên lạc',
+    group: 'academic',
     summary: 'Điểm danh buổi học, nhận xét lớp/học sinh, dặn dò phụ huynh, điểm hành vi.',
     howItWorks:
       'Giáo viên điểm danh từng buổi, ghi nhận xét và dặn dò — nội dung đổ về sổ liên lạc điện tử của phụ huynh. Điểm hành vi cộng/trừ tự động kích hoạt cảnh báo tâm lý khi dưới ngưỡng.',
@@ -91,6 +109,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'staff_ops',
     label: 'Giáo vụ & Khảo thí',
+    group: 'academic',
     summary: 'Kỳ thi, coi thi, duyệt điểm, bảng điểm, phòng học/cơ sở vật chất.',
     howItWorks:
       'Giáo vụ tạo kỳ thi, phân giám thị, quản lý đề. Điểm nhập xong chuyển duyệt, khóa sổ theo hạn. Học viên xin phúc khảo/thi lại — giáo vụ duyệt và xếp lịch thi lại tự động.',
@@ -103,6 +122,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'academic_warnings',
     label: 'Cảnh báo học vụ',
+    group: 'academic',
     summary: 'Tự động cảnh báo vắng nhiều, điểm kém, nguy cơ bỏ học.',
     howItWorks:
       'Hệ thống quét điểm danh + điểm số, gắn cờ học viên vượt ngưỡng vắng hoặc điểm thấp. Cảnh báo hiện cho giáo vụ và phụ huynh để can thiệp sớm.',
@@ -111,6 +131,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'teacher_schedule',
     label: 'Lịch dạy & Xếp lịch',
+    group: 'teachers',
     summary: 'Kênh 2 chiều: giáo viên đề xuất lịch/xin nghỉ, giáo vụ duyệt và xếp.',
     howItWorks:
       'Giáo viên gửi đề xuất lịch dạy hoặc xin nghỉ trên cổng riêng. Giáo vụ duyệt: tìm giáo viên dạy thay hoặc hủy/tạo buổi bù, hệ thống tự kiểm tra trùng lịch.',
@@ -122,6 +143,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'teacher_requests',
     label: 'Duyệt đơn giáo viên',
+    group: 'teachers',
     summary: 'Tiếp nhận và duyệt các loại đơn từ của giáo viên.',
     howItWorks:
       'Giáo viên nộp đơn (nghỉ phép, đổi lịch, đề xuất...) — giáo vụ xem, duyệt hoặc từ chối kèm ghi chú, giáo viên nhận phản hồi ngay trên cổng.',
@@ -130,6 +152,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'evaluations',
     label: 'Đánh giá giáo viên',
+    group: 'teachers',
     summary: 'Đợt khảo sát chất lượng giảng dạy, phụ huynh/học viên chấm ẩn danh.',
     howItWorks:
       'Quản lý mở đợt khảo sát, hệ thống phát link token ẩn danh cho học viên/phụ huynh. Kết quả tổng hợp thành báo cáo điểm trung bình từng giáo viên.',
@@ -138,6 +161,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'staff_users',
     label: 'Tài khoản & Nhân viên',
+    group: 'teachers',
     summary: 'Tạo và quản lý tài khoản nhân sự: giáo vụ, kế toán, giáo viên...',
     howItWorks:
       'Quản lý cơ sở tạo tài khoản, gán vai trò và cơ sở làm việc. Vai trò quyết định menu và quyền thao tác (kết hợp ma trận phân quyền).',
@@ -146,6 +170,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'payroll_contracts',
     label: 'Lương & Hợp đồng',
+    group: 'finance',
     summary: 'Hợp đồng giáo viên, tính lương theo buổi dạy thực tế, dự báo ngân sách.',
     howItWorks:
       'Hợp đồng khai báo đơn giá/buổi. Kỳ lương chỉ tính buổi đã hoàn thành VÀ có điểm danh. Dự báo ngân sách chạy trên lịch dạy tương lai để quản lý chủ động dòng tiền.',
@@ -157,6 +182,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'finance_invoices',
     label: 'Học phí & Công nợ',
+    group: 'finance',
     summary: 'Hóa đơn học phí, thu tiền in biên lai, nhắc phí tự động, báo cáo tuổi nợ.',
     howItWorks:
       'Kế toán phát hành hóa đơn theo lớp/học viên, thu tiền và in biên lai PDF. Hệ thống tự nhắc phí qua thông báo + sổ liên lạc, báo cáo công nợ chia nhóm 0-7 / 8-30 / >30 ngày.',
@@ -169,6 +195,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'assets',
     label: 'Tài sản & Khấu hao',
+    group: 'finance',
     summary: 'Sổ tài sản, khấu hao đường thẳng, điều chuyển giữa các đơn vị.',
     howItWorks:
       'Mỗi tài sản có nguyên giá, thời gian khấu hao — hệ thống tự tính giá trị còn lại. Điều chuyển tài sản giữa cơ sở/chi nhánh/lớp đều ghi log đầy đủ.',
@@ -180,6 +207,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'ai_kb',
     label: 'Kho tri thức AI',
+    group: 'system',
     summary: 'Nạp tài liệu vào kho tri thức, AI trả lời theo đúng dữ liệu của cơ sở.',
     howItWorks:
       'Tài liệu upload được tách đoạn và nhúng vector theo từng cơ sở (org_id). Trợ lý AI và Gia sư AI chỉ truy xuất tri thức của đúng cơ sở đó — không lẫn dữ liệu giữa các đơn vị.',
@@ -188,6 +216,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'settings_org',
     label: 'Cài đặt Cơ sở',
+    group: 'system',
     summary: 'Cá nhân hóa cơ sở: quy tắc mã HV, trường tùy chỉnh, AI, giao diện.',
     howItWorks:
       'Admin cơ sở tự cấu hình mọi thứ trong phạm vi của mình. Cài đặt kế thừa xuống chi nhánh con, chi nhánh có thể ghi đè riêng.',
@@ -196,6 +225,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'organizations',
     label: 'Cơ sở & Chi nhánh',
+    group: 'system',
     summary: 'Cây tổ chức tối đa 3 cấp dưới mỗi cơ sở, mỗi cơ sở có cổng /coso riêng.',
     howItWorks:
       'Admin cơ sở tạo/sửa chi nhánh trong cây con của mình. Mỗi cơ sở có slug riêng cho 3 cổng đăng nhập (quản trị / học viên / phụ huynh).',
@@ -204,6 +234,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   {
     key: 'permissions',
     label: 'Phân quyền truy cập',
+    group: 'system',
     summary: 'Ma trận phân quyền menu theo vai trò, trong phạm vi module được cấp.',
     howItWorks:
       'Admin cơ sở tick quyền cho giáo vụ/tuyển sinh/kế toán/giáo viên. Không thể cấp vượt quá module mà Super Admin đã mở cho cơ sở (delegation cap).',

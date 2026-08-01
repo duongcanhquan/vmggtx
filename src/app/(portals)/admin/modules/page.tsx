@@ -18,13 +18,17 @@ import {
   Pencil,
   PlayCircle,
   Plus,
-  Power,
   ShieldAlert,
   X,
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
-import { MODULE_CATALOG } from '@/lib/licensing/moduleCatalog'
+import {
+  MODULE_CATALOG,
+  MODULE_GROUPS,
+  type ModuleFeature,
+  type ModuleGroupKey,
+} from '@/lib/licensing/moduleCatalog'
 import { MENU_SECTIONS, type MenuKey } from '@/lib/auth/menuRegistry'
 import {
   CUSTOM_PLAN_KEY,
@@ -105,6 +109,122 @@ function Switch({
         }`}
       />
     </button>
+  )
+}
+
+/**
+ * TAB NHÓM MODULE — chia catalog thành các tab (Học viên & Tuyển sinh,
+ * Đào tạo & Khảo thí...) để theo dõi/xử lý từng mảng thay vì 1 danh sách dài.
+ * Badge đỏ = số module trong nhóm đang TẮT ở ngữ cảnh hiện tại.
+ */
+function GroupTabs({
+  active,
+  onChange,
+  offCountOf,
+}: {
+  active: ModuleGroupKey | 'all'
+  onChange: (key: ModuleGroupKey | 'all') => void
+  offCountOf: (moduleKeys: string[]) => number
+}) {
+  const tabs: { key: ModuleGroupKey | 'all'; label: string; moduleKeys: string[] }[] = [
+    { key: 'all', label: 'Tất cả', moduleKeys: MODULE_CATALOG.map((m) => m.key) },
+    ...MODULE_GROUPS.map((group) => ({
+      key: group.key,
+      label: group.label,
+      moduleKeys: MODULE_CATALOG.filter((m) => m.group === group.key).map((m) => m.key),
+    })),
+  ]
+  return (
+    <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Nhóm module">
+      {tabs.map((tab) => {
+        const isActive = active === tab.key
+        const offCount = offCountOf(tab.moduleKeys)
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(tab.key)}
+            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              isActive
+                ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700'
+            }`}
+          >
+            {tab.label}
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {tab.moduleKeys.length}
+            </span>
+            {offCount > 0 && (
+              <span
+                title={`${offCount} module đang tắt trong nhóm này`}
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                  isActive ? 'bg-rose-400 text-white' : 'bg-rose-100 text-rose-600'
+                }`}
+              >
+                {offCount} tắt
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * NHÓM TÍNH NĂNG CON của 1 module — mỗi tính năng 1 dòng riêng
+ * (tên + mô tả + công tắc) thay vì dàn phẳng, để dễ theo dõi và xử lý.
+ */
+function FeatureGroup({
+  features,
+  isOff,
+  busyOf,
+  onToggle,
+}: {
+  features: ModuleFeature[]
+  isOff: (featureKey: string) => boolean
+  busyOf: (featureKey: string) => boolean
+  onToggle: (featureKey: string) => void
+}) {
+  if (features.length === 0) return null
+  return (
+    <div className="mt-3 rounded-xl border border-dashed border-border bg-slate-50/60 px-3.5 py-2.5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        Nhóm tính năng con · {features.length}
+      </p>
+      <div className="mt-1 divide-y divide-slate-100">
+        {features.map((feature) => {
+          const off = isOff(feature.key)
+          return (
+            <div key={feature.key} className="flex items-center justify-between gap-3 py-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  {feature.label}
+                  {off && (
+                    <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-rose-600">
+                      Tắt
+                    </span>
+                  )}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">{feature.description}</p>
+              </div>
+              <Switch
+                on={!off}
+                busy={busyOf(feature.key)}
+                onToggle={() => onToggle(feature.key)}
+                label={`Bật/tắt tính năng ${feature.label}`}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -222,6 +342,8 @@ export default function ModuleCenterPage() {
 
   /** 'global' = công tắc toàn hệ thống; còn lại = id Đơn vị đang chọn */
   const [selectedOrg, setSelectedOrg] = useState<string>('global')
+  /** Tab nhóm module đang xem ('all' = tất cả) */
+  const [activeGroup, setActiveGroup] = useState<ModuleGroupKey | 'all'>('all')
 
   // Modal sửa gói
   const [editRow, setEditRow] = useState<CampusLicenseRow | null>(null)
@@ -492,6 +614,13 @@ export default function ModuleCenterPage() {
 
   const offGlobalCount = modData.disabledFlags.filter((f) => !f.orgId && !f.featureKey).length
 
+  // Danh sách module theo tab nhóm đang chọn + mô tả nhóm
+  const visibleModules = MODULE_CATALOG.filter(
+    (mod) => activeGroup === 'all' || mod.group === activeGroup
+  )
+  const activeGroupInfo =
+    activeGroup === 'all' ? null : MODULE_GROUPS.find((g) => g.key === activeGroup) ?? null
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -624,8 +753,18 @@ export default function ModuleCenterPage() {
                 Tắt = MỌI Đơn vị mất menu và bị chặn URL của module đó (Super Admin không bị
                 ảnh hưởng).
               </p>
-              <div className="mt-4 space-y-2">
-                {MODULE_CATALOG.map((mod) => {
+              <div className="mt-4">
+                <GroupTabs
+                  active={activeGroup}
+                  onChange={setActiveGroup}
+                  offCountOf={(keys) => keys.filter((key) => isDisabled(null, key, null)).length}
+                />
+                {activeGroupInfo && (
+                  <p className="mt-2 text-xs text-muted-foreground">{activeGroupInfo.description}</p>
+                )}
+              </div>
+              <div className="mt-3 space-y-2">
+                {visibleModules.map((mod) => {
                   const off = isDisabled(null, mod.key, null)
                   const usage = modData.usage[mod.key]
                   return (
@@ -654,30 +793,17 @@ export default function ModuleCenterPage() {
                           />
                         </div>
                       </div>
-                      {mod.features.length > 0 && !off && (
-                        <div className="mt-2 flex flex-wrap gap-2 border-t border-dashed border-border pt-2">
-                          {mod.features.map((feature) => {
-                            const fOff = isDisabled(null, mod.key, feature.key)
-                            return (
-                              <button
-                                key={feature.key}
-                                type="button"
-                                disabled={busyFlag === `global:${mod.key}:${feature.key}`}
-                                onClick={() => void toggleFlag(null, mod.key, feature.key)}
-                                title={feature.description}
-                                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
-                                  fOff
-                                    ? 'border-rose-200 bg-rose-50 text-rose-600'
-                                    : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                }`}
-                              >
-                                <Power className="h-3 w-3" aria-hidden="true" />
-                                {feature.label}
-                                {fOff ? ' · tắt' : ''}
-                              </button>
-                            )
-                          })}
-                        </div>
+                      {!off && (
+                        <FeatureGroup
+                          features={mod.features}
+                          isOff={(featureKey) => isDisabled(null, mod.key, featureKey)}
+                          busyOf={(featureKey) =>
+                            busyFlag === `global:${mod.key}:${featureKey}`
+                          }
+                          onToggle={(featureKey) =>
+                            void toggleFlag(null, mod.key, featureKey)
+                          }
+                        />
                       )}
                     </div>
                   )
@@ -787,8 +913,27 @@ export default function ModuleCenterPage() {
                   <Blocks className="h-4 w-4" aria-hidden="true" />
                   Module của Đơn vị này
                 </h3>
+                <div className="mt-3">
+                  <GroupTabs
+                    active={activeGroup}
+                    onChange={setActiveGroup}
+                    offCountOf={(keys) =>
+                      keys.filter(
+                        (key) =>
+                          isDisabled(null, key, null) ||
+                          isDisabled(selectedCampus.id, key, null) ||
+                          !inPackage(selectedCampus, key)
+                      ).length
+                    }
+                  />
+                  {activeGroupInfo && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {activeGroupInfo.description}
+                    </p>
+                  )}
+                </div>
                 <div className="mt-3 space-y-2">
-                  {MODULE_CATALOG.map((mod) => {
+                  {visibleModules.map((mod) => {
                     const granted = inPackage(selectedCampus, mod.key)
                     const offGlobal = isDisabled(null, mod.key, null)
                     const offOrg = isDisabled(selectedCampus.id, mod.key, null)
@@ -865,35 +1010,19 @@ export default function ModuleCenterPage() {
                           </div>
                         </div>
 
-                        {granted && !offOrg && !offGlobal && mod.features.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2 border-t border-dashed border-border pt-2">
-                            {mod.features.map((feature) => {
-                              const fOff = isDisabled(selectedCampus.id, mod.key, feature.key)
-                              return (
-                                <button
-                                  key={feature.key}
-                                  type="button"
-                                  disabled={
-                                    busyFlag ===
-                                    `${selectedCampus.id}:${mod.key}:${feature.key}`
-                                  }
-                                  onClick={() =>
-                                    void toggleFlag(selectedCampus.id, mod.key, feature.key)
-                                  }
-                                  title={feature.description}
-                                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
-                                    fOff
-                                      ? 'border-rose-200 bg-rose-50 text-rose-600'
-                                      : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                  }`}
-                                >
-                                  <Power className="h-3 w-3" aria-hidden="true" />
-                                  {feature.label}
-                                  {fOff ? ' · tắt' : ''}
-                                </button>
-                              )
-                            })}
-                          </div>
+                        {granted && !offOrg && !offGlobal && (
+                          <FeatureGroup
+                            features={mod.features}
+                            isOff={(featureKey) =>
+                              isDisabled(selectedCampus.id, mod.key, featureKey)
+                            }
+                            busyOf={(featureKey) =>
+                              busyFlag === `${selectedCampus.id}:${mod.key}:${featureKey}`
+                            }
+                            onToggle={(featureKey) =>
+                              void toggleFlag(selectedCampus.id, mod.key, featureKey)
+                            }
+                          />
                         )}
                       </div>
                     )
