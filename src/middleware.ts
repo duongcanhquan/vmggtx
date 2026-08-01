@@ -65,6 +65,11 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     prefix: '/student',
     allowedRoles: ['super_admin', 'campus_admin', 'student'],
   },
+  {
+    // B2B Portal - doanh nghiệp liên kết quản lý thực tập sinh (037)
+    prefix: '/b2b',
+    allowedRoles: ['super_admin', 'enterprise_partner'],
+  },
 
   // --- Module routes (giữ luật cũ) ---
   {
@@ -246,6 +251,12 @@ export async function middleware(request: NextRequest) {
   // /finance, /portal, /dashboard parent…). Chưa login → /login.
   if (!session) {
     return redirectTo(request, '/login')
+  }
+
+  // Đối tác doanh nghiệp chỉ được ở trong không gian /b2b
+  const role = await resolveRole()
+  if (role === 'enterprise_partner') {
+    return redirectTo(request, '/b2b')
   }
 
   return response

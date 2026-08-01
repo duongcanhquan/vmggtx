@@ -13,6 +13,7 @@ export type Role =
   | 'accountant'
   | 'teacher'
   | 'student'
+  | 'enterprise_partner'
 
 export const ALL_ROLES: Role[] = [
   'super_admin',
@@ -22,6 +23,7 @@ export const ALL_ROLES: Role[] = [
   'accountant',
   'teacher',
   'student',
+  'enterprise_partner',
 ]
 
 export function isRole(value: unknown): value is Role {
@@ -48,6 +50,8 @@ export function getHomePathForRole(role: Role | null | undefined): string {
       return '/teacher'
     case 'student':
       return '/student'
+    case 'enterprise_partner':
+      return '/b2b'
     default:
       return '/login'
   }
