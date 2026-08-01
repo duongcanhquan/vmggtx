@@ -21,6 +21,9 @@ next-env.d.ts
 npm-debug.log*
 .DS_Store
 
+# File tạm chứa commit message (workflow PowerShell)
+.git-commit-msg.txt
+
 # Agent/skill local config
 .agents/
 .claude/
