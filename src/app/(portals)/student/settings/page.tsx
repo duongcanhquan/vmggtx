@@ -28,9 +28,11 @@ export default function StudentSettingsPage() {
     async function load() {
       try {
         const supabase = createClient()
+        // getSession đọc cục bộ (0ms) thay vì round-trip mạng như getUser
         const {
-          data: { user },
-        } = await supabase.auth.getUser()
+          data: { session },
+        } = await supabase.auth.getSession()
+        const user = session?.user
         if (!user) {
           router.replace('/student/login')
           return

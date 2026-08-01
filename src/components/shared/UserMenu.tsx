@@ -25,9 +25,10 @@ export function UserMenu({ loginPath = '/login' }: { loginPath?: string }) {
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // getSession đọc cục bộ (0ms) thay vì round-trip mạng như getUser
     createClient()
-      .auth.getUser()
-      .then(({ data }) => setEmail(data.user?.email ?? null))
+      .auth.getSession()
+      .then(({ data }) => setEmail(data.session?.user?.email ?? null))
   }, [])
 
   useEffect(() => {

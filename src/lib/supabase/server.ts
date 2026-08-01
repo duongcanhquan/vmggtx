@@ -7,7 +7,7 @@ import { getSupabaseAnonKey, getSupabaseUrl } from './env'
 export function createClient() {
   const cookieStore = cookies()
 
-  return createServerClient(
+  const client = createServerClient(
     getSupabaseUrl(),
     getSupabaseAnonKey(),
     {
@@ -30,4 +30,27 @@ export function createClient() {
       },
     }
   )
+
+  // ============================================================
+  // TĂNG TỐC TOÀN HỆ THỐNG: getUser() gốc gọi MẠNG tới Supabase Auth
+  // (~100-300ms) và được ~70 server action gọi ở ĐẦU mỗi request.
+  // Trong kiến trúc này, middleware đã refresh session và MỌI truy vấn
+  // dữ liệu đều bị Postgres verify chữ ký JWT qua RLS — nên đọc user
+  // từ session cookie (0ms, không round-trip) là đủ an toàn: JWT giả
+  // sẽ bị database từ chối ở bước truy vấn ngay sau đó.
+  // Gọi getUser(jwt) tường minh vẫn đi đường verify mạng như cũ.
+  // ============================================================
+  const networkGetUser = client.auth.getUser.bind(client.auth)
+  client.auth.getUser = (async (jwt?: string) => {
+    if (jwt) return networkGetUser(jwt)
+    const {
+      data: { session },
+    } = await client.auth.getSession()
+    if (session?.user) {
+      return { data: { user: session.user }, error: null }
+    }
+    return networkGetUser()
+  }) as typeof client.auth.getUser
+
+  return client
 }

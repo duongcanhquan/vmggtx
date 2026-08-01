@@ -27,9 +27,11 @@ export default function TeacherAssistantPage() {
     async function loadOrg() {
       try {
         const supabase = createClient()
+        // getSession đọc cục bộ (0ms) thay vì round-trip mạng như getUser
         const {
-          data: { user },
-        } = await supabase.auth.getUser()
+          data: { session },
+        } = await supabase.auth.getSession()
+        const user = session?.user
         if (!user) return
         const { data: profile } = await supabase
           .from('profiles')

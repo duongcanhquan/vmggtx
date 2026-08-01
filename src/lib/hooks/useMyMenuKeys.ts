@@ -1,36 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getMyMenuKeys } from '@/app/(dashboard)/menu-actions'
+import { getClientAccessState } from '@/lib/hooks/accessState'
 import type { MenuKey } from '@/lib/auth/menuRegistry'
 
 // ============================================================
 // useMyMenuKeys - bộ menu key được cấp cho user hiện tại.
-// Cache promise theo phiên trình duyệt (giống useMyRole).
+// Đọc từ accessState dùng chung (1 RPC gộp với module flags).
 // - undefined = đang tải
 // - null      = không có ghi đè -> dùng ma trận mặc định
 // - MenuKey[] = chỉ được thấy các key này
 // ============================================================
-
-let cachedKeysPromise: Promise<MenuKey[] | null> | null = null
-
-function fetchKeys(): Promise<MenuKey[] | null> {
-  if (!cachedKeysPromise) {
-    cachedKeysPromise = getMyMenuKeys().catch(() => {
-      cachedKeysPromise = null
-      return null
-    })
-  }
-  return cachedKeysPromise
-}
 
 export function useMyMenuKeys(): MenuKey[] | null | undefined {
   const [keys, setKeys] = useState<MenuKey[] | null | undefined>(undefined)
 
   useEffect(() => {
     let cancelled = false
-    void fetchKeys().then((value) => {
-      if (!cancelled) setKeys(value)
+    void getClientAccessState().then((state) => {
+      if (!cancelled) setKeys(state.menuKeys as MenuKey[] | null)
     })
     return () => {
       cancelled = true

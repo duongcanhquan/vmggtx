@@ -10,6 +10,99 @@ import { menuKeyForPath } from '@/lib/auth/menuRegistry'
 import { FEATURE_ROUTES } from '@/lib/licensing/moduleCatalog'
 
 // ============================================================
+// CACHE TRẠNG THÁI TRUY CẬP (license + menu + module flags)
+// - 1 RPC get_my_access_state (047) thay cho 3 RPC tuần tự cũ.
+// - Cache trong BỘ NHỚ server (per isolate) TTL 60s: các cú click
+//   liên tiếp không tốn round-trip database nào -> điều hướng tức thì.
+// - Server-side nên client không thể giả mạo; thu hồi quyền/license
+//   có hiệu lực trong tối đa 60 giây.
+// ============================================================
+
+type AccessState = {
+  licenseOk: boolean
+  /** null = không có ghi đè -> dùng ma trận mặc định */
+  menuKeys: string[] | null
+  offModules: string[]
+  offFeatures: string[]
+}
+
+const ACCESS_STATE_OK: AccessState = {
+  licenseOk: true,
+  menuKeys: null,
+  offModules: [],
+  offFeatures: [],
+}
+
+const ACCESS_CACHE = new Map<string, { state: AccessState; expires: number }>()
+const ACCESS_TTL_MS = 60_000
+const ACCESS_CACHE_MAX = 500
+
+type SupabaseRpcClient = {
+  rpc: (fn: string) => PromiseLike<{ data: unknown; error: unknown }>
+}
+
+async function getAccessState(
+  supabase: SupabaseRpcClient,
+  userId: string
+): Promise<AccessState> {
+  const cached = ACCESS_CACHE.get(userId)
+  if (cached && cached.expires > Date.now()) return cached.state
+
+  let state = ACCESS_STATE_OK
+  try {
+    const { data, error } = await supabase.rpc('get_my_access_state')
+    if (!error && data && typeof data === 'object') {
+      const raw = data as {
+        license_ok?: unknown
+        menu_keys?: unknown
+        off_modules?: unknown
+        off_features?: unknown
+      }
+      state = {
+        licenseOk: raw.license_ok !== false,
+        menuKeys: Array.isArray(raw.menu_keys)
+          ? (raw.menu_keys as string[])
+          : null,
+        offModules: Array.isArray(raw.off_modules)
+          ? (raw.off_modules as string[])
+          : [],
+        offFeatures: Array.isArray(raw.off_features)
+          ? (raw.off_features as string[])
+          : [],
+      }
+    } else if (error) {
+      // 047 chưa chạy -> fallback giữ enforcement license cũ (1 RPC),
+      // menu/module fail-open như trước.
+      state = { ...ACCESS_STATE_OK, licenseOk: await checkLicenseOnly(supabase) }
+    }
+  } catch {
+    /* fail-open */
+  }
+
+  if (ACCESS_CACHE.size >= ACCESS_CACHE_MAX) ACCESS_CACHE.clear()
+  ACCESS_CACHE.set(userId, { state, expires: Date.now() + ACCESS_TTL_MS })
+  return state
+}
+
+async function checkLicenseOnly(supabase: SupabaseRpcClient): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('get_my_license')
+    if (error || !data || typeof data !== 'object') return true
+    const license = data as { status?: string; valid_until?: string | null }
+    if (license.status === 'suspended') return false
+    if (license.valid_until) {
+      const today = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+      })
+      if (license.valid_until < today) return false
+    }
+    return true
+  } catch {
+    return true
+  }
+}
+
+// ============================================================
 // SMART AUTH ROUTING + Matrix RBAC
 //
 // 1. Chưa đăng nhập vào khu vực bảo vệ → /login
@@ -410,94 +503,37 @@ export async function middleware(request: NextRequest) {
     // license + menu matrix được kiểm ở cuối hàm (cùng flow catch-all)
   }
 
-  // ---- MA TRẬN PHÂN QUYỀN ĐỘNG (menu_permissions - migration 043) ----
-  // LUÔN gọi RPC (không cache "được phép" bằng cookie — cookie Client có thể
-  // giả mạo qua header Cookie). FAIL-OPEN khi RPC lỗi / migration chưa chạy.
-  async function enforceMenuMatrix(role: Role): Promise<boolean> {
-    if (
-      role === 'super_admin' ||
-      role === 'student' ||
-      role === 'enterprise_partner'
-    ) {
-      return true
-    }
-    const menuKey = menuKeyForPath(pathname)
-    if (!menuKey) return true
-    try {
-      const { data, error } = await supabase.rpc('get_my_menu_keys')
-      if (error) return true
-      // null = không có ghi đè -> ma trận mặc định (ROUTE_RULES + leaf.roles chặn nền)
-      if (!Array.isArray(data)) return true
-      return data.includes(menuKey)
-    } catch {
-      return true
-    }
-  }
+  // ---- KIỂM TRA TRUY CẬP GỘP: license (044) + ma trận menu (043) +
+  // công tắc module (046) trong 1 RPC get_my_access_state (047).
+  // Trước đây 3 RPC TUẦN TỰ mỗi lần chuyển trang -> chậm rõ rệt.
+  // Thêm cache BỘ NHỚ theo user (TTL 60s, per isolate) -> đa số cú
+  // click KHÔNG tốn round-trip database nào. Cache nằm server-side,
+  // client không giả mạo được; đổi quyền/license có hiệu lực <=60s.
+  async function enforceAccess(role: Role): Promise<'ok' | 'license' | 'denied'> {
+    if (role === 'super_admin' || !session) return 'ok'
 
-  // ---- CÔNG TẮC MODULE (module_flags - migration 046) ----
-  // Super Admin tắt module (toàn hệ thống hoặc theo cơ sở) hay 1 phần
-  // của module -> chặn URL tương ứng. FAIL-OPEN khi RPC lỗi.
-  async function enforceModuleFlags(role: Role): Promise<boolean> {
-    if (role === 'super_admin') return true
+    const skipMenuMatrix = role === 'student' || role === 'enterprise_partner'
     const menuKey = menuKeyForPath(pathname)
     const featureRoute = FEATURE_ROUTES.find((f) =>
       matchesPrefix(pathname, f.routePrefix)
     )
-    if (!menuKey && !featureRoute) return true
-    try {
-      const { data, error } = await supabase.rpc('get_my_module_flags')
-      if (error || !data || typeof data !== 'object') return true
-      const flags = data as { modules?: unknown; features?: unknown }
-      const modules = Array.isArray(flags.modules) ? flags.modules : []
-      const features = Array.isArray(flags.features) ? flags.features : []
-      if (menuKey && modules.includes(menuKey)) return false
-      if (featureRoute && features.includes(featureRoute.flag)) return false
-      return true
-    } catch {
-      return true
+
+    const state = await getAccessState(supabase, session.user.id)
+
+    if (!state.licenseOk) return 'license'
+    if (
+      !skipMenuMatrix &&
+      menuKey &&
+      state.menuKeys !== null &&
+      !state.menuKeys.includes(menuKey)
+    ) {
+      return 'denied'
     }
-  }
-
-  // ---- TẦNG LICENSE (tenant_licenses - migration 044) ----
-  // Chỉ cache verdict "blocked" (forge blocked chỉ tự hại). Verdict "ok"
-  // LUÔN verify lại bằng RPC — chống giả mạo cookie license_hint=ok.
-  const LICENSE_HINT_COOKIE = 'license_hint'
-
-  async function enforceLicense(role: Role): Promise<boolean> {
-    if (role === 'super_admin' || !session) return true
-
-    const hint = request.cookies.get(LICENSE_HINT_COOKIE)?.value
-    if (hint) {
-      const [hintUserId, verdict] = hint.split(':')
-      if (hintUserId === session.user.id && verdict === 'blocked') return false
+    if (menuKey && state.offModules.includes(menuKey)) return 'denied'
+    if (featureRoute && state.offFeatures.includes(featureRoute.flag)) {
+      return 'denied'
     }
-
-    let allowed = true
-    try {
-      const { data, error } = await supabase.rpc('get_my_license')
-      if (!error && data && typeof data === 'object') {
-        const license = data as { status?: string; valid_until?: string | null }
-        if (license.status === 'suspended') allowed = false
-        if (allowed && license.valid_until) {
-          const today = new Date().toLocaleDateString('en-CA', {
-            timeZone: 'Asia/Ho_Chi_Minh',
-          })
-          if (license.valid_until < today) allowed = false
-        }
-      }
-    } catch {
-      /* fail-open */
-    }
-
-    if (!allowed) {
-      response.cookies.set(LICENSE_HINT_COOKIE, `${session.user.id}:blocked`, {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 600,
-      })
-    }
-    return allowed
+    return 'ok'
   }
 
   // ===== 3. Khu vực có ROUTE_RULES =====
@@ -511,13 +547,11 @@ export async function middleware(request: NextRequest) {
       // Sai role: về /unauthorized (và vẫn có thể tự về home từ trang đó)
       return redirectTo(request, '/unauthorized')
     }
-    if (!(await enforceLicense(role))) {
+    const access = await enforceAccess(role)
+    if (access === 'license') {
       return redirectTo(request, '/license-expired', response)
     }
-    if (!(await enforceMenuMatrix(role))) {
-      return redirectTo(request, '/unauthorized', response)
-    }
-    if (!(await enforceModuleFlags(role))) {
+    if (access === 'denied') {
       return redirectTo(request, '/unauthorized', response)
     }
     return response
@@ -544,14 +578,14 @@ export async function middleware(request: NextRequest) {
   if (role === 'enterprise_partner') {
     return redirectTo(request, '/b2b', response)
   }
-  if (role && !(await enforceLicense(role))) {
-    return redirectTo(request, '/license-expired', response)
-  }
-  if (role && !(await enforceMenuMatrix(role))) {
-    return redirectTo(request, '/unauthorized', response)
-  }
-  if (role && !(await enforceModuleFlags(role))) {
-    return redirectTo(request, '/unauthorized', response)
+  if (role) {
+    const access = await enforceAccess(role)
+    if (access === 'license') {
+      return redirectTo(request, '/license-expired', response)
+    }
+    if (access === 'denied') {
+      return redirectTo(request, '/unauthorized', response)
+    }
   }
 
   return response

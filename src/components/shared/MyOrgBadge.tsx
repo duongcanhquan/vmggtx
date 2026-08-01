@@ -21,9 +21,12 @@ export function MyOrgBadge() {
     async function load() {
       try {
         const supabase = createClient()
+        // getSession đọc từ bộ nhớ/cookie cục bộ (0ms) thay vì
+        // round-trip mạng tới Supabase Auth như getUser
         const {
-          data: { user },
-        } = await supabase.auth.getUser()
+          data: { session },
+        } = await supabase.auth.getSession()
+        const user = session?.user
         if (!user) return
 
         const { data: profile } = await supabase
