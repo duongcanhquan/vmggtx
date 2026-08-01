@@ -426,7 +426,7 @@ export default function AttendanceSessionPage({ params }: PageProps) {
                 <MessageSquareText className="h-4 w-4" aria-hidden="true" />
                 Dặn dò phụ huynh
               </label>
-              <p className="mt-0.5 text-xs text-[#854d0e]/80">
+              <p className="mt-0.5 text-xs text-[#3c3ac0]/80">
                 Hiển thị trong Sổ Liên Lạc điện tử của phụ huynh cả lớp.
               </p>
               <textarea

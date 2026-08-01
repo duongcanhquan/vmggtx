@@ -391,15 +391,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           nested ? 'min-h-10 px-3 py-2' : 'min-h-11 px-3.5 py-2.5'
         } ${
           isActive
-            ? 'border border-[#c9a227]/30 bg-[#c9a227]/10 text-[#e5c369] shadow-sm'
+            ? 'border border-[#7e8ef0]/40 bg-gradient-to-r from-[#5d68e8]/30 to-[#925df2]/20 text-white shadow-[0_4px_18px_-6px_rgba(93,104,232,0.55)]'
             : isPending
-              ? 'bg-white/10 text-stone-100'
-              : 'text-stone-400 hover:bg-white/5 hover:text-stone-100'
+              ? 'bg-white/10 text-white'
+              : 'text-[#9aa5d8] hover:bg-white/[0.06] hover:text-white'
         }`}
       >
         {isPending ? (
           <Loader2
-            className={`shrink-0 animate-spin text-[#e5c369] ${nested ? 'h-4 w-4' : 'h-5 w-5'}`}
+            className={`shrink-0 animate-spin text-[#a5b5f7] ${nested ? 'h-4 w-4' : 'h-5 w-5'}`}
             aria-hidden="true"
           />
         ) : (
@@ -413,11 +413,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <div className="flex h-16 items-center gap-2.5 px-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#c9a227]/40 bg-gradient-to-br from-[#292524] to-[#0c0a09] text-[#e5c369]">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#5d68e8] to-[#833ce6] text-white shadow-[0_6px_18px_-4px_rgba(93,104,232,0.65)]">
           <GraduationCap className="h-5 w-5" aria-hidden="true" />
         </span>
-        <span className="font-heading text-lg font-bold tracking-tight text-stone-100">
-          EDU <span className="text-gold-gradient">SYSTEM</span>
+        <span className="font-heading text-lg font-bold tracking-tight text-white">
+          EDU{' '}
+          <span className="bg-gradient-to-r from-[#a5b5f7] via-[#c9b5fc] to-[#ecc75a] bg-clip-text text-transparent">
+            SYSTEM
+          </span>
         </span>
       </div>
       <div className="gold-hairline mx-5" aria-hidden="true" />
@@ -436,14 +439,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 aria-expanded={isOpen}
                 className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   containsActive && !isOpen
-                    ? 'text-[#e5c369]'
-                    : 'text-stone-300 hover:bg-white/5 hover:text-stone-100'
+                    ? 'text-[#c9b5fc]'
+                    : 'text-[#b8c1e8] hover:bg-white/[0.06] hover:text-white'
                 }`}
               >
                 <GroupIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
                 <span className="flex-1 text-left">{entry.label}</span>
                 <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-stone-500 transition-transform duration-200 ${
+                  className={`h-4 w-4 shrink-0 text-[#7a83b8] transition-transform duration-200 ${
                     isOpen ? 'rotate-180' : ''
                   }`}
                   aria-hidden="true"
@@ -462,9 +465,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-/** Nền sidebar tối sang trọng dùng chung desktop + drawer */
+/** Nền sidebar "đêm chàm" — gradient indigo sâu + vệt aurora tím dùng chung desktop + drawer */
 const SIDEBAR_BG =
-  'bg-[linear-gradient(170deg,#221f1c_0%,#1c1917_55%,#141110_100%)]'
+  'bg-[radial-gradient(120%_80%_at_100%_0%,rgba(146,93,242,0.22),transparent_55%),linear-gradient(170deg,#232457_0%,#1c1b4b_55%,#12122e_100%)]'
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -505,7 +508,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Vùng phải: header + nội dung */}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-border bg-surface/90 px-4 backdrop-blur sm:px-6">
+        <header className="glass-strong sticky top-0 z-20 flex h-16 items-center justify-between gap-3 rounded-none border-x-0 border-t-0 px-4 sm:px-6">
           <button
             type="button"
             aria-label="Mở menu"

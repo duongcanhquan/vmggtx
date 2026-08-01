@@ -382,10 +382,10 @@ export default function OverviewPage() {
         return (
           <div className="bento-card-dark h-full p-6">
             <div className="flex items-start justify-between">
-              <span className="bento-icon border border-[#c9a227]/30 bg-white/5 text-[#e5c369]">
+              <span className="bento-icon border border-[#5d68e8]/30 bg-white/5 text-[#a5b5f7]">
                 <Users className="h-5 w-5" aria-hidden="true" />
               </span>
-              <span className="rounded-full border border-[#c9a227]/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#e5c369]">
+              <span className="rounded-full border border-[#5d68e8]/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#a5b5f7]">
                 Toàn hệ thống
               </span>
             </div>
@@ -399,14 +399,14 @@ export default function OverviewPage() {
       case 'kpi_revenue':
         return (
           <div className="bento-card-gold h-full p-6">
-            <span className="bento-icon bg-[#a16207]/10 text-[#854d0e]">
+            <span className="bento-icon bg-[#3c3ac0]/10 text-[#3c3ac0]">
               <Wallet className="h-5 w-5" aria-hidden="true" />
             </span>
             <p className="mt-5 truncate font-heading text-2xl font-bold tabular-nums tracking-tight text-[#573412]">
               {formatVnd(stats.projectedRevenue)}
             </p>
             <p className="mt-0.5 text-sm font-medium text-[#6b3f10]">Doanh thu dự kiến</p>
-            <p className="mt-1 text-xs text-[#854d0e]/70">Ước tính 1,5 triệu ₫/học viên</p>
+            <p className="mt-1 text-xs text-[#3c3ac0]/70">Ước tính 1,5 triệu ₫/học viên</p>
           </div>
         )
       case 'kpi_classes':
@@ -634,7 +634,7 @@ export default function OverviewPage() {
         return (
           <div className="bento-card h-full p-5 sm:p-6">
             <div className="mb-4 flex items-center gap-3">
-              <span className="bento-icon bg-[#c9a227]/10 text-[#a16207]">
+              <span className="bento-icon bg-[#5d68e8]/10 text-[#3c3ac0]">
                 <Building2 className="h-5 w-5" aria-hidden="true" />
               </span>
               <h2 className="font-heading text-lg font-bold">Xếp hạng chi nhánh</h2>
@@ -653,7 +653,7 @@ export default function OverviewPage() {
                           <span
                             className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
                               index === 0
-                                ? 'bg-[#c9a227]/15 text-[#a16207] ring-1 ring-[#c9a227]/40'
+                                ? 'bg-[#5d68e8]/15 text-[#3c3ac0] ring-1 ring-[#5d68e8]/40'
                                 : 'bg-stone-100 text-stone-500'
                             }`}
                           >
@@ -672,7 +672,7 @@ export default function OverviewPage() {
                         role="presentation"
                       >
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#44403c] to-[#c9a227]"
+                          className="h-full rounded-full bg-gradient-to-r from-[#33319b] to-[#5d68e8]"
                           style={{ width: `${Math.max(share, 4)}%` }}
                         />
                       </div>
@@ -755,7 +755,7 @@ export default function OverviewPage() {
                 <button
                   type="button"
                   onClick={() => setEditMode(true)}
-                  className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-[#c9a227]/40 bg-[#c9a227]/5 px-3.5 text-sm font-semibold text-[#854d0e] hover:bg-[#c9a227]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-[#5d68e8]/40 bg-[#5d68e8]/5 px-3.5 text-sm font-semibold text-[#3c3ac0] hover:bg-[#5d68e8]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
                   Tùy biến
@@ -767,7 +767,7 @@ export default function OverviewPage() {
       </div>
 
       {editMode && (
-        <div className="space-y-3 rounded-2xl border border-[#c9a227]/30 bg-[#c9a227]/5 px-4 py-3 text-sm text-[#6b3f10]">
+        <div className="space-y-3 rounded-2xl border border-[#5d68e8]/30 bg-[#5d68e8]/5 px-4 py-3 text-sm text-[#6b3f10]">
           <p>
             Chế độ tùy biến: <strong>kéo thả</strong> để đổi vị trí, bấm{' '}
             <strong>biểu tượng mắt</strong> để ẩn/hiện widget, rồi bấm Lưu bố cục.
@@ -775,13 +775,13 @@ export default function OverviewPage() {
           </p>
           {/* QTV: áp bố cục hiện tại làm mặc định cho toàn bộ nhân sự 1 role */}
           {canPushTemplate && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-[#c9a227]/20 pt-3">
+            <div className="flex flex-wrap items-center gap-2 border-t border-[#5d68e8]/20 pt-3">
               <span className="font-semibold">Áp cho nhân sự:</span>
               <select
                 value={pushRole}
                 onChange={(e) => setPushRole(e.target.value as MainTemplateRoleTarget)}
                 aria-label="Role đích"
-                className="min-h-9 cursor-pointer rounded-lg border border-[#c9a227]/40 bg-surface px-2.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-h-9 cursor-pointer rounded-lg border border-[#5d68e8]/40 bg-surface px-2.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {Object.entries(PUSH_ROLE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -794,7 +794,7 @@ export default function OverviewPage() {
                   type="checkbox"
                   checked={pushForced}
                   onChange={(e) => setPushForced(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer accent-[#a16207]"
+                  className="h-4 w-4 cursor-pointer accent-[#3c3ac0]"
                 />
                 Khóa tùy biến (bắt buộc dùng)
               </label>
@@ -802,7 +802,7 @@ export default function OverviewPage() {
                 type="button"
                 onClick={handlePushTemplate}
                 disabled={pushing}
-                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-[#a16207] px-3 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-[#3c3ac0] px-3 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {pushing ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

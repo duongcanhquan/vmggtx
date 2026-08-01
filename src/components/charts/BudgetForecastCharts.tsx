@@ -37,7 +37,7 @@ export function SubjectCostChart({ data }: { data: SubjectChartRow[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 8, right: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e7e2da" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis
           dataKey="subject"
           tick={{ fontSize: 11 }}
@@ -64,7 +64,7 @@ export function TeacherCostChart({ data }: { data: TeacherChartRow[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 8, right: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e7e2da" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis
           dataKey="name"
           tick={{ fontSize: 11 }}
@@ -77,7 +77,7 @@ export function TeacherCostChart({ data }: { data: TeacherChartRow[] }) {
         <Tooltip formatter={(value) => fullVnd(Number(value ?? 0))} />
         <Legend />
         <Bar dataKey="Lương cứng" stackId="pay" fill="#3a7157" radius={[0, 0, 0, 0]} />
-        <Bar dataKey="Tiền tiết dạy" stackId="pay" fill="#c9a227" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Tiền tiết dạy" stackId="pay" fill="#5d68e8" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

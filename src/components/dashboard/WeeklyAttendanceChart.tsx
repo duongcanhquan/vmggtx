@@ -39,16 +39,16 @@ export function WeeklyAttendanceChart({ data }: { data: AttendanceWeekPoint[] })
       <div className="h-64 w-full sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e7e2da" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 12, fill: '#78716c' }}
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickLine={false}
-              axisLine={{ stroke: '#e7e2da' }}
+              axisLine={{ stroke: '#e2e8f0' }}
               interval={0}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: '#78716c' }}
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
@@ -58,8 +58,8 @@ export function WeeklyAttendanceChart({ data }: { data: AttendanceWeekPoint[] })
               cursor={{ fill: '#f3f1ed' }}
               contentStyle={{
                 borderRadius: 14,
-                border: '1px solid #e5c369',
-                background: '#fffdfa',
+                border: '1px solid #a5b5f7',
+                background: 'rgba(255,255,255,0.92)',
                 boxShadow: '0 16px 40px -12px rgba(28,25,23,0.25)',
                 fontSize: 13,
               }}

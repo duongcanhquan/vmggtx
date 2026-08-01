@@ -23,7 +23,7 @@ import {
 
 const PIE_COLORS: Record<string, string> = {
   present: '#3a7157',
-  excused: '#c9a227',
+  excused: '#5d68e8',
   absent: '#9f3b3b',
 }
 
@@ -31,8 +31,8 @@ export function SubjectRadarChart({ data }: { data: { subject: string; score: nu
   return (
     <ResponsiveContainer width="100%" height="100%">
       <RadarChart data={data} outerRadius="75%">
-        <PolarGrid stroke="#e7e2da" />
-        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#57534e' }} />
+        <PolarGrid stroke="#e2e8f0" />
+        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#475569' }} />
         <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
         <Radar name="Điểm TB" dataKey="score" stroke="#8d6532" fill="#8d6532" fillOpacity={0.35} />
         <Tooltip />
@@ -78,7 +78,7 @@ export function DebtBarChart({
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e7e2da" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
         <YAxis
           tick={{ fontSize: 11 }}

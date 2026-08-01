@@ -1,130 +1,131 @@
 import type { Config } from 'tailwindcss'
 
 // ============================================================
-// LUXURY REMAP — "Noir & Gold"
-// Toàn bộ code cũ dùng indigo/violet/slate/amber... được remap
-// về tông sang trọng: than chì ấm + vàng đồng + xám đá ấm.
-// Nhờ đó KHÔNG cần sửa từng file, đổi 1 chỗ là cả app đổi theo.
+// LUXURY REMAP — "AURORA GLASS"
+// Tông ngọc hiện đại: chàm hoàng gia (royal indigo) + tím thạch anh
+// + vàng champagne, nền băng lam, bề mặt KÍNH MỜ (glassmorphism).
+// Toàn bộ code cũ dùng indigo/violet/slate/amber... được remap về
+// palette đã tinh chỉnh — đổi 1 chỗ là cả app đổi theo.
 // ============================================================
 
-/** Than chì ấm — thay cho indigo (màu brand cũ) */
-const charcoal = {
-  50: '#f7f6f4',
-  100: '#efedea',
-  200: '#dfdbd4',
-  300: '#c6c0b6',
-  400: '#a89f92',
-  500: '#78716c',
-  600: '#57534e',
-  700: '#44403c',
-  800: '#292524',
-  900: '#1c1917',
-  950: '#0c0a09',
+/** Chàm hoàng gia — màu brand chính (remap indigo) */
+const royal = {
+  50: '#f0f3ff',
+  100: '#e2e8fd',
+  200: '#c9d4fb',
+  300: '#a5b5f7',
+  400: '#7e8ef0',
+  500: '#5d68e8',
+  600: '#4749da',
+  700: '#3c3ac0',
+  800: '#33319b',
+  900: '#2e2e7b',
+  950: '#1c1b4b',
 }
 
-/** Vàng đồng quý — thay cho amber/yellow */
+/** Tím thạch anh — màu phụ (remap violet/purple) */
+const amethyst = {
+  50: '#f7f3ff',
+  100: '#efe9fe',
+  200: '#e1d6fe',
+  300: '#c9b5fc',
+  400: '#ad8bf8',
+  500: '#925df2',
+  600: '#833ce6',
+  700: '#722bc7',
+  800: '#6024a3',
+  900: '#4f2085',
+  950: '#32115c',
+}
+
+/** Vàng champagne — điểm nhấn quý (remap amber/yellow/gold) */
 const gold = {
-  50: '#fdf9ee',
-  100: '#f8efd7',
-  200: '#f1dfae',
-  300: '#e5c369',
-  400: '#d4af37',
-  500: '#c9a227',
-  600: '#a16207',
-  700: '#854d0e',
-  800: '#6b3f10',
-  900: '#573412',
-  950: '#3d2308',
+  50: '#fdf9ec',
+  100: '#f9efcb',
+  200: '#f3dd92',
+  300: '#ecc75a',
+  400: '#e5b136',
+  500: '#d4941f',
+  600: '#bc7118',
+  700: '#965117',
+  800: '#7b4019',
+  900: '#693619',
+  950: '#3c1b0a',
 }
 
-/** Đồng cổ — thay cho violet/purple/fuchsia (màu phụ cũ) */
-const bronze = {
-  50: '#faf6ef',
-  100: '#f2ead9',
-  200: '#e4d3b1',
-  300: '#d3b783',
-  400: '#c19c5c',
-  500: '#a97f3e',
-  600: '#8d6532',
-  700: '#714e2b',
-  800: '#5d4128',
-  900: '#4e3724',
-  950: '#2c1d11',
+/** Mây lam — xám hiện đại pha lam nhẹ (remap slate/gray/stone) */
+const cloud = {
+  50: '#f8fafc',
+  100: '#f1f4f9',
+  200: '#e2e8f0',
+  300: '#cbd6e4',
+  400: '#94a3bb',
+  500: '#64748b',
+  600: '#475569',
+  700: '#334155',
+  800: '#1e293b',
+  900: '#0f172a',
+  950: '#080d1a',
 }
 
-/** Xám đá ấm — thay cho slate/gray lạnh */
-const stone = {
-  50: '#faf9f7',
-  100: '#f3f1ed',
-  200: '#e7e2da',
-  300: '#d5cec3',
-  400: '#aaa093',
-  500: '#78716c',
-  600: '#57534e',
-  700: '#44403c',
-  800: '#292524',
-  900: '#1c1917',
-  950: '#0c0a09',
+/** Hồng ngọc thanh lịch — cảnh báo/lỗi (remap red/rose/pink) */
+const rosewood = {
+  50: '#fdf2f4',
+  100: '#fce7ea',
+  200: '#f9d0d9',
+  300: '#f4a8b8',
+  400: '#ec7591',
+  500: '#df446d',
+  600: '#ca2456',
+  700: '#aa1848',
+  800: '#8e1741',
+  900: '#7a173d',
+  950: '#44071e',
 }
 
-/** Đỏ thẫm quý phái — thay cho red/rose tươi chói */
-const crimson = {
-  50: '#fbf3f1',
-  100: '#f6e3df',
-  200: '#ecc8c1',
-  300: '#dda498',
-  400: '#c97a6b',
-  500: '#b25847',
-  600: '#9a3f30',
-  700: '#7f3428',
-  800: '#692c24',
-  900: '#572621',
-  950: '#2f120e',
+/** Cam mơ ấm — nhắc nhở (remap orange) */
+const apricot = {
+  50: '#fff7ed',
+  100: '#ffedd4',
+  200: '#fed8a8',
+  300: '#fdbb71',
+  400: '#fb9438',
+  500: '#f97512',
+  600: '#ea5a08',
+  700: '#c24309',
+  800: '#9a3510',
+  900: '#7c2e10',
+  950: '#431506',
 }
 
-/** Đồng đỏ ấm — thay cho orange chói */
-const copper = {
-  50: '#fcf6ef',
-  100: '#f7e8d8',
-  200: '#edd0af',
-  300: '#e0b17e',
-  400: '#d18f50',
-  500: '#c07430',
-  600: '#a85c22',
-  700: '#8b491e',
-  800: '#713c1e',
-  900: '#5d321c',
-  950: '#33180c',
+/** Lam thiên thanh — thông tin (remap blue/sky/cyan) */
+const azure = {
+  50: '#eff7ff',
+  100: '#dbecfe',
+  200: '#bfdffe',
+  300: '#93cbfd',
+  400: '#60aefa',
+  500: '#3b8df6',
+  600: '#256feb',
+  700: '#1d59d8',
+  800: '#1e49af',
+  900: '#1e408a',
+  950: '#172954',
 }
 
-/** Xanh thép trầm — thay cho blue/sky chói */
-const steel = {
-  50: '#f4f6f7',
-  100: '#e6eaee',
-  200: '#cfd8de',
-  300: '#a9bac6',
-  400: '#7d95a7',
-  500: '#5f7a8e',
-  600: '#4c6275',
-  700: '#3f505f',
-  800: '#374551',
-  900: '#303c45',
-  950: '#20282e',
-}
-
-/** Ngọc bích trầm — thay cho emerald/green tươi */
-const jade = {
-  50: '#f2f7f4',
-  100: '#e0ede5',
-  200: '#c2dbcc',
-  300: '#9ac2ab',
-  400: '#6da487',
-  500: '#4c8a6b',
-  600: '#3a7157',
-  700: '#305a47',
-  800: '#29483a',
-  900: '#223c31',
-  950: '#11211b',
+/** Ngọc lục bảo hiện đại — thành công (remap emerald/green/teal) */
+const emerald = {
+  50: '#ecfdf6',
+  100: '#d1fae8',
+  200: '#a7f3d5',
+  300: '#6ee7bc',
+  400: '#34d39e',
+  500: '#10b981',
+  600: '#059666',
+  700: '#047852',
+  800: '#065f43',
+  900: '#064e38',
+  950: '#022c1f',
 }
 
 const config: Config = {
@@ -132,7 +133,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        heading: ['var(--font-heading)', 'Georgia', 'serif'],
+        heading: ['var(--font-heading)', 'system-ui', 'sans-serif'],
         body: ['var(--font-body)', 'system-ui', 'sans-serif'],
       },
       colors: {
@@ -151,39 +152,50 @@ const config: Config = {
         destructive: 'var(--color-destructive)',
         ring: 'var(--color-ring)',
 
-        // Remap palette cũ -> tông sang trọng
-        indigo: charcoal,
-        violet: bronze,
-        purple: bronze,
-        fuchsia: gold,
+        // Remap palette cũ -> tông Aurora Glass
+        indigo: royal,
+        violet: amethyst,
+        purple: amethyst,
+        fuchsia: amethyst,
         amber: gold,
         yellow: gold,
-        slate: stone,
-        gray: stone,
-        zinc: stone,
-        neutral: stone,
-        stone,
-        blue: steel,
-        sky: steel,
-        cyan: steel,
-        teal: jade,
-        emerald: jade,
-        green: jade,
-        lime: jade,
-        red: crimson,
-        rose: crimson,
-        pink: crimson,
-        orange: copper,
+        slate: cloud,
+        gray: cloud,
+        zinc: cloud,
+        neutral: cloud,
+        stone: cloud,
+        blue: azure,
+        sky: azure,
+        cyan: azure,
+        teal: emerald,
+        emerald,
+        green: emerald,
+        lime: emerald,
+        red: rosewood,
+        rose: rosewood,
+        pink: rosewood,
+        orange: apricot,
+
+        // Tên riêng (code cũ có tham chiếu)
         gold,
-        crimson,
-        copper,
-        bronze,
-        charcoal,
-        steel,
-        jade,
+        crimson: rosewood,
+        copper: apricot,
+        bronze: gold,
+        charcoal: cloud,
+        steel: azure,
+        jade: emerald,
+        royal,
+        amethyst,
+        cloud,
       },
       borderRadius: {
         '4xl': '2rem',
+      },
+      boxShadow: {
+        // Bóng kính: mềm, pha sắc chàm - dùng cho card nổi
+        glass: '0 1px 2px rgba(28, 27, 75, 0.04), 0 10px 30px -12px rgba(28, 27, 75, 0.12)',
+        'glass-lg': '0 2px 6px rgba(28, 27, 75, 0.06), 0 24px 60px -18px rgba(28, 27, 75, 0.22)',
+        glow: '0 0 0 1px rgba(93, 104, 232, 0.18), 0 8px 32px -8px rgba(93, 104, 232, 0.35)',
       },
     },
   },

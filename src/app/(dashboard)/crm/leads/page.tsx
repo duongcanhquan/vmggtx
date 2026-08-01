@@ -606,7 +606,7 @@ export default function CrmLeadsPage() {
             aria-pressed={showReport}
             className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               showReport
-                ? 'border-[#c9a227]/40 bg-[#c9a227]/10 text-[#854d0e]'
+                ? 'border-[#5d68e8]/40 bg-[#5d68e8]/10 text-[#3c3ac0]'
                 : 'border-border bg-surface text-foreground hover:bg-stone-50'
             }`}
           >
@@ -673,7 +673,7 @@ export default function CrmLeadsPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Tổng quan pipeline */}
           <div className="bento-card-dark p-5">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-[#e5c369]">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-[#a5b5f7]">
               Tổng quan pipeline
             </p>
             <p className="mt-3 font-heading text-4xl font-bold tabular-nums">
@@ -683,7 +683,7 @@ export default function CrmLeadsPage() {
             <div className="mt-4 space-y-2 text-sm">
               <p className="flex justify-between">
                 <span className="text-stone-400">Đã nhập học</span>
-                <span className="font-bold text-[#e5c369] tabular-nums">{totalEnrolled}</span>
+                <span className="font-bold text-[#a5b5f7] tabular-nums">{totalEnrolled}</span>
               </p>
               <p className="flex justify-between">
                 <span className="text-stone-400">Mất lead</span>
@@ -691,7 +691,7 @@ export default function CrmLeadsPage() {
               </p>
               <p className="flex justify-between">
                 <span className="text-stone-400">Tỷ lệ chốt toàn cơ sở</span>
-                <span className="font-bold text-[#e5c369] tabular-nums">{overallRate}%</span>
+                <span className="font-bold text-[#a5b5f7] tabular-nums">{overallRate}%</span>
               </p>
             </div>
           </div>

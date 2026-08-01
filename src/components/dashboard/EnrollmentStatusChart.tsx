@@ -13,7 +13,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   completed: { label: 'Hoàn thành', color: '#4f46e5' },
 }
 
-const FALLBACK_COLORS = ['#78716c', '#0ea5e9', '#a855f7']
+const FALLBACK_COLORS = ['#64748b', '#0ea5e9', '#a855f7']
 
 export function EnrollmentStatusChart({ data }: { data: Record<string, number> }) {
   let fallbackIndex = 0
@@ -52,8 +52,8 @@ export function EnrollmentStatusChart({ data }: { data: Record<string, number> }
               ]}
               contentStyle={{
                 borderRadius: 14,
-                border: '1px solid #e5c369',
-                background: '#fffdfa',
+                border: '1px solid #a5b5f7',
+                background: 'rgba(255,255,255,0.92)',
                 boxShadow: '0 16px 40px -12px rgba(28,25,23,0.25)',
                 fontSize: 13,
               }}

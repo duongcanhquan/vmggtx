@@ -104,7 +104,7 @@ export const AuthField = forwardRef<
  */
 function EmblemLogo() {
   return (
-    <span className="mx-auto block h-[84px] w-[84px] drop-shadow-[0_4px_14px_rgba(212,175,55,0.35)]">
+    <span className="mx-auto block h-[84px] w-[84px] drop-shadow-[0_4px_14px_rgba(93,104,232,0.35)]">
       <svg viewBox="0 0 96 96" role="img" aria-label="EDU SYSTEM">
         <defs>
           <linearGradient id="au-gold" x1="0" y1="0" x2="1" y2="1">

@@ -220,7 +220,7 @@ export default async function AdminPortalPage() {
     return (
       <div className="space-y-6">
         <div className="bento-card-dark p-5 sm:p-6">
-          <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#e5c369]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#a5b5f7]">
             Admin Portal
           </p>
           <h1 className="mt-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
@@ -268,7 +268,7 @@ export default async function AdminPortalPage() {
   return (
     <div className="space-y-6">
       <div className="bento-card-dark p-5 sm:p-6">
-        <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#e5c369]">
+        <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#a5b5f7]">
           Super Admin
         </p>
         <h1 className="mt-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">

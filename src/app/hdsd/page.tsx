@@ -198,15 +198,15 @@ export default function HdsdPage() {
       {/* ===== Hero ===== */}
       <header className="bento-card-dark rounded-none px-4 py-12 sm:py-16">
         <div className="mx-auto max-w-7xl text-center">
-          <span className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#c9a227]/40 bg-gradient-to-br from-[#292524] to-[#0c0a09] text-[#e5c369]">
+          <span className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#5d68e8]/40 bg-gradient-to-br from-[#232457] to-[#12122e] text-[#a5b5f7]">
             <GraduationCap className="h-7 w-7" aria-hidden="true" />
           </span>
           <h1 className="font-heading text-3xl font-bold tracking-tight text-stone-100 sm:text-4xl">
             EDU <span className="text-gold-gradient">SYSTEM</span>
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base text-stone-300 sm:text-lg">
-            Hệ thống quản lý giáo dục <strong className="text-[#e5c369]">đa cơ sở</strong> tích hợp{' '}
-            <strong className="text-[#e5c369]">AI</strong> — gói trọn tuyển sinh, học vụ, điểm danh,
+            Hệ thống quản lý giáo dục <strong className="text-[#a5b5f7]">đa cơ sở</strong> tích hợp{' '}
+            <strong className="text-[#a5b5f7]">AI</strong> — gói trọn tuyển sinh, học vụ, điểm danh,
             học phí, lương, học online và sổ liên lạc điện tử trong MỘT nền tảng duy nhất.
           </p>
           <p className="mt-3 text-sm text-stone-400">
@@ -229,7 +229,7 @@ export default function HdsdPage() {
               const Icon = item.icon
               return (
                 <div key={item.title} className="bento-card p-5">
-                  <span className="bento-icon bg-[#c9a227]/10 text-[#a16207]">
+                  <span className="bento-icon bg-[#5d68e8]/10 text-[#3c3ac0]">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <h3 className="mt-3 font-heading text-base font-bold">{item.title}</h3>
@@ -254,12 +254,12 @@ export default function HdsdPage() {
               return (
                 <div key={group.name} className="bento-card p-5">
                   <div className="flex items-start gap-3">
-                    <span className="bento-icon bg-[#c9a227]/10 text-[#a16207]">
+                    <span className="bento-icon bg-[#5d68e8]/10 text-[#3c3ac0]">
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
                       <h3 className="font-heading text-base font-bold">{group.name}</h3>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[#a16207]">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#3c3ac0]">
                         {group.tagline}
                       </p>
                     </div>
@@ -267,7 +267,7 @@ export default function HdsdPage() {
                   <ul className="mt-3 space-y-1.5">
                     {group.features.map((feature) => (
                       <li key={feature} className="flex gap-2 text-sm text-foreground/90">
-                        <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden="true" />
+                        <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#5d68e8]" aria-hidden="true" />
                         {feature}
                       </li>
                     ))}
@@ -288,7 +288,7 @@ export default function HdsdPage() {
               <thead>
                 <tr className="border-b border-border bg-stone-50 text-left">
                   <th className="px-5 py-3 font-heading font-bold">Trước đây</th>
-                  <th className="px-5 py-3 font-heading font-bold text-[#a16207]">Với EDU SYSTEM</th>
+                  <th className="px-5 py-3 font-heading font-bold text-[#3c3ac0]">Với EDU SYSTEM</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -327,9 +327,9 @@ export default function HdsdPage() {
               <Link
                 key={portal.href}
                 href={portal.href}
-                className="bento-card block p-5 transition-colors hover:border-[#c9a227]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="bento-card block p-5 transition-colors hover:border-[#5d68e8]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <h3 className="font-heading text-base font-bold text-[#a16207]">{portal.label}</h3>
+                <h3 className="font-heading text-base font-bold text-[#3c3ac0]">{portal.label}</h3>
                 <p className="mt-1.5 text-sm text-muted-foreground">{portal.desc}</p>
                 <span className="mt-3 inline-block text-sm font-semibold text-primary">
                   Đăng nhập ngay →
@@ -339,15 +339,15 @@ export default function HdsdPage() {
           </div>
           <ul className="mt-5 space-y-1.5 text-sm text-muted-foreground">
             <li className="flex gap-2">
-              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden="true" />
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#5d68e8]" aria-hidden="true" />
               Tài khoản do nhà trường/trung tâm cấp — quên mật khẩu liên hệ Quản lý cơ sở để cấp lại.
             </li>
             <li className="flex gap-2">
-              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden="true" />
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#5d68e8]" aria-hidden="true" />
               Hệ thống chạy tốt trên máy tính, iPad và điện thoại — không cần cài đặt phần mềm.
             </li>
             <li className="flex gap-2">
-              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden="true" />
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#5d68e8]" aria-hidden="true" />
               Đăng nhập xong, hệ thống tự đưa bạn về đúng không gian làm việc theo vai trò.
             </li>
           </ul>

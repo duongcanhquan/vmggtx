@@ -3,7 +3,8 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-01 - quyền kiêm nhiệm theo user (049) + /teachers + sửa hồ sơ HS 360
+**Cập nhật lần cuối**: 2026-08-01 - redesign "AURORA GLASS": kính mờ toàn cục + nền aurora động
+  + font Space Grotesk/Be Vietnam Pro + palette royal indigo/amethyst/gold (remap trong tailwind.config)
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.

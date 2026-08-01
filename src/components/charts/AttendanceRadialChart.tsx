@@ -24,7 +24,7 @@ export default function AttendanceRadialChart({
           dataKey="value"
           cornerRadius={10}
           fill={presentRate >= 80 ? '#3a7157' : '#9f3b3b'}
-          background={{ fill: '#e7e2da' }}
+          background={{ fill: '#e2e8f0' }}
         />
       </RadialBarChart>
     </ResponsiveContainer>

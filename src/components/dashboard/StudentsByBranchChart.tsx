@@ -25,19 +25,19 @@ export function StudentsByBranchChart({ data }: { data: ChildOrgStat[] }) {
       <div className="h-72 w-full sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e7e2da" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12, fill: '#78716c' }}
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickLine={false}
-              axisLine={{ stroke: '#e7e2da' }}
+              axisLine={{ stroke: '#e2e8f0' }}
               interval={0}
               height={50}
               angle={data.length > 4 ? -20 : 0}
               textAnchor={data.length > 4 ? 'end' : 'middle'}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: '#78716c' }}
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
@@ -46,9 +46,9 @@ export function StudentsByBranchChart({ data }: { data: ChildOrgStat[] }) {
             <defs>
               {/* Cột gradient than chì -> ánh gold ở chân, tông luxury */}
               <linearGradient id="branchBarGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#292524" />
-                <stop offset="72%" stopColor="#44403c" />
-                <stop offset="100%" stopColor="#a16207" />
+                <stop offset="0%" stopColor="#232457" />
+                <stop offset="72%" stopColor="#33319b" />
+                <stop offset="100%" stopColor="#3c3ac0" />
               </linearGradient>
             </defs>
             <Tooltip
@@ -59,8 +59,8 @@ export function StudentsByBranchChart({ data }: { data: ChildOrgStat[] }) {
               ]}
               contentStyle={{
                 borderRadius: 14,
-                border: '1px solid #e5c369',
-                background: '#fffdfa',
+                border: '1px solid #a5b5f7',
+                background: 'rgba(255,255,255,0.92)',
                 boxShadow: '0 16px 40px -12px rgba(28,25,23,0.25)',
                 fontSize: 13,
               }}

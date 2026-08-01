@@ -307,9 +307,9 @@ export default function SettingsPage() {
 
         {/* ===== [G5] Chính sách ghi đè của nhóm đang xem ===== */}
         {!loading && isUnitRoot && (
-          <div className="rounded-2xl border border-[#c9a227]/30 bg-[#c9a227]/5 p-4">
+          <div className="rounded-2xl border border-[#5d68e8]/30 bg-[#5d68e8]/5 p-4">
             <p className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <ShieldCheck className="h-4 w-4 text-[#a16207]" aria-hidden="true" />
+              <ShieldCheck className="h-4 w-4 text-[#3c3ac0]" aria-hidden="true" />
               Quyền của các Cơ sở bên dưới với mục này
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
@@ -324,8 +324,8 @@ export default function SettingsPage() {
                     title={option.hint}
                     className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${
                       selected
-                        ? 'border-[#a16207] bg-[#a16207] text-white'
-                        : 'border-border bg-surface text-muted-foreground hover:border-[#c9a227]/60 hover:text-foreground'
+                        ? 'border-[#3c3ac0] bg-[#3c3ac0] text-white'
+                        : 'border-border bg-surface text-muted-foreground hover:border-[#5d68e8]/60 hover:text-foreground'
                     }`}
                   >
                     {option.value === 'locked' && (
@@ -461,7 +461,7 @@ export default function SettingsPage() {
                         key={format.id}
                         className={`flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4 transition-colors duration-150 ${
                           isChecked
-                            ? 'border-[#c9a227]/50 bg-[#c9a227]/5 ring-1 ring-[#c9a227]/30'
+                            ? 'border-[#5d68e8]/50 bg-[#5d68e8]/5 ring-1 ring-[#5d68e8]/30'
                             : 'border-border bg-background hover:border-primary/40'
                         }`}
                       >
@@ -471,7 +471,7 @@ export default function SettingsPage() {
                             name="student-code-format"
                             checked={isChecked}
                             onChange={() => patch('student_code_format', format.id)}
-                            className="h-4 w-4 cursor-pointer accent-[#a16207]"
+                            className="h-4 w-4 cursor-pointer accent-[#3c3ac0]"
                           />
                           <span>
                             <span className="block text-sm font-semibold text-foreground">

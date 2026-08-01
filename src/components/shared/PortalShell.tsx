@@ -92,7 +92,7 @@ function NavLinks({
                     collapsed ? 'justify-center' : ''
                   } ${
                     isActive
-                      ? 'border border-[#c9a227]/30 bg-[#c9a227]/10 text-[#e5c369] shadow-sm'
+                      ? 'border border-[#5d68e8]/30 bg-[#5d68e8]/10 text-[#a5b5f7] shadow-sm'
                       : isPending
                         ? 'bg-white/10 text-stone-100'
                         : 'text-stone-400 hover:bg-white/5 hover:text-stone-100'
@@ -100,7 +100,7 @@ function NavLinks({
                 >
                   {isPending ? (
                     <Loader2
-                      className="h-5 w-5 shrink-0 animate-spin text-[#e5c369]"
+                      className="h-5 w-5 shrink-0 animate-spin text-[#a5b5f7]"
                       aria-hidden="true"
                     />
                   ) : (
@@ -124,7 +124,7 @@ function Brand({ portalName, collapsed }: { portalName: string; collapsed: boole
         collapsed ? 'justify-center px-2' : ''
       }`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#c9a227]/40 bg-gradient-to-br from-[#292524] to-[#0c0a09] text-[#e5c369]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#5d68e8]/40 bg-gradient-to-br from-[#232457] to-[#12122e] text-[#a5b5f7]">
         <GraduationCap className="h-5 w-5" aria-hidden="true" />
       </span>
       {!collapsed && (
@@ -143,7 +143,7 @@ function Brand({ portalName, collapsed }: { portalName: string; collapsed: boole
 
 /** Nền sidebar tối sang trọng dùng chung desktop + drawer */
 const SIDEBAR_BG =
-  'bg-[linear-gradient(170deg,#221f1c_0%,#1c1917_55%,#141110_100%)]'
+  'bg-[radial-gradient(120%_80%_at_100%_0%,rgba(146,93,242,0.22),transparent_55%),linear-gradient(170deg,#232457_0%,#1c1b4b_55%,#12122e_100%)]'
 
 export function PortalShell({
   portalName,

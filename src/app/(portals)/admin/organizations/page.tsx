@@ -215,7 +215,7 @@ export default function AdminOrganizationsPage() {
             {ORG_TYPE_LABELS[node.type]}
           </span>
           {isMyRoot && (
-            <span className="shrink-0 rounded-full bg-[#c9a227]/15 px-2 py-0.5 text-[11px] font-semibold text-[#a16207]">
+            <span className="shrink-0 rounded-full bg-[#5d68e8]/15 px-2 py-0.5 text-[11px] font-semibold text-[#3c3ac0]">
               Đơn vị của bạn
             </span>
           )}

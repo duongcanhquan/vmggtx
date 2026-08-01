@@ -114,7 +114,7 @@ export default async function AdminRevenuePage() {
                   </div>
                   <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#44403c] to-[#c9a227]"
+                      className="h-full rounded-full bg-gradient-to-r from-[#33319b] to-[#5d68e8]"
                       style={{ width: `${Math.round((row.collected / maxMonth) * 100)}%` }}
                     />
                   </div>

@@ -65,7 +65,7 @@ export function NavProgress() {
       aria-hidden="true"
       className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[3px] overflow-hidden"
     >
-      <div className="nav-progress-bar h-full rounded-r-full bg-gradient-to-r from-indigo-500 via-indigo-400 to-[#e5c369] shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+      <div className="nav-progress-bar h-full rounded-r-full bg-gradient-to-r from-indigo-500 via-indigo-400 to-[#a5b5f7] shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
     </div>
   )
 }

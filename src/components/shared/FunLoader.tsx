@@ -73,7 +73,7 @@ export function FunLoader({ label, variant = 'block', className = '' }: FunLoade
         aria-live="polite"
         className={`inline-flex items-center gap-2 text-sm text-muted-foreground ${className}`}
       >
-        <Icon key={index} className="fun-loader-icon h-4 w-4 shrink-0 text-[#a16207]" aria-hidden="true" />
+        <Icon key={index} className="fun-loader-icon h-4 w-4 shrink-0 text-[#3c3ac0]" aria-hidden="true" />
         <span key={`t-${index}`} className="fun-loader-text">
           {message.text}
         </span>
@@ -88,8 +88,8 @@ export function FunLoader({ label, variant = 'block', className = '' }: FunLoade
       className={`flex flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface p-10 text-center shadow-sm ${className}`}
     >
       <span className="relative flex h-12 w-12 items-center justify-center">
-        <span className="absolute inset-0 animate-spin rounded-full border-2 border-stone-200 border-t-[#c9a227]" />
-        <Icon key={index} className="fun-loader-icon h-5 w-5 text-[#a16207]" aria-hidden="true" />
+        <span className="absolute inset-0 animate-spin rounded-full border-2 border-stone-200 border-t-[#5d68e8]" />
+        <Icon key={index} className="fun-loader-icon h-5 w-5 text-[#3c3ac0]" aria-hidden="true" />
       </span>
       <p key={`t-${index}`} className="fun-loader-text text-sm font-medium text-muted-foreground">
         {message.text}
