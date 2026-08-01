@@ -95,6 +95,9 @@ Thực thi: middleware (chặn URL) + menu (ẩn mục) + RLS (chặn dữ liệ
 | G4 | Con người thuộc Đơn vị (đếm theo cây) | ✅ XONG — nút "Chuyển Cơ sở" trong hồ sơ học viên 360° (chỉ trong cùng cây Đơn vị, chặn chuyển chéo Trường); nhân sự/GV chuyển org tại trang Tài khoản (có sẵn) |
 | G5 | Chính sách ghi đè 3 mức theo nhóm cài đặt (Học vụ / Giao tiếp / Tài chính / Mã học viên): `inherit` (kế thừa & ghi đè) / `locked` (khóa cứng) / `required` (bắt buộc tự cấu hình) | ✅ XONG — lưu `org_settings.config.override_policies` trên Đơn vị gốc; server chặn lưu nhóm locked; UI /settings hiện badge Kế thừa/Khóa/Bắt buộc + selector cho Admin Đơn vị |
 | G6 | Gói module gắn đúng cấp Đơn vị | ✅ Đúng sẵn |
+| G7 | Super Admin CHỈ thao tác cấp Đơn vị — Cơ sở/Trung tâm bên trong CHỈ XEM (Admin Đơn vị tự tổ chức) | ✅ XONG (2026-08-01) — chặn cả server (create/update/delete từ chối `branch` với super_admin) lẫn UI (badge "Admin Đơn vị quản lý · chỉ xem", ẩn nút thêm nhánh con) |
+| G8 | Trang Tổng quan Super Admin tại `/admin` | ✅ XONG — số Đơn vị, tổng HV/GV, bảng license: gói, hạn dùng (cảnh báo hết hạn/≤30 ngày), trạng thái, link Hồ sơ Đơn vị |
+| G9 | Gộp "Phân quyền Module" (`/admin/licenses`) vào "Module & Gói dịch vụ" (`/admin/modules`) — luồng CHỌN ĐƠN VỊ TRƯỚC rồi quản lý gói + ghép/gỡ/bật/tắt module | ✅ XONG — `/admin/licenses` redirect sang `/admin/modules`; wizard khởi tạo Đơn vị + sửa gói + tạm ngưng đều ở một trang |
 
 ---
 

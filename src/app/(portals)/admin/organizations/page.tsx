@@ -32,7 +32,9 @@ import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
 // QUẢN LÝ CƠ SỞ (Admin Portal) - cây tổ chức đa tầng.
-// Super Admin: toàn quyền. Campus Admin: thêm/sửa/xóa đơn vị
+// [RANH GIỚI] Super Admin: CHỈ quản lý cấp Đơn vị (Trường) —
+// tạo/sửa/xóa Đơn vị, xem các nhánh bên trong nhưng KHÔNG sửa được
+// (đó là việc của Admin Đơn vị). Campus Admin: thêm/sửa/xóa đơn vị
 // TRONG cây con của mình (không xóa được cơ sở gốc của chính mình).
 // ============================================================
 
@@ -152,7 +154,10 @@ export default function AdminOrganizationsPage() {
     const hasChildren = node.children.length > 0
     const isMyRoot = node.id === myOrgId
     const isDeleting = deletingId === node.id
-    const canTouch = canManage && inMyScope(node.id)
+    // [RANH GIỚI] Super Admin không thao tác trên Cơ sở/Trung tâm
+    // BÊN TRONG Đơn vị của khách — chỉ Admin Đơn vị được sửa nhánh dưới.
+    const superViewOnly = isSuperAdmin && node.type === 'branch'
+    const canTouch = canManage && inMyScope(node.id) && !superViewOnly
     return (
       <div key={node.id}>
         <div
@@ -177,6 +182,14 @@ export default function AdminOrganizationsPage() {
               title="Đơn vị cấp trên - bạn chỉ xem, không sửa được"
             >
               Cấp trên · chỉ xem
+            </span>
+          )}
+          {superViewOnly && (
+            <span
+              className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500"
+              title="Cơ sở/Trung tâm bên trong Đơn vị do Admin Đơn vị tự tổ chức — Super Admin chỉ xem"
+            >
+              Admin Đơn vị quản lý · chỉ xem
             </span>
           )}
           {node.type === 'campus' && counts?.slug && (
@@ -230,20 +243,23 @@ export default function AdminOrganizationsPage() {
               >
                 <UserCog className="h-4 w-4" aria-hidden="true" />
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCreateParentId(node.id)
-                  setCreateType('branch')
-                  setCreateName('')
-                  setCreateSlug('')
-                }}
-                title="Thêm đơn vị con"
-                aria-label={`Thêm đơn vị con cho ${node.name}`}
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-              </button>
+              {/* Thêm nhánh con: chỉ Admin Đơn vị — Super Admin không tổ chức bên trong */}
+              {!isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateParentId(node.id)
+                    setCreateType('branch')
+                    setCreateName('')
+                    setCreateSlug('')
+                  }}
+                  title="Thêm đơn vị con"
+                  aria-label={`Thêm đơn vị con cho ${node.name}`}
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -314,7 +330,7 @@ export default function AdminOrganizationsPage() {
       {canManage && !loading && (
         <p className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
           {isSuperAdmin
-            ? 'Mỗi Đơn vị (Trường) có cổng riêng /coso/ten-don-vi và gói module riêng. Bấm biểu tượng biểu đồ để xem Hồ sơ Đơn vị: nhân sự, học viên, module đang hoạt động.'
+            ? 'Bạn quản lý ở CẤP ĐƠN VỊ (Trường): tạo/sửa/xóa Đơn vị, gán Admin và gói module. Các Cơ sở/Trung tâm bên trong chỉ hiển thị để xem — Admin của Đơn vị đó tự tổ chức.'
             : 'Bên trong Đơn vị bạn được tạo tối đa 3 cấp: Đơn vị → Cơ sở → Trung tâm. Học viên, giảng viên đều thuộc Đơn vị — cơ sở chỉ là nơi học/làm việc.'}
         </p>
       )}
@@ -380,28 +396,13 @@ export default function AdminOrganizationsPage() {
               />
             </label>
 
-            {isSuperAdmin ? (
-              <label className="mt-3 block text-sm font-medium text-slate-700">
-                Loại đơn vị
-                <select
-                  name="type"
-                  required
-                  value={createType}
-                  onChange={(e) => {
-                    const next = e.target.value as 'campus' | 'branch'
-                    setCreateType(next)
-                    if (next === 'campus' && createName) {
-                      setCreateSlug(slugifyOrgName(createName))
-                    }
-                  }}
-                  className={inputClass}
-                >
-                  <option value="campus">Đơn vị (Trường) — pháp nhân gốc, có gói module riêng</option>
-                  <option value="branch">Cơ sở / Trung tâm — bên trong một Đơn vị</option>
-                </select>
-              </label>
-            ) : (
-              <input type="hidden" name="type" value="branch" />
+            {/* Super Admin CHỈ tạo Đơn vị (Trường); Admin Đơn vị chỉ tạo Cơ sở/Trung tâm */}
+            <input type="hidden" name="type" value={isSuperAdmin ? 'campus' : 'branch'} />
+            {isSuperAdmin && (
+              <p className="mt-3 rounded-xl bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+                Đơn vị (Trường) là pháp nhân gốc, có cổng và gói module riêng. Cơ sở /
+                Trung tâm bên trong do <strong>Admin của Đơn vị</strong> tự tổ chức.
+              </p>
             )}
 
             {createType === 'campus' && (
@@ -515,6 +516,10 @@ export default function AdminOrganizationsPage() {
             {editOrg.type === 'hq' ? (
               <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
                 Đây là <strong>gốc hệ thống</strong> — không thể đổi loại đơn vị.
+              </p>
+            ) : isSuperAdmin && editOrg.type === 'campus' ? (
+              <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                Loại: <strong>Đơn vị (Trường)</strong> — pháp nhân gốc, không đổi loại.
               </p>
             ) : (
               <label className="mt-3 block text-sm font-medium text-slate-700">

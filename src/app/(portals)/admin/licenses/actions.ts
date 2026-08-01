@@ -232,7 +232,7 @@ export async function saveLicense(formData: FormData): Promise<ActionResult> {
       return { error: `Không lưu được license: ${error.message}` }
     }
 
-    revalidatePath('/admin/licenses')
+    revalidatePath('/admin/modules')
     return {}
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Lỗi không xác định khi lưu license.' }
@@ -254,7 +254,7 @@ export async function setLicenseStatus(
       .eq('org_id', orgId)
     if (error) return { error: `Không đổi được trạng thái: ${error.message}` }
 
-    revalidatePath('/admin/licenses')
+    revalidatePath('/admin/modules')
     return {}
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
@@ -427,7 +427,7 @@ export async function provisionCampus(
     }
 
     invalidateOrgScopeCache()
-    revalidatePath('/admin/licenses')
+    revalidatePath('/admin/modules')
     revalidatePath('/admin/organizations')
     revalidatePath('/coso')
     return {

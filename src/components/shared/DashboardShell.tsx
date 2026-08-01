@@ -26,7 +26,6 @@ import {
   Megaphone,
   Settings,
   BookMarked,
-  PackageOpen,
   Star,
   Wallet,
   type LucideIcon,
@@ -237,17 +236,17 @@ const MENU: MenuEntry[] = [
 ]
 
 // ============================================================
-// MENU RIÊNG CHO SUPER ADMIN - CHỈ 2 việc:
-// 1. Quản lý Cơ sở: tạo/sửa cơ sở + quản lý tài khoản Admin của
-//    từng cơ sở (nút "Quản lý Admin" ngay trong cây cơ sở).
-// 2. Phân quyền Module: cấp module cho cơ sở dùng (Hành chính,
-//    Nhân sự, Điểm danh, Kế toán...) qua tầng License.
-// MỌI cài đặt/vận hành khác thuộc Admin CƠ SỞ tự cá nhân hóa.
+// MENU RIÊNG CHO SUPER ADMIN - CHỈ 3 việc:
+// 1. Tổng quan: bao nhiêu Đơn vị, license nào sắp hết hạn.
+// 2. Quản lý Đơn vị: tạo/sửa Đơn vị (Trường) + gán Admin Đơn vị.
+//    Cơ sở/Trung tâm BÊN TRONG chỉ xem — Admin Đơn vị tự tổ chức.
+// 3. Module & Gói dịch vụ: chọn Đơn vị -> gán gói, ghép/gỡ module.
+// MỌI cài đặt/vận hành khác thuộc Admin ĐƠN VỊ tự cá nhân hóa.
 // ============================================================
 const SUPER_MENU: MenuEntry[] = [
+  { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
   { label: 'Quản lý Đơn vị', href: '/admin/organizations', icon: Building2 },
-  { label: 'Phân quyền Module', href: '/admin/licenses', icon: PackageOpen },
-  { label: 'Trung tâm Module', href: '/admin/modules', icon: Boxes },
+  { label: 'Module & Gói dịch vụ', href: '/admin/modules', icon: Boxes },
 ]
 
 const GROUPS_STORAGE_KEY = 'gdtx-menu-groups'

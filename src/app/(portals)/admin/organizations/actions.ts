@@ -259,6 +259,15 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
       }
     }
 
+    // [RANH GIỚI] Super Admin CHỈ khởi tạo Đơn vị (Trường) — tổ chức
+    // bên trong (Cơ sở/Trung tâm) là việc của Admin Đơn vị đó.
+    if (auth.role === 'super_admin' && parsed.data.type === 'branch') {
+      return {
+        error:
+          'Super Admin chỉ khởi tạo Đơn vị (Trường). Cơ sở / Trung tâm bên trong do Admin của Đơn vị đó tự tổ chức.',
+      }
+    }
+
     const admin = createAdminClient()
     const { data: parent } = await admin
       .from('organizations')
@@ -388,6 +397,15 @@ export async function updateOrganization(formData: FormData): Promise<ActionResu
       .maybeSingle()
     if (!target) return { error: 'Đơn vị không tồn tại hoặc đã bị xóa.' }
 
+    // [RANH GIỚI] Super Admin không sửa Cơ sở/Trung tâm BÊN TRONG Đơn vị
+    // của khách hàng — đó là quyền của Admin Đơn vị. Super Admin chỉ xem.
+    if (auth.role === 'super_admin' && target.type === 'branch') {
+      return {
+        error:
+          'TỪ CHỐI: Cơ sở / Trung tâm bên trong Đơn vị do Admin Đơn vị quản lý. Super Admin chỉ quản lý cấp Đơn vị (Trường).',
+      }
+    }
+
     const nextType = (parsed.data.type && target.type !== 'hq'
       ? parsed.data.type
       : target.type) as OrgType
@@ -460,6 +478,13 @@ export async function deleteOrganization(orgId: string): Promise<ActionResult> {
     if (!target) return { error: 'Đơn vị không tồn tại hoặc đã bị xóa.' }
     if (target.type === 'hq') {
       return { error: 'Không thể xóa Trụ sở chính.' }
+    }
+    // [RANH GIỚI] Super Admin không xóa Cơ sở/Trung tâm bên trong Đơn vị
+    if (auth.role === 'super_admin' && target.type === 'branch') {
+      return {
+        error:
+          'TỪ CHỐI: Cơ sở / Trung tâm bên trong Đơn vị do Admin Đơn vị quản lý. Super Admin chỉ quản lý cấp Đơn vị (Trường).',
+      }
     }
 
     // AN TOÀN DỮ LIỆU: chặn xóa khi còn đơn vị con / học viên / lớp học
