@@ -6,6 +6,7 @@ import {
   readClaimsFromAccessToken,
   type Role,
 } from '@/lib/auth/roles'
+import { menuKeyForPath } from '@/lib/auth/menuRegistry'
 
 // ============================================================
 // SMART AUTH ROUTING + Matrix RBAC
@@ -352,6 +353,56 @@ export async function middleware(request: NextRequest) {
     return redirectTo(request, '/login')
   }
 
+  // ---- MA TRẬN PHÂN QUYỀN ĐỘNG (menu_permissions - migration 043) ----
+  // Ghi đè do super_admin/campus_admin cấu hình ở /admin/permissions.
+  // Cache cookie `menu_hint` 5 phút (giá trị "userId:*" = không có ghi đè,
+  // "userId:key1,key2" = chỉ được các key này). FAIL-OPEN: lỗi RPC /
+  // migration chưa chạy -> cho qua, đã có ROUTE_RULES theo role chặn nền.
+  const MENU_HINT_COOKIE = 'menu_hint'
+
+  async function enforceMenuMatrix(role: Role): Promise<boolean> {
+    // super_admin luôn full quyền; student/parent/enterprise không có ghi đè
+    if (
+      role === 'super_admin' ||
+      role === 'student' ||
+      role === 'enterprise_partner'
+    ) {
+      return true
+    }
+    const menuKey = menuKeyForPath(pathname)
+    if (!menuKey) return true
+
+    let keysValue: string | null = null
+    const hint = request.cookies.get(MENU_HINT_COOKIE)?.value
+    if (hint && session) {
+      const separator = hint.indexOf(':')
+      if (separator > 0 && hint.slice(0, separator) === session.user.id) {
+        keysValue = hint.slice(separator + 1)
+      }
+    }
+
+    if (keysValue === null) {
+      try {
+        const { data, error } = await supabase.rpc('get_my_menu_keys')
+        if (error) return true // fail-open (043 chưa chạy / lỗi tạm)
+        keysValue = Array.isArray(data) ? data.join(',') : '*'
+        if (session) {
+          response.cookies.set(
+            MENU_HINT_COOKIE,
+            `${session.user.id}:${keysValue}`,
+            { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 300 }
+          )
+        }
+      } catch {
+        return true
+      }
+    }
+
+    if (keysValue === '*') return true // không có ghi đè -> ma trận mặc định
+    const allowed = keysValue.split(',').filter(Boolean)
+    return allowed.includes(menuKey)
+  }
+
   // ===== 3. Khu vực có ROUTE_RULES =====
   const rule = ROUTE_RULES.find((r) => matchesPrefix(pathname, r.prefix))
   if (rule) {
@@ -361,6 +412,9 @@ export async function middleware(request: NextRequest) {
     const role = await resolveRole()
     if (!role || !rule.allowedRoles.includes(role)) {
       // Sai role: về /unauthorized (và vẫn có thể tự về home từ trang đó)
+      return redirectTo(request, '/unauthorized')
+    }
+    if (!(await enforceMenuMatrix(role))) {
       return redirectTo(request, '/unauthorized')
     }
     return response
@@ -386,6 +440,9 @@ export async function middleware(request: NextRequest) {
   const role = await resolveRole()
   if (role === 'enterprise_partner') {
     return redirectTo(request, '/b2b')
+  }
+  if (role && !(await enforceMenuMatrix(role))) {
+    return redirectTo(request, '/unauthorized')
   }
 
   return response

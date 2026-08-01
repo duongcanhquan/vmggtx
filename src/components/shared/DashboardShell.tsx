@@ -13,7 +13,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   Receipt,
-  UserPlus,
+  ShieldCheck,
   Users,
   Menu,
   X,
@@ -32,15 +32,18 @@ import {
 } from 'lucide-react'
 import { OrgTreeSelector } from '@/components/shared/OrgTreeSelector'
 import { useMyRole } from '@/lib/hooks/useMyRole'
+import { useMyMenuKeys } from '@/lib/hooks/useMyMenuKeys'
+import type { MenuKey } from '@/lib/auth/menuRegistry'
 import type { Role } from '@/lib/auth/roles'
 
 // ============================================================
-// MA TRẬN PHÂN QUYỀN MENU
+// MA TRẬN PHÂN QUYỀN MENU (2 TẦNG)
 // - Menu gom thành NHÓM LỚN, bấm vào xổ cây mục con.
-// - Mỗi mục khai báo roles được phép thấy; không khai báo = mọi
-//   role nhân sự đều thấy.
-// - Đây là lớp che UI; middleware (ROUTE_RULES) + Server Action
-//   là lớp chặn thật sự — cả 2 phải khớp nhau.
+// - Tầng 1 (mặc định): mỗi mục khai báo roles được phép thấy.
+// - Tầng 2 (động): mục có `menuKey` chịu ma trận phân quyền
+//   trong DB (menu_permissions - /admin/permissions). Super admin
+//   cấp cho QL cơ sở; QL cơ sở cấp tiếp cho cấp dưới. Không được
+//   cấp -> ẨN menu + middleware chặn URL.
 // ============================================================
 
 type MenuLeaf = {
@@ -48,6 +51,8 @@ type MenuLeaf = {
   href: string
   icon: LucideIcon
   roles?: Role[]
+  /** Key trong menuRegistry - chịu phân quyền động; không có = luôn hiện theo roles */
+  menuKey?: MenuKey
 }
 
 type MenuGroup = {
@@ -64,6 +69,14 @@ const ACADEMIC: Role[] = ['super_admin', 'campus_admin', 'academic_staff']
 const MENU: MenuEntry[] = [
   { label: 'Tổng quan', href: '/', icon: LayoutDashboard },
   {
+    // Học sinh gộp Import thành TAB trong trang -> chỉ còn 1 mục menu
+    label: 'Học sinh',
+    href: '/students',
+    icon: GraduationCap,
+    roles: [...ACADEMIC, 'admission_staff'],
+    menuKey: 'students',
+  },
+  {
     label: 'Tuyển sinh & Truyền thông',
     icon: Megaphone,
     children: [
@@ -72,12 +85,14 @@ const MENU: MenuEntry[] = [
         href: '/crm/leads',
         icon: Megaphone,
         roles: [...ACADEMIC, 'admission_staff'],
+        menuKey: 'crm',
       },
       {
         label: 'Thông báo chung',
         href: '/announcements',
         icon: BellRing,
         roles: ACADEMIC,
+        menuKey: 'announcements',
       },
     ],
   },
@@ -85,72 +100,80 @@ const MENU: MenuEntry[] = [
     label: 'Đào tạo & Học vụ',
     icon: BookOpen,
     children: [
-      { label: 'Lớp học', href: '/classes', icon: BookOpen, roles: ACADEMIC },
+      {
+        label: 'Lớp học',
+        href: '/classes',
+        icon: BookOpen,
+        roles: ACADEMIC,
+        menuKey: 'classes',
+      },
       {
         label: 'Điểm danh',
         href: '/attendance',
         icon: ClipboardCheck,
         roles: [...ACADEMIC, 'teacher'],
+        menuKey: 'attendance',
       },
       {
-        label: 'Vận hành (Giáo vụ)',
+        label: 'Vận hành Giáo vụ & Khảo thí',
         href: '/staff/classes',
         icon: Briefcase,
         roles: ACADEMIC,
-      },
-      {
-        label: 'Lịch dạy (GV)',
-        href: '/teacher/schedule',
-        icon: Calendar,
-        roles: [...ACADEMIC, 'teacher'],
-      },
-      {
-        label: 'Duyệt đơn GV',
-        href: '/academic/requests',
-        icon: Inbox,
-        roles: ACADEMIC,
+        menuKey: 'staff_ops',
       },
       {
         label: 'Cảnh báo học vụ',
         href: '/academic/warnings',
         icon: AlertTriangle,
         roles: ACADEMIC,
+        menuKey: 'academic_warnings',
       },
     ],
   },
   {
-    label: 'Quản lý Nhân sự',
-    icon: Users,
+    label: 'Giáo viên',
+    icon: Calendar,
     children: [
       {
-        label: 'Học sinh',
-        href: '/students',
-        icon: GraduationCap,
-        roles: [...ACADEMIC, 'admission_staff'],
+        label: 'Lịch dạy',
+        href: '/teacher/schedule',
+        icon: Calendar,
+        roles: [...ACADEMIC, 'teacher'],
+        menuKey: 'teacher_schedule',
       },
       {
-        label: 'Import Học sinh',
-        href: '/students/import',
-        icon: UserPlus,
-        roles: [...ACADEMIC, 'admission_staff'],
+        label: 'Duyệt đơn từ',
+        href: '/academic/requests',
+        icon: Inbox,
+        roles: ACADEMIC,
+        menuKey: 'teacher_requests',
       },
+      {
+        label: 'Đánh giá giáo viên',
+        href: '/academic/evaluations',
+        icon: Star,
+        roles: ACADEMIC,
+        menuKey: 'evaluations',
+      },
+    ],
+  },
+  {
+    label: 'Nhân sự & Lương',
+    icon: Users,
+    children: [
       {
         label: 'Tài khoản & Nhân viên',
         href: '/campus-admin/users',
         icon: Users,
         roles: MANAGERS,
-      },
-      {
-        label: 'Đánh giá GV',
-        href: '/academic/evaluations',
-        icon: Star,
-        roles: ACADEMIC,
+        menuKey: 'staff_users',
       },
       {
         label: 'Lương & Hợp đồng',
         href: '/hr/contracts',
         icon: FileSignature,
         roles: [...MANAGERS, 'accountant'],
+        menuKey: 'payroll_contracts',
       },
     ],
   },
@@ -163,12 +186,14 @@ const MENU: MenuEntry[] = [
         href: '/finance/invoices',
         icon: Receipt,
         roles: [...ACADEMIC, 'accountant'],
+        menuKey: 'finance_invoices',
       },
       {
         label: 'Tài sản & Khấu hao',
         href: '/assets',
         icon: Boxes,
         roles: [...ACADEMIC, 'accountant'],
+        menuKey: 'assets',
       },
     ],
   },
@@ -177,17 +202,32 @@ const MENU: MenuEntry[] = [
     href: '/ai/knowledge-base',
     icon: BookMarked,
     roles: [...ACADEMIC, 'teacher'],
+    menuKey: 'ai_kb',
   },
   {
     label: 'Cài đặt',
     icon: Settings,
     children: [
-      { label: 'Cài đặt Cơ sở', href: '/settings', icon: Settings, roles: MANAGERS },
+      {
+        label: 'Cài đặt Cơ sở',
+        href: '/settings',
+        icon: Settings,
+        roles: MANAGERS,
+        menuKey: 'settings_org',
+      },
+      {
+        label: 'Phân quyền truy cập',
+        href: '/admin/permissions',
+        icon: ShieldCheck,
+        roles: MANAGERS,
+        menuKey: 'permissions',
+      },
       {
         label: 'Cài đặt Toàn cục',
         href: '/admin/settings',
         icon: Globe,
         roles: ['super_admin'],
+        menuKey: 'settings_global',
       },
     ],
   },
@@ -207,9 +247,23 @@ function canSee(role: Role | null | undefined, roles?: Role[]): boolean {
   return roles.includes(role)
 }
 
+/** Tầng 2: ma trận phân quyền động (menu_permissions). super_admin bỏ qua. */
+function grantedByMatrix(
+  role: Role | null | undefined,
+  menuKeys: MenuKey[] | null | undefined,
+  leafKey?: MenuKey
+): boolean {
+  if (!leafKey) return true
+  if (role === 'super_admin') return true
+  // Đang tải hoặc không có ghi đè -> theo ma trận mặc định (đã lọc bằng roles)
+  if (menuKeys === undefined || menuKeys === null) return true
+  return menuKeys.includes(leafKey)
+}
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const role = useMyRole()
+  const menuKeys = useMyMenuKeys()
 
   // Phản hồi TỨC THÌ: spinner trên item vừa bấm, xóa khi pathname đổi.
   const [pendingHref, setPendingHref] = useState<string | null>(null)
@@ -217,19 +271,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     setPendingHref(null)
   }, [pathname])
 
-  // Lọc menu theo ma trận role
+  // Lọc menu: tầng 1 theo role mặc định + tầng 2 theo ma trận động
   const visibleMenu = useMemo(() => {
+    const allowLeaf = (leaf: MenuLeaf) =>
+      canSee(role, leaf.roles) && grantedByMatrix(role, menuKeys, leaf.menuKey)
     const result: MenuEntry[] = []
     for (const entry of MENU) {
       if (isGroup(entry)) {
-        const children = entry.children.filter((leaf) => canSee(role, leaf.roles))
+        const children = entry.children.filter(allowLeaf)
         if (children.length > 0) result.push({ ...entry, children })
-      } else if (canSee(role, entry.roles)) {
+      } else if (allowLeaf(entry)) {
         result.push(entry)
       }
     }
     return result
-  }, [role])
+  }, [role, menuKeys])
 
   // Mục ACTIVE = leaf có href khớp DÀI NHẤT (tránh /students sáng cùng /students/import)
   const activeHref = useMemo(() => {

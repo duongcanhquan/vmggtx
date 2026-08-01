@@ -217,6 +217,10 @@ await checkTable('asset_logs', '041_assets.sql')
 console.log('\n-- Migration 042 (báo cáo tổng quan 1 round-trip) --')
 await checkFunction('get_overview_report', { p_org_ids: [] }, '042_overview_report.sql')
 
+console.log('\n-- Migration 043 (ma trận phân quyền menu động) --')
+await checkTable('menu_permissions', '043_menu_permissions.sql')
+await checkFunction('get_my_menu_keys', {}, '043_menu_permissions.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
