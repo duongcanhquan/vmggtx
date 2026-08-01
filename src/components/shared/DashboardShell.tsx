@@ -35,6 +35,7 @@ import { OrgTreeSelector } from '@/components/shared/OrgTreeSelector'
 import { UserMenu } from '@/components/shared/UserMenu'
 import { useMyRole } from '@/lib/hooks/useMyRole'
 import { useMyMenuKeys } from '@/lib/hooks/useMyMenuKeys'
+import { useMyModuleFlags } from '@/lib/hooks/useMyModuleFlags'
 import type { MenuKey } from '@/lib/auth/menuRegistry'
 import type { Role } from '@/lib/auth/roles'
 
@@ -246,6 +247,7 @@ const MENU: MenuEntry[] = [
 const SUPER_MENU: MenuEntry[] = [
   { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
   { label: 'Phân quyền Module', href: '/admin/licenses', icon: PackageOpen },
+  { label: 'Trung tâm Module', href: '/admin/modules', icon: Boxes },
 ]
 
 const GROUPS_STORAGE_KEY = 'gdtx-menu-groups'
@@ -279,6 +281,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const role = useMyRole()
   const menuKeys = useMyMenuKeys()
+  const moduleFlags = useMyModuleFlags()
 
   // Phản hồi TỨC THÌ: spinner trên item vừa bấm, xóa khi pathname đổi.
   const [pendingHref, setPendingHref] = useState<string | null>(null)
@@ -291,9 +294,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const baseMenu = role === 'super_admin' ? SUPER_MENU : MENU
 
   // Lọc menu: tầng 1 theo role mặc định + tầng 2 theo ma trận động
+  // + tầng 3: module bị Super Admin TẮT (module_flags - 046)
   const visibleMenu = useMemo(() => {
+    const disabledModules = moduleFlags?.modules ?? []
     const allowLeaf = (leaf: MenuLeaf) =>
-      canSee(role, leaf.roles) && grantedByMatrix(role, menuKeys, leaf.menuKey)
+      canSee(role, leaf.roles) &&
+      grantedByMatrix(role, menuKeys, leaf.menuKey) &&
+      !(leaf.menuKey && role !== 'super_admin' && disabledModules.includes(leaf.menuKey))
     const result: MenuEntry[] = []
     for (const entry of baseMenu) {
       if (isGroup(entry)) {
@@ -304,7 +311,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       }
     }
     return result
-  }, [role, menuKeys, baseMenu])
+  }, [role, menuKeys, moduleFlags, baseMenu])
 
   // Mục ACTIVE = leaf có href khớp DÀI NHẤT (tránh /students sáng cùng /students/import)
   const activeHref = useMemo(() => {

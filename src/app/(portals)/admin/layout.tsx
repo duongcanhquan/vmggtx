@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  Blocks,
   Building2,
   LayoutDashboard,
   PackageOpen,
@@ -28,6 +29,7 @@ const SUPER_NAV: PortalNavGroup[] = [
     items: [
       { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
       { label: 'Phân quyền Module', href: '/admin/licenses', icon: PackageOpen },
+      { label: 'Trung tâm Module', href: '/admin/modules', icon: Blocks },
     ],
   },
 ]

@@ -21,3 +21,26 @@ export async function getMyMenuKeys(): Promise<MenuKey[] | null> {
     return null
   }
 }
+
+export type MyModuleFlags = { modules: string[]; features: string[] }
+
+/**
+ * Module/feature bị Super Admin TẮT (module_flags - 046) hiệu lực với
+ * user hiện tại. FAIL-OPEN: lỗi / chưa chạy migration -> rỗng (bật hết).
+ */
+export async function getMyModuleFlags(): Promise<MyModuleFlags> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase.rpc('get_my_module_flags')
+    if (error || !data || typeof data !== 'object') {
+      return { modules: [], features: [] }
+    }
+    const raw = data as { modules?: unknown; features?: unknown }
+    return {
+      modules: Array.isArray(raw.modules) ? raw.modules.filter((v): v is string => typeof v === 'string') : [],
+      features: Array.isArray(raw.features) ? raw.features.filter((v): v is string => typeof v === 'string') : [],
+    }
+  } catch {
+    return { modules: [], features: [] }
+  }
+}

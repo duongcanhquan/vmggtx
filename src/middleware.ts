@@ -7,6 +7,7 @@ import {
   type Role,
 } from '@/lib/auth/roles'
 import { menuKeyForPath } from '@/lib/auth/menuRegistry'
+import { FEATURE_ROUTES } from '@/lib/licensing/moduleCatalog'
 
 // ============================================================
 // SMART AUTH ROUTING + Matrix RBAC
@@ -28,6 +29,11 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
   {
     // Tầng License - bán account cơ sở (044)
     prefix: '/admin/licenses',
+    allowedRoles: ['super_admin'],
+  },
+  {
+    // Trung tâm Module - theo dõi + bật/tắt module/feature (046)
+    prefix: '/admin/modules',
     allowedRoles: ['super_admin'],
   },
   {
@@ -427,6 +433,30 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ---- CÔNG TẮC MODULE (module_flags - migration 046) ----
+  // Super Admin tắt module (toàn hệ thống hoặc theo cơ sở) hay 1 phần
+  // của module -> chặn URL tương ứng. FAIL-OPEN khi RPC lỗi.
+  async function enforceModuleFlags(role: Role): Promise<boolean> {
+    if (role === 'super_admin') return true
+    const menuKey = menuKeyForPath(pathname)
+    const featureRoute = FEATURE_ROUTES.find((f) =>
+      matchesPrefix(pathname, f.routePrefix)
+    )
+    if (!menuKey && !featureRoute) return true
+    try {
+      const { data, error } = await supabase.rpc('get_my_module_flags')
+      if (error || !data || typeof data !== 'object') return true
+      const flags = data as { modules?: unknown; features?: unknown }
+      const modules = Array.isArray(flags.modules) ? flags.modules : []
+      const features = Array.isArray(flags.features) ? flags.features : []
+      if (menuKey && modules.includes(menuKey)) return false
+      if (featureRoute && features.includes(featureRoute.flag)) return false
+      return true
+    } catch {
+      return true
+    }
+  }
+
   // ---- TẦNG LICENSE (tenant_licenses - migration 044) ----
   // Chỉ cache verdict "blocked" (forge blocked chỉ tự hại). Verdict "ok"
   // LUÔN verify lại bằng RPC — chống giả mạo cookie license_hint=ok.
@@ -486,6 +516,9 @@ export async function middleware(request: NextRequest) {
     if (!(await enforceMenuMatrix(role))) {
       return redirectTo(request, '/unauthorized', response)
     }
+    if (!(await enforceModuleFlags(role))) {
+      return redirectTo(request, '/unauthorized', response)
+    }
     return response
   }
 
@@ -514,6 +547,9 @@ export async function middleware(request: NextRequest) {
     return redirectTo(request, '/license-expired', response)
   }
   if (role && !(await enforceMenuMatrix(role))) {
+    return redirectTo(request, '/unauthorized', response)
+  }
+  if (role && !(await enforceModuleFlags(role))) {
     return redirectTo(request, '/unauthorized', response)
   }
 
