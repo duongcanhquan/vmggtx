@@ -43,9 +43,9 @@
 6. Login lỗi production: kiểm tra env Supabase + JWT hook 006; dùng `/coso/{slug}/login` sau khi có slug.
 
 ## Cổng /coso/[slug] (mới - 2026-08-01)
-- `organizations.slug` (campus) + RPC `get_public_campus_by_slug`.
-- Public: `/coso/{slug}` landing → 3 login staff/student/parent gắn cơ sở.
-- Login qua cổng cơ sở: chặn tài khoản ngoài subtree; UI admin hiện badge link.
+- Gốc `/login` = Super Admin; hub `/coso` chọn cơ sở; `/coso/{slug}` = cổng cơ sở.
+- `organizations.slug` + RPC `get_public_campus_by_slug` / `list_public_campuses`.
+- Wizard tạo cơ sở hiện link đầy đủ để gửi admin cơ sở.
 
 ## Tầng LICENSE (mới - 2026-08-01)
 - Gói = tổ hợp module (MenuKey). 3 preset trong `src/lib/licensing/packages.ts`

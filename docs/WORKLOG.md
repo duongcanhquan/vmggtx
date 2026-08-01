@@ -77,3 +77,7 @@
   3 login staff/student/parent gắn campus + chặn ngoài subtree; UI org hiện badge link;
   wizard license tự sinh slug; D14 chốt path trước subdomain.
 - Tồn: user chạy 045 trên DB thật; chưa làm DNS subdomain.
+
+## 2026-08-01 | (commit kế tiếp) | Tach Super Admin /login vs hub /coso
+- Làm: /login chi cho super_admin; /coso danh sach co so; wizard hien link day du;
+  list_public_campuses; license table hien /coso/{slug}.

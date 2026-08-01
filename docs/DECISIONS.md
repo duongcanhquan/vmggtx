@@ -29,7 +29,7 @@ Mỗi quyết định 1-3 dòng. Thêm mới vào CUỐI danh sách với mã D 
   kế thừa xuống nhánh con; module cap được GIAO vào get_my_menu_keys.
 - **D13** Commit trên Windows PowerShell: build sạch trước, message qua file .git-commit-msg.txt
   (không dấu), không dùng && / heredoc.
-- **D14** Cổng theo cơ sở dùng PATH `/coso/[slug]` (không bắt buộc subdomain DNS trước).
-  Mỗi campus có `organizations.slug` duy nhất; landing + 3 login
-  (`/login`, `/student/login`, `/parent/login` dưới `/coso/{slug}`). Đăng nhập
-  qua cổng cơ sở phải thuộc subtree campus đó. Subdomain `*.domain` làm sau.
+- **D14** Phân tách cổng theo domain path:
+  - Gốc (`edusystem.com/login`) = **Super Admin** toàn hệ thống (role khác bị từ chối).
+  - Hub `/coso` = chọn cơ sở; mỗi campus `/coso/{slug}` + 3 login.
+  - Không bắt buộc subdomain DNS trước; `*.domain` làm sau nếu cần.

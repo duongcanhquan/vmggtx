@@ -123,16 +123,16 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
     router.refresh()
   }
 
-  const staffHref = campus ? campusLoginPath(campus.slug, 'management') : '/login'
+  const staffHref = campus ? campusLoginPath(campus.slug, 'management') : '/coso'
   const parentHref = campus
     ? campusLoginPath(campus.slug, 'parent')
-    : '/parent/login'
+    : '/coso'
 
   return (
     <AuthShell
       theme="student"
       icon={Rocket}
-      badge={campus ? campus.name : 'Cổng Học viên'}
+      badge={campus ? campus.name : 'Cổng Học viên (toàn hệ thống)'}
       title={
         <>
           EDU <span className="text-yellow-200">SYSTEM</span>
@@ -141,37 +141,49 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
       subtitle={
         campus
           ? `Học viên · ${campus.name}`
-          : 'Bài giảng · Bài tập · Kiểm tra · Gia sư AI đồng hành'
+          : 'Nên đăng nhập tại /coso/ten-co-so — cổng đúng cơ sở của bạn'
       }
       footer={
         <>
-          <p>
-            Nhân sự / Giảng viên?{' '}
-            <Link
-              href={staffHref}
-              className="font-bold text-white underline-offset-2 hover:underline"
-            >
-              Vào cổng quản lý
-            </Link>
-          </p>
-          <p>
-            Phụ huynh?{' '}
-            <Link
-              href={parentHref}
-              className="font-bold text-white underline-offset-2 hover:underline"
-            >
-              Vào Sổ Liên Lạc Điện Tử
-            </Link>
-          </p>
-          {campus && (
+          {!campus ? (
             <p>
+              Thuộc một cơ sở cụ thể?{' '}
               <Link
-                href={`/coso/${campus.slug}`}
-                className="font-bold text-white/80 underline-offset-2 hover:underline"
+                href="/coso"
+                className="font-bold text-white underline-offset-2 hover:underline"
               >
-                ← Về trang cơ sở
+                Chọn cơ sở tại /coso
               </Link>
             </p>
+          ) : (
+            <>
+              <p>
+                Nhân sự / Giảng viên?{' '}
+                <Link
+                  href={staffHref}
+                  className="font-bold text-white underline-offset-2 hover:underline"
+                >
+                  Vào cổng quản lý
+                </Link>
+              </p>
+              <p>
+                Phụ huynh?{' '}
+                <Link
+                  href={parentHref}
+                  className="font-bold text-white underline-offset-2 hover:underline"
+                >
+                  Vào Sổ Liên Lạc Điện Tử
+                </Link>
+              </p>
+              <p>
+                <Link
+                  href={`/coso/${campus.slug}`}
+                  className="font-bold text-white/80 underline-offset-2 hover:underline"
+                >
+                  ← Về trang cơ sở
+                </Link>
+              </p>
+            </>
           )}
         </>
       }

@@ -94,3 +94,25 @@ grant execute on function public.get_public_campus_by_slug(text) to anon, authen
 
 comment on function public.get_public_campus_by_slug(text) is
   'Tra cứu công khai cơ sở theo slug cho cổng /coso/[slug] (không lộ dữ liệu nhạy cảm).';
+
+-- Danh sách cơ sở công khai cho trang /coso (chọn cơ sở để vào login)
+create or replace function public.list_public_campuses()
+returns table (id uuid, name text, slug text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select o.id, o.name, o.slug
+  from public.organizations o
+  where o.deleted_at is null
+    and o.type = 'campus'
+    and o.slug is not null
+  order by o.name;
+$$;
+
+revoke all on function public.list_public_campuses() from public;
+grant execute on function public.list_public_campuses() to anon, authenticated;
+
+comment on function public.list_public_campuses() is
+  'Danh sách cơ sở có slug — trang /coso chọn cơ sở để đăng nhập.';

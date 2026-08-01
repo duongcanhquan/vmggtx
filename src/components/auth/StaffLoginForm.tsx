@@ -110,7 +110,19 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
       await supabase.auth.signOut()
       setWrongPortal(true)
       setServerError(
-        'Đây là cổng dành cho Nhà trường & Giảng viên. Học viên vui lòng đăng nhập tại Cổng Học viên.'
+        campus
+          ? 'Đây là cổng dành cho Nhà trường & Giảng viên. Học viên vui lòng đăng nhập tại Cổng Học viên.'
+          : 'Cổng gốc dành cho Super Admin. Học viên hãy vào /coso để chọn cơ sở của mình.'
+      )
+      return
+    }
+
+    // Cổng gốc (edusystem.com/login) = Super Admin hệ thống
+    if (!campus && role !== 'super_admin') {
+      await supabase.auth.signOut()
+      setWrongPortal(true)
+      setServerError(
+        'Đây là cổng Super Admin (toàn hệ thống). Quản lý / nhân sự / giảng viên đăng nhập tại cổng cơ sở: /coso/…'
       )
       return
     }
@@ -130,16 +142,16 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
 
   const studentHref = campus
     ? campusLoginPath(campus.slug, 'student')
-    : '/student/login'
+    : '/coso'
   const parentHref = campus
     ? campusLoginPath(campus.slug, 'parent')
-    : '/parent/login'
+    : '/coso'
 
   return (
     <AuthShell
       theme="management"
       icon={GraduationCap}
-      badge={campus ? campus.name : 'Nhà trường · Giảng viên'}
+      badge={campus ? campus.name : 'Super Admin · Hệ thống'}
       title={
         <>
           EDU <span className="text-amber-300">SYSTEM</span>
@@ -147,38 +159,50 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
       }
       subtitle={
         campus
-          ? `Cổng quản trị · ${campus.name}`
-          : 'Hệ thống quản trị giáo dục đa cơ sở'
+          ? `Cổng quản trị cơ sở · ${campus.name}`
+          : 'Đăng nhập Super Admin · Quản trị toàn hệ thống'
       }
       footer={
         <>
-          <p>
-            Bạn là Học viên?{' '}
-            <Link
-              href={studentHref}
-              className="font-bold text-white underline-offset-2 hover:underline"
-            >
-              Vào Cổng Học viên
-            </Link>
-          </p>
-          <p>
-            Phụ huynh?{' '}
-            <Link
-              href={parentHref}
-              className="font-bold text-white underline-offset-2 hover:underline"
-            >
-              Vào Sổ Liên Lạc Điện Tử
-            </Link>
-          </p>
-          {campus && (
+          {!campus ? (
             <p>
+              Bạn là Quản lý / GV / Học viên / Phụ huynh của một cơ sở?{' '}
               <Link
-                href={`/coso/${campus.slug}`}
-                className="font-bold text-white/80 underline-offset-2 hover:underline"
+                href="/coso"
+                className="font-bold text-white underline-offset-2 hover:underline"
               >
-                ← Về trang cơ sở
+                Chọn cơ sở tại /coso
               </Link>
             </p>
+          ) : (
+            <>
+              <p>
+                Bạn là Học viên?{' '}
+                <Link
+                  href={studentHref}
+                  className="font-bold text-white underline-offset-2 hover:underline"
+                >
+                  Vào Cổng Học viên
+                </Link>
+              </p>
+              <p>
+                Phụ huynh?{' '}
+                <Link
+                  href={parentHref}
+                  className="font-bold text-white underline-offset-2 hover:underline"
+                >
+                  Vào Sổ Liên Lạc Điện Tử
+                </Link>
+              </p>
+              <p>
+                <Link
+                  href={`/coso/${campus.slug}`}
+                  className="font-bold text-white/80 underline-offset-2 hover:underline"
+                >
+                  ← Về trang cơ sở
+                </Link>
+              </p>
+            </>
           )}
         </>
       }
@@ -230,10 +254,10 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
             <p>{serverError}</p>
             {wrongPortal && (
               <Link
-                href={studentHref}
+                href={campus ? studentHref : '/coso'}
                 className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-bold text-[#162938] hover:bg-white/90"
               >
-                Sang Cổng Học viên
+                {campus ? 'Sang Cổng Học viên' : 'Chọn cơ sở tại /coso'}
               </Link>
             )}
           </div>

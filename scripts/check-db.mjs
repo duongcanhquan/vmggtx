@@ -228,6 +228,7 @@ await checkFunction('get_my_license', {}, '044_tenant_licenses.sql')
 console.log('\n-- Migration 045 (slug cổng /coso/[slug] theo cơ sở) --')
 await checkColumn('organizations', 'slug', '045_org_slugs.sql')
 await checkFunction('get_public_campus_by_slug', { p_slug: 'demo' }, '045_org_slugs.sql')
+await checkFunction('list_public_campuses', {}, '045_org_slugs.sql')
 
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

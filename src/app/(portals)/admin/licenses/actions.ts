@@ -35,6 +35,8 @@ export interface CampusLicenseRow {
   id: string
   name: string
   parentName: string | null
+  /** Slug cổng /coso/{slug} — null nếu chưa chạy 045 */
+  slug: string | null
   studentCount: number
   license: LicenseRow | null
 }
@@ -80,19 +82,43 @@ export async function getLicenseAdminData(): Promise<LicenseAdminData> {
     if (auth.error !== undefined) return { error: auth.error }
 
     const admin = createAdminClient()
-    const [orgsRes, licensesRes] = await Promise.all([
-      admin
+    let orgs: {
+      id: string
+      name: string
+      type: string
+      parent_id: string | null
+      slug?: string | null
+    }[] = []
+    {
+      const withSlug = await admin
         .from('organizations')
-        .select('id, name, type, parent_id')
+        .select('id, name, type, parent_id, slug')
         .is('deleted_at', null)
-        .order('name'),
-      admin.from('tenant_licenses').select('org_id, plan_name, module_keys, max_students, valid_until, status'),
-    ])
+        .order('name')
+      if (
+        withSlug.error &&
+        /slug|42703|PGRST204|does not exist|schema cache/i.test(withSlug.error.message)
+      ) {
+        const fallback = await admin
+          .from('organizations')
+          .select('id, name, type, parent_id')
+          .is('deleted_at', null)
+          .order('name')
+        if (fallback.error) {
+          return { error: `Không tải được cây tổ chức: ${fallback.error.message}` }
+        }
+        orgs = fallback.data ?? []
+      } else if (withSlug.error) {
+        return { error: `Không tải được cây tổ chức: ${withSlug.error.message}` }
+      } else {
+        orgs = withSlug.data ?? []
+      }
+    }
 
-    if (orgsRes.error) return { error: `Không tải được cây tổ chức: ${orgsRes.error.message}` }
+    const licensesRes = await admin
+      .from('tenant_licenses')
+      .select('org_id, plan_name, module_keys, max_students, valid_until, status')
     const migrationMissing = Boolean(licensesRes.error)
-
-    const orgs = orgsRes.data ?? []
     const byId = new Map(orgs.map((org) => [org.id, org]))
     const childrenOf = new Map<string, string[]>()
     for (const org of orgs) {
@@ -151,6 +177,7 @@ export async function getLicenseAdminData(): Promise<LicenseAdminData> {
         id: org.id,
         name: org.name,
         parentName: org.parent_id ? (byId.get(org.parent_id)?.name ?? null) : null,
+        slug: org.slug ?? null,
         studentCount: subtreeCount(org.id),
         license: licenseByOrg.get(org.id) ?? null,
       }))
@@ -238,7 +265,20 @@ export async function setLicenseStatus(
  * WIZARD "Khởi tạo cơ sở trọn gói": org + license + admin cơ sở trong 1 thao tác.
  * Rollback ngược khi bước sau thất bại (không để org/license/account mồ côi).
  */
-export async function provisionCampus(formData: FormData): Promise<ActionResult> {
+export type ProvisionCampusResult =
+  | { error: string }
+  | {
+      error?: undefined
+      /** VD: /coso/cau-giay — gửi cho admin cơ sở đăng nhập */
+      portalPath: string
+      slug: string | null
+      campusName: string
+      adminEmail: string
+    }
+
+export async function provisionCampus(
+  formData: FormData
+): Promise<ProvisionCampusResult> {
   const parsed = provisionCampusSchema.safeParse({
     campusName: String(formData.get('campusName') ?? ''),
     parentId: String(formData.get('parentId') ?? ''),
@@ -289,6 +329,7 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
     // BƯỚC 1: tạo cơ sở (+ slug cổng /coso/[slug] nếu đã có cột 045)
     const baseSlug = slugifyOrgName(parsed.data.campusName)
     let campusSlug = baseSlug
+    let slugColumnReady = true
     for (let n = 2; n < 40; n++) {
       const { data: clash, error: clashErr } = await admin
         .from('organizations')
@@ -298,22 +339,24 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
         .limit(1)
         .maybeSingle()
       if (clashErr && /slug|42703|PGRST204|does not exist|schema cache/i.test(clashErr.message)) {
-        break // cột slug chưa có — insert phía dưới sẽ fail-soft
+        slugColumnReady = false
+        break
       }
       if (!clash) break
       campusSlug = `${baseSlug.slice(0, 40)}-${n}`
     }
 
     let newOrgId: string
+    let savedSlug: string | null = slugColumnReady ? campusSlug : null
     const { data: newOrg, error: orgError } = await admin
       .from('organizations')
       .insert({
         name: parsed.data.campusName,
         type: 'campus',
         parent_id: parentId,
-        slug: campusSlug,
+        ...(slugColumnReady ? { slug: campusSlug } : {}),
       })
-      .select('id')
+      .select('id, slug')
       .single()
 
     if (
@@ -330,10 +373,12 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
         return { error: `Không tạo được cơ sở: ${retry.error?.message ?? 'không xác định'}` }
       }
       newOrgId = retry.data.id
+      savedSlug = null
     } else if (orgError || !newOrg) {
       return { error: `Không tạo được cơ sở: ${orgError?.message ?? 'không xác định'}` }
     } else {
       newOrgId = newOrg.id
+      savedSlug = (newOrg as { slug?: string | null }).slug ?? savedSlug
     }
 
     // BƯỚC 2: gán license
@@ -384,7 +429,13 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
     invalidateOrgScopeCache()
     revalidatePath('/admin/licenses')
     revalidatePath('/admin/organizations')
-    return {}
+    revalidatePath('/coso')
+    return {
+      portalPath: savedSlug ? `/coso/${savedSlug}` : '/coso',
+      slug: savedSlug,
+      campusName: parsed.data.campusName,
+      adminEmail: parsed.data.adminEmail,
+    }
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Lỗi không xác định khi khởi tạo cơ sở.',

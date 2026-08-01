@@ -77,8 +77,8 @@ export function ParentLoginForm({ campus }: { campus?: CampusContext }) {
 
   const studentHref = campus
     ? campusLoginPath(campus.slug, 'student')
-    : '/student/login'
-  const staffHref = campus ? campusLoginPath(campus.slug, 'management') : '/login'
+    : '/coso'
+  const staffHref = campus ? campusLoginPath(campus.slug, 'management') : '/coso'
 
   return (
     <AuthShell
@@ -89,37 +89,49 @@ export function ParentLoginForm({ campus }: { campus?: CampusContext }) {
       subtitle={
         campus
           ? `Phụ huynh · ${campus.name}`
-          : 'Đồng hành cùng con mỗi ngày · Điểm số, lịch học, nhận xét từ thầy cô'
+          : 'Nên vào /coso/ten-co-so — cổng đúng cơ sở của con bạn'
       }
       footer={
         <>
-          <p>
-            Học viên?{' '}
-            <Link
-              href={studentHref}
-              className="font-bold text-white underline-offset-2 hover:underline"
-            >
-              Vào Cổng Học viên
-            </Link>
-          </p>
-          <p>
-            Nhân sự / Giảng viên?{' '}
-            <Link
-              href={staffHref}
-              className="font-bold text-white underline-offset-2 hover:underline"
-            >
-              Vào cổng quản lý
-            </Link>
-          </p>
-          {campus && (
+          {!campus ? (
             <p>
+              Chọn cơ sở trước khi đăng nhập:{' '}
               <Link
-                href={`/coso/${campus.slug}`}
-                className="font-bold text-white/80 underline-offset-2 hover:underline"
+                href="/coso"
+                className="font-bold text-white underline-offset-2 hover:underline"
               >
-                ← Về trang cơ sở
+                /coso
               </Link>
             </p>
+          ) : (
+            <>
+              <p>
+                Học viên?{' '}
+                <Link
+                  href={studentHref}
+                  className="font-bold text-white underline-offset-2 hover:underline"
+                >
+                  Vào Cổng Học viên
+                </Link>
+              </p>
+              <p>
+                Nhân sự / Giảng viên?{' '}
+                <Link
+                  href={staffHref}
+                  className="font-bold text-white underline-offset-2 hover:underline"
+                >
+                  Vào cổng quản lý
+                </Link>
+              </p>
+              <p>
+                <Link
+                  href={`/coso/${campus.slug}`}
+                  className="font-bold text-white/80 underline-offset-2 hover:underline"
+                >
+                  ← Về trang cơ sở
+                </Link>
+              </p>
+            </>
           )}
           <p className="text-xs text-white/80">
             Demo: <span className="font-bold text-white">0901234567</span> · OTP{' '}
