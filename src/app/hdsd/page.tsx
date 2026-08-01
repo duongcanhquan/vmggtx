@@ -197,7 +197,7 @@ export default function HdsdPage() {
     <div className="min-h-dvh bg-background">
       {/* ===== Hero ===== */}
       <header className="bento-card-dark rounded-none px-4 py-12 sm:py-16">
-        <div className="mx-auto max-w-5xl text-center">
+        <div className="mx-auto max-w-7xl text-center">
           <span className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#c9a227]/40 bg-gradient-to-br from-[#292524] to-[#0c0a09] text-[#e5c369]">
             <GraduationCap className="h-7 w-7" aria-hidden="true" />
           </span>
@@ -215,7 +215,7 @@ export default function HdsdPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl space-y-12 px-4 py-10 sm:py-14">
+      <main className="mx-auto max-w-7xl space-y-10 px-4 py-10 sm:py-12">
         {/* ===== 1. Hệ thống phục vụ ai? ===== */}
         <section aria-labelledby="hdsd-audience">
           <h2 id="hdsd-audience" className="font-heading text-2xl font-bold tracking-tight">

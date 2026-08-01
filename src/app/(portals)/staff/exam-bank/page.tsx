@@ -116,7 +116,7 @@ export default function ExamBankPage() {
           <p className="text-sm font-medium">Chưa có đề nào.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
             <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">

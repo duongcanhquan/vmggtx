@@ -222,7 +222,7 @@ export function ServiceDesk({ audience }: { audience: 'students' | 'teachers' })
         </div>
       ) : (
         /* ===== Danh mục mẫu đơn ===== */
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {categories.length === 0 ? (
             <p className="col-span-full rounded-2xl border border-dashed border-border bg-surface p-8 text-center text-sm text-muted-foreground">
               Cơ sở chưa cấu hình mẫu đơn nào.

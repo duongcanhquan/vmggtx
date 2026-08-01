@@ -349,7 +349,7 @@ export default function AssessmentOpsPage() {
             Chưa có phòng thi sắp diễn ra — xếp lịch thi trước ở mục &quot;Lịch thi &amp; Giám thị&quot;.
           </p>
         ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {board.rooms.map((room) => (
               <div key={room.id} className="rounded-xl border border-border p-3.5">
                 <p className="text-sm font-semibold text-foreground">

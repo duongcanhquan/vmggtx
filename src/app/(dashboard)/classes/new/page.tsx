@@ -115,7 +115,7 @@ export default function NewClassPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="space-y-6">
       <div>
         <Link
           href="/classes"

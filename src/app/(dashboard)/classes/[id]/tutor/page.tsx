@@ -18,7 +18,7 @@ export default function TutorPage({ params }: { params: { id: string } }) {
   }, [messages])
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-3xl flex-col gap-4">
+    <div className="flex h-[calc(100dvh-8rem)] w-full flex-col gap-4">
       <div>
         <Link
           href="/classes"

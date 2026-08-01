@@ -185,7 +185,7 @@ export default function AcademicWarningsPage() {
       )}
 
       {/* ===== Thẻ tổng hợp ===== */}
-      <div className="grid grid-cols-2 gap-4 sm:max-w-md">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700">
             <Flag className="h-3.5 w-3.5" aria-hidden="true" />

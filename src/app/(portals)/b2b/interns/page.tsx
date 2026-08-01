@@ -43,17 +43,15 @@ export default function B2BInternsPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600">
-          {error}
-        </p>
-      </div>
+      <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600">
+        {error}
+      </p>
     )
   }
   if (!board) return <FunLoader />
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           <Users className="h-5 w-5" aria-hidden="true" />

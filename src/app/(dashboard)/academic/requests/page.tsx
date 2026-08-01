@@ -164,7 +164,7 @@ export default function AcademicRequestsPage() {
           {tab === 'pending' ? 'Không có đơn nào chờ duyệt. Tuyệt vời!' : 'Chưa có đơn đã xử lý.'}
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {visible.map((req) => {
             const meta = STATUS_META[req.status]
             const StatusIcon = meta.icon

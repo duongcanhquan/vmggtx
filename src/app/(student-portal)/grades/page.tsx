@@ -257,7 +257,7 @@ export default function StudentGradesPage() {
           <p className="text-sm text-muted-foreground">Bạn chưa có điểm nào.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {classGrades.map((group) => (
             <section
               key={group.class_id}

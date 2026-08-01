@@ -28,7 +28,7 @@ export default async function TeacherClassesPage() {
           <p className="text-sm text-muted-foreground">Chưa được gán lớp nào.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {result.classes.map((cls) => (
             <div
               key={cls.id}

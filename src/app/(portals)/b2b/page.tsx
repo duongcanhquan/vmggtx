@@ -60,11 +60,9 @@ export default function B2BDashboardPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600">
-          {error}
-        </p>
-      </div>
+      <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600">
+        {error}
+      </p>
     )
   }
   if (!board) return <FunLoader />
@@ -72,7 +70,7 @@ export default function B2BDashboardPage() {
   const activeInterns = board.interns.filter((i) => i.status === 'active').slice(0, 6)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold">{board.enterpriseName}</h1>

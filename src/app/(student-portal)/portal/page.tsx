@@ -225,7 +225,7 @@ export default async function StudentPortalHomePage() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {QUICK_LINKS.map((link) => {
           const Icon = link.icon
           return (
