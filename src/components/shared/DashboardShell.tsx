@@ -26,7 +26,6 @@ import {
   Megaphone,
   Settings,
   BookMarked,
-  Globe,
   PackageOpen,
   Star,
   Wallet,
@@ -237,18 +236,16 @@ const MENU: MenuEntry[] = [
 ]
 
 // ============================================================
-// MENU RIÊNG CHO SUPER ADMIN - quản trị KIẾN TRÚC, không vận hành:
-// chỉ xem tổng quan các cơ sở, khởi tạo cơ sở, khởi tạo tài khoản
-// Admin cơ sở và phân quyền cho họ. Việc quản lý chi tiết (lớp học,
-// học phí, nhân viên...) thuộc về Admin CƠ SỞ trong phạm vi của mình.
+// MENU RIÊNG CHO SUPER ADMIN - CHỈ 2 việc:
+// 1. Quản lý Cơ sở: tạo/sửa cơ sở + quản lý tài khoản Admin của
+//    từng cơ sở (nút "Quản lý Admin" ngay trong cây cơ sở).
+// 2. Phân quyền Module: cấp module cho cơ sở dùng (Hành chính,
+//    Nhân sự, Điểm danh, Kế toán...) qua tầng License.
+// MỌI cài đặt/vận hành khác thuộc Admin CƠ SỞ tự cá nhân hóa.
 // ============================================================
 const SUPER_MENU: MenuEntry[] = [
-  { label: 'Tổng quan Hệ thống', href: '/', icon: LayoutDashboard },
-  { label: 'Gói dịch vụ & License', href: '/admin/licenses', icon: PackageOpen },
   { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
-  { label: 'Tài khoản Admin cơ sở', href: '/campus-admin/users', icon: Users },
-  { label: 'Phân quyền truy cập', href: '/admin/permissions', icon: ShieldCheck },
-  { label: 'Cài đặt Toàn cục', href: '/admin/settings', icon: Globe },
+  { label: 'Phân quyền Module', href: '/admin/licenses', icon: PackageOpen },
 ]
 
 const GROUPS_STORAGE_KEY = 'gdtx-menu-groups'

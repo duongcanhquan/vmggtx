@@ -4,6 +4,7 @@ import {
   BarChart3,
   Building2,
   LayoutDashboard,
+  PackageOpen,
   PiggyBank,
   Settings,
   TicketCheck,
@@ -11,12 +12,25 @@ import {
 } from 'lucide-react'
 import { PortalShell, type PortalNavGroup } from '@/components/shared/PortalShell'
 import { OrgTreeSelector } from '@/components/shared/OrgTreeSelector'
+import { useMyRole } from '@/lib/hooks/useMyRole'
 
 // ============================================================
-// Layout ADMIN PORTAL (/admin/*) — dành cho Quản lý.
+// Layout ADMIN PORTAL (/admin/*).
+// - super_admin: CHỈ Quản lý Cơ sở + Phân quyền Module (License).
+//   Việc vận hành/cài đặt chi tiết thuộc Admin cơ sở.
+// - campus_admin: nav vận hành đầy đủ trong phạm vi cơ sở mình.
 // Header BẮT BUỘC có OrgTreeSelector để lọc dữ liệu toàn cục theo
 // Cụm/Cơ sở/Chi nhánh. Sidebar thu gọn được, nhớ trạng thái.
 // ============================================================
+
+const SUPER_NAV: PortalNavGroup[] = [
+  {
+    items: [
+      { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
+      { label: 'Phân quyền Module', href: '/admin/licenses', icon: PackageOpen },
+    ],
+  },
+]
 
 const ADMIN_NAV: PortalNavGroup[] = [
   {
@@ -33,10 +47,12 @@ const ADMIN_NAV: PortalNavGroup[] = [
 ]
 
 export default function AdminPortalLayout({ children }: { children: React.ReactNode }) {
+  const role = useMyRole()
+  const isSuper = role === 'super_admin'
   return (
     <PortalShell
-      portalName="Admin Portal"
-      navGroups={ADMIN_NAV}
+      portalName={isSuper ? 'Super Admin' : 'Admin Portal'}
+      navGroups={isSuper ? SUPER_NAV : ADMIN_NAV}
       storageKey="gdtx-sidebar-admin"
       headerRight={<OrgTreeSelector />}
     >

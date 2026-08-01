@@ -32,7 +32,9 @@ export function isRole(value: unknown): value is Role {
 
 /**
  * Trang chủ mặc định theo role (Smart Auth Routing).
- * - super_admin / campus_admin → / (Tổng quan + báo cáo)
+ * - super_admin → /admin/organizations (CHỈ quản lý cơ sở + phân quyền
+ *   module cho cơ sở; KHÔNG vận hành chi tiết)
+ * - campus_admin → / (Tổng quan + báo cáo, toàn quyền vận hành cơ sở)
  * - academic_staff / accountant / admission_staff → /staff
  * - teacher → /teacher
  * - student → /student
@@ -40,6 +42,7 @@ export function isRole(value: unknown): value is Role {
 export function getHomePathForRole(role: Role | null | undefined): string {
   switch (role) {
     case 'super_admin':
+      return '/admin/organizations'
     case 'campus_admin':
       return '/'
     case 'academic_staff':

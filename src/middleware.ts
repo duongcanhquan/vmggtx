@@ -392,10 +392,12 @@ export async function middleware(request: NextRequest) {
     const role = await resolveRole()
     if (!role) return redirectTo(request, '/login')
     if (
+      role === 'super_admin' ||
       role === 'teacher' ||
       role === 'student' ||
       role === 'enterprise_partner'
     ) {
+      // super_admin: chỉ quản lý cơ sở + license, không xem overview vận hành
       return redirectTo(request, getHomePathForRole(role))
     }
     // license + menu matrix được kiểm ở cuối hàm (cùng flow catch-all)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Building2,
   ExternalLink,
@@ -11,9 +12,11 @@ import {
   Plus,
   SearchX,
   Trash2,
+  UserCog,
   Users,
   X,
 } from 'lucide-react'
+import { useOrgStore } from '@/lib/store/useOrgStore'
 import { campusPortalPath, slugifyOrgName } from '@/lib/utils/orgSlug'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { buildOrgTree, ORG_TYPE_LABELS, type OrgTreeNode } from '@/lib/utils/org-tree'
@@ -45,6 +48,8 @@ const inputClass =
   'mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100'
 
 export default function AdminOrganizationsPage() {
+  const router = useRouter()
+  const setCurrentOrgId = useOrgStore((s) => s.setCurrentOrgId)
   const [rows, setRows] = useState<OrgManagementRow[]>([])
   const [canManage, setCanManage] = useState(false)
   const [myOrgId, setMyOrgId] = useState<string | null>(null)
@@ -188,9 +193,23 @@ export default function AdminOrganizationsPage() {
             </span>
           </span>
 
-          {/* Thao tác: thêm con / sửa / xóa - CHỈ với đơn vị trong phạm vi */}
+          {/* Thao tác: quản lý admin / thêm con / sửa / xóa - CHỈ trong phạm vi */}
           {canTouch && (
             <span className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  // Chọn đơn vị này làm ngữ cảnh rồi mở trang tài khoản:
+                  // Super Admin quản lý Admin của cơ sở ngay tại đây.
+                  setCurrentOrgId(node.id)
+                  router.push('/campus-admin/users')
+                }}
+                title={`Quản lý Admin & nhân sự của ${node.name}`}
+                aria-label={`Quản lý Admin của ${node.name}`}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-emerald-100 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <UserCog className="h-4 w-4" aria-hidden="true" />
+              </button>
               <button
                 type="button"
                 onClick={() => {
