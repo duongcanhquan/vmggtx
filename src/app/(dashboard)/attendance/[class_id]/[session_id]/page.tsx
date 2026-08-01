@@ -7,6 +7,7 @@ import {
   Save,
   Loader2,
   AlertCircle,
+  BookOpenCheck,
   CheckCircle2,
   ClipboardCheck,
   Clock,
@@ -23,6 +24,7 @@ import {
   type AttendancePolicy,
   type AttendanceStatus,
   type AttendanceRecord,
+  type DiaryNotes,
   type SessionRoster,
 } from '../../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
@@ -85,6 +87,11 @@ export default function AttendanceSessionPage({ params }: PageProps) {
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [sessionNote, setSessionNote] = useState('')
   const [parentNote, setParentNote] = useState('')
+  const [diary, setDiary] = useState<DiaryNotes>({
+    actualContent: '',
+    attitude: '',
+    reminders: '',
+  })
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(
     null
@@ -112,6 +119,7 @@ export default function AttendanceSessionPage({ params }: PageProps) {
         setNotes(Object.fromEntries(data.students.map((s) => [s.id, s.savedNote ?? ''])))
         setSessionNote(data.sessionNote ?? '')
         setParentNote(data.parentNote ?? '')
+        if (data.diary) setDiary(data.diary)
       }
       setLoading(false)
     })
@@ -133,6 +141,7 @@ export default function AttendanceSessionPage({ params }: PageProps) {
       const result = await submitAttendance(params.session_id, records, {
         sessionNote,
         parentNote,
+        diary,
       })
       if ('error' in result && result.error) {
         setMessage({ type: 'error', text: result.error })
@@ -299,6 +308,83 @@ export default function AttendanceSessionPage({ params }: PageProps) {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* ===== TỔNG KẾT BUỔI HỌC (Sổ đầu bài 033) ===== */}
+          <div className="bento-card p-5">
+            <h2 className="flex items-center gap-2 font-heading text-sm font-bold">
+              <BookOpenCheck className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+              Tổng kết buổi học (Sổ đầu bài)
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Tự động hiển thị lên Sổ Liên Lạc của phụ huynh để nắm tình hình học tập trong ngày.
+            </p>
+
+            <div className="mt-4 space-y-4">
+              <label htmlFor="diary-content" className="block text-sm font-medium">
+                Nội dung thực dạy (so sánh với giáo án)
+                <textarea
+                  id="diary-content"
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="VD: Dạy hết bài 5 Hàm số bậc hai theo giáo án; phần luyện tập chuyển sang buổi sau vì lớp cần ôn lại kiến thức cũ…"
+                  value={diary.actualContent}
+                  onChange={(e) =>
+                    setDiary((prev) => ({ ...prev, actualContent: e.target.value }))
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </label>
+
+              <fieldset>
+                <legend className="text-sm font-medium">Đánh giá thái độ lớp</legend>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {(
+                    [
+                      { value: 'good', label: 'Tốt', cls: 'peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:text-emerald-700' },
+                      { value: 'fair', label: 'Khá', cls: 'peer-checked:border-indigo-600 peer-checked:bg-indigo-50 peer-checked:text-indigo-700' },
+                      { value: 'noisy', label: 'Ồn ào', cls: 'peer-checked:border-amber-600 peer-checked:bg-amber-50 peer-checked:text-amber-700' },
+                    ] as const
+                  ).map((option) => (
+                    <label key={option.value} className="cursor-pointer">
+                      <input
+                        type="radio"
+                        name="diary-attitude"
+                        value={option.value}
+                        checked={diary.attitude === option.value}
+                        onChange={() =>
+                          setDiary((prev) => ({
+                            ...prev,
+                            attitude: prev.attitude === option.value ? '' : option.value,
+                          }))
+                        }
+                        className="peer sr-only"
+                      />
+                      <span
+                        className={`inline-flex min-h-10 items-center rounded-xl border border-border bg-surface px-4 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring ${option.cls}`}
+                      >
+                        {option.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label htmlFor="diary-reminders" className="block text-sm font-medium">
+                Nhắc nhở chung
+                <textarea
+                  id="diary-reminders"
+                  rows={2}
+                  maxLength={1000}
+                  placeholder="VD: Cả lớp hoàn thành bài tập 3.1–3.5 trước buổi sau; mang máy tính cầm tay…"
+                  value={diary.reminders}
+                  onChange={(e) =>
+                    setDiary((prev) => ({ ...prev, reminders: e.target.value }))
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </label>
+            </div>
           </div>
 
           {/* ===== Sổ đầu bài điện tử ===== */}

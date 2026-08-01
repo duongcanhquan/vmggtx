@@ -167,6 +167,20 @@ await checkTable('ticket_categories', '032_ticketing_workflows.sql')
 await checkTable('tickets', '032_ticketing_workflows.sql')
 await checkTable('ticket_approvals', '032_ticketing_workflows.sql')
 
+console.log('\n-- Migration 033 (sổ đầu bài điện tử + đặt phòng/thiết bị) --')
+await checkColumn('class_sessions', 'diary_notes', '033_diary_facilities.sql')
+await checkTable('facilities', '033_diary_facilities.sql')
+await checkTable('facility_bookings', '033_diary_facilities.sql')
+await checkFunction(
+  'check_facility_conflict',
+  {
+    p_facility_id: '00000000-0000-0000-0000-000000000000',
+    p_start_time: new Date().toISOString(),
+    p_end_time: new Date(Date.now() + 3600_000).toISOString(),
+  },
+  '033_diary_facilities.sql'
+)
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

@@ -26,6 +26,16 @@ export type RosterStudent = {
   savedNote: string | null
 }
 
+/** Sổ đầu bài (migration 033) - lưu class_sessions.diary_notes (jsonb) */
+export type DiaryNotes = {
+  /** Nội dung thực dạy (so sánh với giáo án) */
+  actualContent: string
+  /** Đánh giá thái độ lớp */
+  attitude: 'good' | 'fair' | 'noisy' | ''
+  /** Nhắc nhở chung */
+  reminders: string
+}
+
 export type SessionRoster = {
   className: string
   startTime: string
@@ -33,6 +43,7 @@ export type SessionRoster = {
   room: string | null
   sessionNote: string | null
   parentNote: string | null
+  diary: DiaryNotes | null
   students: RosterStudent[]
 }
 
@@ -117,12 +128,29 @@ export async function getSessionRoster(
     } = await supabase.auth.getUser()
     if (!user) return { error: 'Bạn chưa đăng nhập. Vui lòng đăng nhập lại.' }
 
-    const { data: session } = await supabase
+    // diary_notes (033) có thể chưa migrate -> thử select đầy đủ, fallback
+    let session: Record<string, unknown> | null = null
+    const fullSession = await supabase
       .from('class_sessions')
-      .select('id, class_id, org_id, room, start_time, end_time, session_note, parent_note, classes(name)')
+      .select(
+        'id, class_id, org_id, room, start_time, end_time, session_note, parent_note, diary_notes, classes(name)'
+      )
       .eq('id', sessionId)
       .is('deleted_at', null)
       .maybeSingle()
+    if (fullSession.error) {
+      const basicSession = await supabase
+        .from('class_sessions')
+        .select(
+          'id, class_id, org_id, room, start_time, end_time, session_note, parent_note, classes(name)'
+        )
+        .eq('id', sessionId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      session = basicSession.data as Record<string, unknown> | null
+    } else {
+      session = fullSession.data as Record<string, unknown> | null
+    }
     if (!session) return { error: 'Buổi học không tồn tại hoặc đã bị xóa.' }
 
     const cls = session.classes as { name?: string } | { name?: string }[] | null
@@ -133,7 +161,7 @@ export async function getSessionRoster(
       supabase
         .from('enrollments')
         .select('student_id, profiles!enrollments_student_id_fkey(full_name)')
-        .eq('class_id', session.class_id)
+        .eq('class_id', session.class_id as string)
         .eq('status', 'active')
         .is('deleted_at', null),
       supabase
@@ -168,14 +196,32 @@ export async function getSessionRoster(
       })
       .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'))
 
+    // Parse diary_notes jsonb (nếu có)
+    const rawDiary = session.diary_notes as {
+      actual_content?: string
+      attitude?: string
+      reminders?: string
+    } | null
+    const diary: DiaryNotes | null = rawDiary
+      ? {
+          actualContent: rawDiary.actual_content ?? '',
+          attitude:
+            rawDiary.attitude === 'good' || rawDiary.attitude === 'fair' || rawDiary.attitude === 'noisy'
+              ? rawDiary.attitude
+              : '',
+          reminders: rawDiary.reminders ?? '',
+        }
+      : null
+
     return {
       roster: {
         className,
-        startTime: session.start_time,
-        endTime: session.end_time,
-        room: session.room,
-        sessionNote: (session as { session_note?: string | null }).session_note ?? null,
-        parentNote: (session as { parent_note?: string | null }).parent_note ?? null,
+        startTime: session.start_time as string,
+        endTime: session.end_time as string,
+        room: (session.room as string | null) ?? null,
+        sessionNote: (session.session_note as string | null) ?? null,
+        parentNote: (session.parent_note as string | null) ?? null,
+        diary,
         students,
       },
     }
@@ -193,7 +239,7 @@ export async function getSessionRoster(
 export async function submitAttendance(
   sessionId: string,
   records: AttendanceRecord[],
-  sessionNotes?: { sessionNote?: string; parentNote?: string }
+  sessionNotes?: { sessionNote?: string; parentNote?: string; diary?: DiaryNotes }
 ): Promise<SubmitResult> {
   if (!sessionId) {
     return { error: 'Thiếu session_id của buổi học.' }
@@ -213,6 +259,12 @@ export async function submitAttendance(
   }
   if ((sessionNotes?.parentNote ?? '').length > 1000) {
     return { error: 'Dặn dò phụ huynh tối đa 1000 ký tự.' }
+  }
+  if ((sessionNotes?.diary?.actualContent ?? '').length > 2000) {
+    return { error: 'Nội dung thực dạy tối đa 2000 ký tự.' }
+  }
+  if ((sessionNotes?.diary?.reminders ?? '').length > 1000) {
+    return { error: 'Nhắc nhở chung tối đa 1000 ký tự.' }
   }
 
   try {
@@ -272,6 +324,19 @@ export async function submitAttendance(
     if (sessionNotes !== undefined) {
       sessionUpdate.session_note = sessionNotes.sessionNote?.trim() || null
       sessionUpdate.parent_note = sessionNotes.parentNote?.trim() || null
+      // Sổ đầu bài có cấu trúc (033): nội dung thực dạy + thái độ + nhắc nhở
+      if (sessionNotes.diary !== undefined) {
+        const diary = sessionNotes.diary
+        const hasContent =
+          diary.actualContent.trim() || diary.attitude || diary.reminders.trim()
+        sessionUpdate.diary_notes = hasContent
+          ? {
+              actual_content: diary.actualContent.trim(),
+              attitude: diary.attitude || null,
+              reminders: diary.reminders.trim(),
+            }
+          : null
+      }
     }
     const { error: noteError } = await supabase
       .from('class_sessions')
@@ -279,15 +344,30 @@ export async function submitAttendance(
       .eq('id', sessionId)
       .neq('status', 'cancelled')
     if (noteError && sessionNotes !== undefined) {
-      // Cột 027 chưa migrate -> vẫn chốt buổi, báo rõ cho người dùng
-      await supabase
+      // Cột 027/033 chưa migrate -> thử lưu không kèm diary, rồi tối thiểu chốt buổi
+      const { error: retryError } = await supabase
         .from('class_sessions')
-        .update({ status: 'completed' })
+        .update({
+          status: 'completed',
+          session_note: sessionNotes.sessionNote?.trim() || null,
+          parent_note: sessionNotes.parentNote?.trim() || null,
+        })
         .eq('id', sessionId)
         .neq('status', 'cancelled')
+      if (retryError) {
+        await supabase
+          .from('class_sessions')
+          .update({ status: 'completed' })
+          .eq('id', sessionId)
+          .neq('status', 'cancelled')
+        return {
+          error:
+            'Đã lưu điểm danh nhưng CHƯA lưu được sổ đầu bài (thiếu migration 027_attendance_notes.sql).',
+        }
+      }
       return {
         error:
-          'Đã lưu điểm danh nhưng CHƯA lưu được sổ đầu bài (thiếu migration 027_attendance_notes.sql).',
+          'Đã lưu điểm danh + dặn dò, nhưng CHƯA lưu được Tổng kết buổi học (thiếu migration 033_diary_facilities.sql).',
       }
     }
 

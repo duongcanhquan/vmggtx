@@ -520,6 +520,52 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
           date: session.start_time,
         })
       }
+
+      // Sổ đầu bài điện tử (migration 033): tổng kết buổi học tự động
+      // hiển thị cho phụ huynh - nội dung thực dạy, thái độ lớp, nhắc nhở.
+      try {
+        const { data: diaryRows } = await supabase
+          .from('class_sessions')
+          .select('id, diary_notes, start_time, classes(name)')
+          .in('class_id', classIds)
+          .not('diary_notes', 'is', null)
+          .is('deleted_at', null)
+          .order('start_time', { ascending: false })
+          .limit(15)
+
+        const ATTITUDE_LABEL: Record<string, string> = {
+          good: 'Tốt',
+          fair: 'Khá',
+          noisy: 'Ồn ào',
+        }
+        for (const session of diaryRows ?? []) {
+          const diary = session.diary_notes as {
+            actual_content?: string
+            attitude?: string
+            reminders?: string
+          } | null
+          if (!diary) continue
+          const parts: string[] = []
+          if (diary.actual_content) parts.push(`Nội dung buổi học: ${diary.actual_content}`)
+          if (diary.attitude && ATTITUDE_LABEL[diary.attitude]) {
+            parts.push(`Thái độ lớp: ${ATTITUDE_LABEL[diary.attitude]}`)
+          }
+          if (diary.reminders) parts.push(`Nhắc nhở: ${diary.reminders}`)
+          if (parts.length === 0) continue
+
+          const cls = session.classes as { name?: string } | { name?: string }[] | null
+          const className = Array.isArray(cls) ? cls[0]?.name : cls?.name
+          notices.push({
+            id: `d-${session.id}`,
+            kind: 'comment',
+            title: `Sổ đầu bài${className ? ` · ${className}` : ''}`,
+            description: parts.join('\n'),
+            date: session.start_time,
+          })
+        }
+      } catch {
+        // Cột diary_notes chưa migrate (pre-033) -> bỏ qua êm
+      }
     }
 
     for (const att of attendanceNotes ?? []) {

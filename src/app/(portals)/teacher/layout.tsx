@@ -9,6 +9,7 @@ import {
   GraduationCap,
   MonitorPlay,
   PenSquare,
+  Projector,
   Sparkles,
   TicketCheck,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ const TEACHER_MENU = [
   { label: 'Chấm điểm', href: '/teacher/grading', icon: PenSquare },
   { label: 'Đơn từ', href: '/teacher/requests', icon: FileSignature },
   { label: 'Dịch vụ', href: '/teacher/services', icon: TicketCheck },
+  { label: 'Đặt phòng', href: '/teacher/facilities', icon: Projector },
   { label: 'LMS Online', href: '/teacher/lms', icon: MonitorPlay },
   { label: 'Trợ lý AI', href: '/teacher/assistant', icon: Sparkles },
 ]

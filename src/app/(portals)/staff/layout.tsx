@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   FileStack,
   PenSquare,
+  Projector,
   ShieldCheck,
   Users,
 } from 'lucide-react'
@@ -30,6 +31,7 @@ const STAFF_NAV: PortalNavGroup[] = [
       { label: 'Thời khóa biểu', href: '/staff/timetable', icon: CalendarRange },
       { label: 'Điều phối lịch', href: '/staff/schedule-management', icon: CalendarCog },
       { label: 'Điểm danh', href: '/attendance', icon: ClipboardCheck },
+      { label: 'Phòng & Thiết bị', href: '/staff/facilities', icon: Projector },
     ],
   },
   {
