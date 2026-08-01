@@ -136,8 +136,7 @@ export default function AISettingsPage() {
             Cấu hình AI của Cơ sở
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Mỗi cơ sở dùng API Key riêng để tự kiểm soát chi phí AI. Chi nhánh chưa có
-            key sẽ tự dùng key của cơ sở Mẹ.
+            Mỗi cơ sở dùng API Key riêng để tự kiểm soát chi phí.
           </p>
         </div>
 
@@ -148,9 +147,8 @@ export default function AISettingsPage() {
         >
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <p>
-            Lưu ý: API Key của bạn sẽ được lưu trữ để phục vụ các tác vụ AI cho cơ sở.
-            Vui lòng thiết lập giới hạn chi tiêu (billing limit) trên nền tảng của nhà
-            cung cấp.
+            API Key sẽ được lưu trữ — hãy đặt giới hạn chi tiêu (billing limit) phía
+            nhà cung cấp.
           </p>
         </div>
 
@@ -162,7 +160,7 @@ export default function AISettingsPage() {
               <code className="rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-xs font-semibold">
                 •••• {view.keyPreview}
               </code>
-              . Để trống ô API Key nếu chỉ muốn đổi nhà cung cấp/model.
+              .
             </p>
           </div>
         )}
@@ -242,7 +240,7 @@ export default function AISettingsPage() {
                 {...register('isActive')}
                 className="h-4 w-4 cursor-pointer rounded border-border accent-indigo-600"
               />
-              Kích hoạt AI cho cơ sở này (tắt = chi nhánh dùng key kế thừa từ cấp trên)
+              Kích hoạt AI cho cơ sở này
             </label>
 
             <button
@@ -262,8 +260,7 @@ export default function AISettingsPage() {
 
         {view?.demo && (
           <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Đang ở chế độ demo (chưa đăng nhập hoặc database trống) — form không lưu
-            được cho tới khi đăng nhập bằng tài khoản Campus Admin.
+            Đang ở chế độ demo (chưa đăng nhập hoặc database trống).
           </p>
         )}
 

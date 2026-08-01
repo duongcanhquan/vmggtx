@@ -142,6 +142,7 @@ function cookieSecret(): string {
   return (
     process.env.PARENT_SESSION_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
     'gdtx-dev-secret'
   )
 }

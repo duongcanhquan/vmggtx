@@ -187,10 +187,6 @@ export default function SettingsPage() {
               <SettingsIcon className="h-7 w-7 text-primary" aria-hidden="true" />
               Cài đặt Cơ sở
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Bật/tắt tính năng theo từng cấp tổ chức. Cơ sở chưa có cấu hình riêng sẽ
-              kế thừa từ Vùng / Tổng công ty.
-            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
@@ -231,9 +227,7 @@ export default function SettingsPage() {
 
         {!isDemo && !loading && !hasOwnRecord && (
           <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-            Cơ sở này <strong>chưa có cấu hình riêng</strong> — giá trị bên dưới đang
-            kế thừa từ cấp cha (hoặc mặc định hệ thống). Bấm &quot;Lưu cấu hình&quot;
-            để tạo bản riêng cho cơ sở.
+            Cơ sở này <strong>chưa có cấu hình riêng</strong> — đang kế thừa từ cấp cha.
           </p>
         )}
 
@@ -275,7 +269,7 @@ export default function SettingsPage() {
                 <NumberSetting
                   id="set-max-absence"
                   label="Ngưỡng cảnh báo vắng mặt"
-                  description="Học sinh vắng không phép từ ngưỡng này trở lên sẽ bị gắn cờ cảnh báo học vụ."
+                  description="Vắng không phép từ ngưỡng này sẽ bị gắn cờ cảnh báo."
                   value={config.max_absence_warning}
                   onChange={(v) => patch('max_absence_warning', v)}
                   suffix="buổi"
@@ -285,7 +279,7 @@ export default function SettingsPage() {
                 <NumberSetting
                   id="set-grading-lock"
                   label="Thời hạn khóa sổ điểm"
-                  description="Số ngày sau buổi kiểm tra mà giáo viên còn được sửa điểm trước khi sổ tự khóa."
+                  description="Số ngày còn được sửa điểm sau buổi kiểm tra."
                   value={config.grading_locked_days}
                   onChange={(v) => patch('grading_locked_days', v)}
                   suffix="ngày"
@@ -299,7 +293,7 @@ export default function SettingsPage() {
               <ToggleSwitch
                 id="set-auto-sms"
                 label="Tự động gửi Zalo/SMS khi học sinh vắng mặt"
-                description="Khi giáo viên chốt điểm danh, hệ thống bắn thông báo tới phụ huynh của học sinh vắng KHÔNG phép (qua n8n)."
+                description="Tự thông báo phụ huynh khi học sinh vắng không phép."
                 checked={config.auto_attendance_sms}
                 onChange={(v) => patch('auto_attendance_sms', v)}
               />
@@ -309,7 +303,7 @@ export default function SettingsPage() {
               <ToggleSwitch
                 id="set-refund-approval"
                 label="Hoàn phí phải được Quản lý duyệt"
-                description="Mọi yêu cầu hoàn học phí bắt buộc qua bước phê duyệt của Campus Admin trước khi chi tiền."
+                description="Hoàn phí phải qua phê duyệt của Campus Admin trước khi chi tiền."
                 checked={config.require_manager_approval_for_refunds}
                 onChange={(v) => patch('require_manager_approval_for_refunds', v)}
               />

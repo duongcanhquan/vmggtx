@@ -18,21 +18,14 @@ export default async function TeacherClassesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-          Các lớp phụ trách
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Toàn bộ lớp bạn được gán dạy, gồm cả các lớp ở cơ sở khác.
-        </p>
-      </div>
+      <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+        Các lớp phụ trách
+      </h1>
 
       {result.classes.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
           <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">
-            Bạn chưa được gán dạy lớp nào. Liên hệ Giáo vụ để nhận lớp.
-          </p>
+          <p className="text-sm text-muted-foreground">Chưa được gán lớp nào.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

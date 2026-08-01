@@ -184,9 +184,6 @@ export default function StudentsPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Quản lý Học sinh
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Học viên thuộc tổ chức đang chọn và toàn bộ chi nhánh cấp dưới.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
@@ -245,7 +242,7 @@ export default function StudentsPage() {
                 </h2>
                 {customFields.length > 0 && (
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Form gồm {customFields.length} trường riêng do cơ sở tự định nghĩa.
+                    Gồm {customFields.length} trường riêng của cơ sở.
                   </p>
                 )}
               </div>

@@ -11,6 +11,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Save,
   Trash2,
   X,
 } from 'lucide-react'
@@ -185,8 +186,7 @@ export default function CustomFieldsPage() {
               Trường dữ liệu động
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Tự định nghĩa thuộc tính riêng của cơ sở (VD: Cỡ giày, Nhóm máu...) — form
-              nhập liệu sẽ tự sinh giao diện theo cấu hình này.
+              Thuộc tính riêng của cơ sở (VD: Cỡ giày, Nhóm máu...).
             </p>
           </div>
           <button
@@ -246,8 +246,7 @@ export default function CustomFieldsPage() {
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              Chưa có trường động nào cho {ENTITY_LABELS[activeEntity]}. Bấm &quot;Thêm
-              trường mới&quot; để bắt đầu.
+              Chưa có trường động nào cho {ENTITY_LABELS[activeEntity]}.
             </p>
           </div>
         ) : (
@@ -452,7 +451,13 @@ export default function CustomFieldsPage() {
                     disabled={saving}
                     className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : editing ? (
+                      <Save className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Plus className="h-4 w-4" aria-hidden="true" />
+                    )}
                     {editing ? 'Cập nhật' : 'Thêm trường'}
                   </button>
                 </div>

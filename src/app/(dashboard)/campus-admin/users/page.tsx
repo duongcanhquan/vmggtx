@@ -161,9 +161,6 @@ export default function CampusAdminUsersPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Quản lý Nhân sự
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Nhân sự thuộc cơ sở của bạn và toàn bộ chi nhánh cấp dưới.
-          </p>
         </div>
         <button
           type="button"
@@ -177,9 +174,7 @@ export default function CampusAdminUsersPage() {
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống). Khi
-          đăng nhập bằng tài khoản Campus Admin, RLS sẽ tự giới hạn danh sách
-          theo cây tổ chức của bạn.
+          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống).
         </p>
       )}
 
@@ -309,7 +304,7 @@ export default function CampusAdminUsersPage() {
                 </h2>
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  Server sẽ kiểm tra lại quyền của bạn qua RPC is_authorized.
+                  Quyền được kiểm tra lại phía server.
                 </p>
               </div>
               <button
@@ -427,8 +422,10 @@ export default function CampusAdminUsersPage() {
                   disabled={submitting}
                   className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting && (
+                  {submitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" aria-hidden="true" />
                   )}
                   {submitting ? 'Đang tạo…' : 'Tạo tài khoản'}
                 </button>

@@ -20,3 +20,8 @@ next-env.d.ts
 # Logs / OS
 npm-debug.log*
 .DS_Store
+
+# Agent/skill local config
+.agents/
+.claude/
+skills-lock.json

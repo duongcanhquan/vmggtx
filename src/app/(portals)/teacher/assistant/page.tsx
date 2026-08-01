@@ -66,16 +66,10 @@ export default function TeacherAssistantPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-          <Sparkles className="h-7 w-7 text-primary" aria-hidden="true" />
-          Trợ lý AI — Soạn giáo án
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Nhập chủ đề bài học, AI soạn giáo án 45 phút dựa trên khung chương trình
-          trong Kho tri thức của cơ sở bạn.
-        </p>
-      </div>
+      <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+        <Sparkles className="h-7 w-7 text-primary" aria-hidden="true" />
+        Trợ lý AI — Soạn giáo án
+      </h1>
 
       <form
         onSubmit={handleSubmit}
@@ -90,7 +84,7 @@ export default function TeacherAssistantPage() {
           onChange={handleInputChange}
           rows={3}
           maxLength={4000}
-          placeholder='VD: Soạn giáo án 45 phút chủ đề "Hàm số bậc nhất", lớp 9, có phần luyện tập theo nhóm…'
+          placeholder="Chủ đề bài học…"
           className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
 
@@ -157,7 +151,7 @@ export default function TeacherAssistantPage() {
           </div>
           {!isLoading && completion && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Nội dung do AI tạo — thầy/cô vui lòng rà soát trước khi sử dụng trên lớp.
+              Nội dung do AI tạo — vui lòng rà soát trước khi dùng.
             </p>
           )}
         </div>

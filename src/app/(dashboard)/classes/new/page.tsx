@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
-import { ArrowLeft, Loader2, Building2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Building2, Plus } from 'lucide-react'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { findOrgNode } from '@/lib/utils/org-tree'
 import { Toast, type ToastData } from '@/components/shared/Toast'
@@ -119,10 +119,6 @@ export default function NewClassPage() {
         <h1 className="mt-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
           Tạo lớp mới
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Lớp sẽ được gắn tự động vào đơn vị đang chọn. Giáo viên phải thuộc đơn vị này
-          (hoặc chi nhánh con) — dữ liệu của ai người nấy quản.
-        </p>
       </div>
 
       {!currentOrgId && (
@@ -132,8 +128,7 @@ export default function NewClassPage() {
         >
           <Building2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <p>
-            Bạn chưa chọn cấp quản lý. Hãy chọn ở góc trên bên phải — lớp sẽ được gắn vào đơn
-            vị đó.
+            Chưa chọn cấp quản lý — hãy chọn ở góc trên bên phải.
           </p>
         </div>
       )}
@@ -184,9 +179,6 @@ export default function NewClassPage() {
             ))}
           </select>
           <FieldError message={errors.subjectId?.message} />
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Chỉ hiển thị môn học đang kích hoạt.
-          </p>
         </div>
 
         <div>
@@ -205,9 +197,6 @@ export default function NewClassPage() {
               </option>
             ))}
           </select>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Chỉ liệt kê giáo viên thuộc đơn vị đang chọn và các chi nhánh con.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -244,7 +233,11 @@ export default function NewClassPage() {
           disabled={isPending || !currentOrgId}
           className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
         >
-          {isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Plus className="h-4 w-4" aria-hidden="true" />
+          )}
           {isPending ? 'Đang kiểm tra & tạo lớp...' : 'Tạo lớp học'}
         </button>
       </form>

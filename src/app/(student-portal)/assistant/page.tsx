@@ -61,9 +61,7 @@ export default function StudentAssistantPage() {
     return (
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-surface p-12 text-center">
         <SearchX className="h-10 w-10 text-slate-300" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">
-          Bạn chưa ghi danh lớp nào nên gia sư AI chưa có tài liệu để hỗ trợ.
-        </p>
+        <p className="text-sm text-muted-foreground">Bạn chưa ghi danh lớp nào.</p>
       </div>
     )
   }
@@ -77,7 +75,7 @@ export default function StudentAssistantPage() {
         <div className="min-w-0 flex-1">
           <h1 className="font-heading text-xl font-bold tracking-tight">Gia sư AI</h1>
           <p className="truncate text-xs text-muted-foreground">
-            Trả lời dựa trên tài liệu của lớp bạn chọn.
+            Trả lời theo tài liệu lớp học.
           </p>
         </div>
       </div>
@@ -108,8 +106,7 @@ export default function StudentAssistantPage() {
             <Sparkles className="h-8 w-8 text-emerald-300" aria-hidden="true" />
             <p className="text-sm font-semibold">Hỏi gia sư AI bất cứ điều gì</p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Ví dụ: &quot;Tóm tắt bài học tuần trước&quot; hoặc &quot;Giải thích lại phần khó
-              nhất trong tài liệu&quot;.
+              Ví dụ: &quot;Tóm tắt bài học tuần trước&quot;
             </p>
           </div>
         )}
@@ -162,7 +159,7 @@ export default function StudentAssistantPage() {
           id="student-tutor-input"
           value={input}
           onChange={handleInputChange}
-          placeholder="Nhập câu hỏi của bạn…"
+          placeholder="Nhập câu hỏi…"
           autoComplete="off"
           className="h-12 w-full rounded-xl border border-border bg-surface px-4 text-base shadow-sm placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
         />

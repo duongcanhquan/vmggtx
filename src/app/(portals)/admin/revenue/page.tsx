@@ -68,15 +68,10 @@ export default async function AdminRevenuePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
-          <TrendingUp className="h-6 w-6 text-indigo-600" aria-hidden="true" />
-          Báo cáo Doanh thu
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Tổng hợp học phí toàn bộ đơn vị trong phạm vi quản lý của bạn.
-        </p>
-      </div>
+      <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
+        <TrendingUp className="h-6 w-6 text-indigo-600" aria-hidden="true" />
+        Báo cáo Doanh thu
+      </h1>
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

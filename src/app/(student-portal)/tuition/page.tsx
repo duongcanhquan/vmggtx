@@ -31,12 +31,7 @@ export default async function StudentTuitionPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight">Học phí</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Hóa đơn học phí và lịch sử đóng tiền của bạn.
-        </p>
-      </div>
+      <h1 className="font-heading text-2xl font-bold tracking-tight">Học phí</h1>
 
       {result.error !== undefined ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm font-medium text-rose-700">
@@ -76,7 +71,7 @@ export default async function StudentTuitionPage() {
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
                 <Wallet className="h-6 w-6" aria-hidden="true" />
               </span>
-              <p className="text-sm text-muted-foreground">Bạn chưa có hóa đơn học phí nào.</p>
+              <p className="text-sm text-muted-foreground">Chưa có hóa đơn nào.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -128,8 +123,7 @@ export default async function StudentTuitionPage() {
                 )
               })}
               <p className="text-center text-xs text-muted-foreground">
-                {' '}
-                Cần hỗ trợ về học phí? Liên hệ văn phòng cơ sở của bạn.
+                Cần hỗ trợ? Liên hệ văn phòng cơ sở.
               </p>
             </div>
           )}

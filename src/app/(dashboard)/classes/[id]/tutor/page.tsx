@@ -53,8 +53,7 @@ export default function TutorPage({ params }: { params: { id: string } }) {
             </span>
             <p className="font-heading text-lg font-bold">Hỏi gia sư AI bất cứ điều gì</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Ví dụ: &quot;Tóm tắt nội dung buổi học tuần trước&quot; hoặc &quot;Giải thích lại
-              phần khó nhất trong tài liệu&quot;.
+              VD: &quot;Tóm tắt buổi học tuần trước&quot;.
             </p>
           </div>
         )}
@@ -107,7 +106,7 @@ export default function TutorPage({ params }: { params: { id: string } }) {
           id="tutor-input"
           value={input}
           onChange={handleInputChange}
-          placeholder="Nhập câu hỏi của bạn..."
+          placeholder="Nhập câu hỏi…"
           autoComplete="off"
           className="h-12 w-full rounded-xl border border-border bg-surface px-4 text-base text-foreground shadow-sm transition-colors duration-200 placeholder:text-slate-400 hover:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
         />

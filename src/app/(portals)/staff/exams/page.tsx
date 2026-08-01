@@ -16,15 +16,9 @@ export default async function StaffExamsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-slate-900">
-          Quản lý Khảo thí
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Theo dõi hạn nhập điểm các bài thi, gia hạn cho giáo viên nhập bù và
-          chốt sổ điểm chính thức.
-        </p>
-      </div>
+      <h1 className="font-display text-2xl font-bold text-slate-900">
+        Quản lý Khảo thí
+      </h1>
 
       {result.error !== undefined ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm font-medium text-rose-700">

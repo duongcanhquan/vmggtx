@@ -269,8 +269,7 @@ export function ExamBoard({ initialExams }: { initialExams: ExamRow[] }) {
 
             <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-700">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-              Chỉ gia hạn khi giáo viên có đơn xin phép nhập bù. Sổ điểm của lớp
-              sẽ được MỞ KHÓA lại cho tới hạn mới.
+              Sổ điểm sẽ được MỞ KHÓA lại cho tới hạn mới.
             </div>
 
             <label className="mt-4 block text-sm font-medium text-slate-700">

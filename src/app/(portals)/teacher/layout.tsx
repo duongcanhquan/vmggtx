@@ -6,6 +6,7 @@ import {
   BookOpen,
   CalendarCheck,
   GraduationCap,
+  MonitorPlay,
   PenSquare,
   Sparkles,
 } from 'lucide-react'
@@ -21,6 +22,7 @@ const TEACHER_MENU = [
   { label: 'Lịch dạy hôm nay', href: '/teacher', icon: CalendarCheck },
   { label: 'Các lớp phụ trách', href: '/teacher/classes', icon: BookOpen },
   { label: 'Chấm điểm', href: '/teacher/grading', icon: PenSquare },
+  { label: 'LMS Online', href: '/teacher/lms', icon: MonitorPlay },
   { label: 'Trợ lý AI', href: '/teacher/assistant', icon: Sparkles },
 ]
 

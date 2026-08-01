@@ -3,12 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import {
-  PolarAngleAxis,
-  RadialBar,
-  RadialBarChart,
-  ResponsiveContainer,
-} from 'recharts'
+import dynamic from 'next/dynamic'
 import {
   CalendarDays,
   ChevronRight,
@@ -28,6 +23,15 @@ import {
   type RecentGrade,
   type WeekSession,
 } from '../actions'
+
+// Lazy-load recharts: dashboard phụ huynh mở tức thì trên mobile
+const AttendanceRadialChart = dynamic(
+  () => import('@/components/charts/AttendanceRadialChart'),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full animate-pulse rounded-full bg-slate-100" />,
+  }
+)
 
 // ============================================================
 // Dashboard Phụ huynh (mobile-first, max 480px):
@@ -134,23 +138,7 @@ export default function ParentDashboardPage() {
         </h2>
         <div className="mt-2 flex items-center gap-4">
           <div className="relative h-28 w-28 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart
-                innerRadius="72%"
-                outerRadius="100%"
-                data={chartData}
-                startAngle={90}
-                endAngle={-270}
-              >
-                <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                <RadialBar
-                  dataKey="value"
-                  cornerRadius={10}
-                  fill={attendance.presentRate >= 80 ? '#10b981' : '#f43f5e'}
-                  background={{ fill: '#e2e8f0' }}
-                />
-              </RadialBarChart>
-            </ResponsiveContainer>
+            <AttendanceRadialChart data={chartData} presentRate={attendance.presentRate} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="font-heading text-2xl font-bold text-foreground">
                 {attendance.presentRate}%

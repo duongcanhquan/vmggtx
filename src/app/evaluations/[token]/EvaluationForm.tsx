@@ -119,8 +119,7 @@ export function EvaluationForm({
           Cảm ơn bạn đã đánh giá!
         </h1>
         <p className="text-sm leading-relaxed text-emerald-800">
-          Ý kiến của bạn đã được ghi nhận hoàn toàn ẩn danh và sẽ giúp thầy/cô giảng dạy
-          tốt hơn. Bạn có thể đóng trang này.
+          Ý kiến đã được ghi nhận ẩn danh. Bạn có thể đóng trang này.
         </p>
       </div>
     )
@@ -176,10 +175,8 @@ export function EvaluationForm({
           htmlFor="feedback"
           className="text-sm font-semibold text-foreground"
         >
-          Bạn có góp ý gì để thầy/cô giảng dạy tốt hơn không?{' '}
-          <span className="font-normal text-muted-foreground">
-            (Ý kiến của bạn hoàn toàn ẩn danh)
-          </span>
+          Góp ý cho thầy/cô{' '}
+          <span className="font-normal text-muted-foreground">(không bắt buộc)</span>
         </label>
         <textarea
           id="feedback"
@@ -187,7 +184,7 @@ export function EvaluationForm({
           onChange={(event) => setFeedback(event.target.value)}
           rows={4}
           maxLength={1000}
-          placeholder="Ví dụ: Em mong thầy/cô cho thêm bài tập thực hành…"
+          placeholder="Nhập góp ý…"
           className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>

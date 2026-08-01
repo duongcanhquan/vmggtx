@@ -96,10 +96,6 @@ export default function CampaignsPage() {
               <Vote className="h-7 w-7 text-primary" aria-hidden="true" />
               Đợt khảo sát Giáo viên
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Tạo đợt khảo sát, sau đó vào từng đợt để sinh mã đánh giá ẩn danh và gửi
-              link cho học sinh.
-            </p>
           </div>
           <button
             type="button"
@@ -126,7 +122,7 @@ export default function CampaignsPage() {
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              Chưa có đợt khảo sát nào. Bấm &quot;Tạo đợt khảo sát&quot; để bắt đầu.
+              Chưa có đợt khảo sát nào.
             </p>
           </div>
         ) : (
@@ -193,7 +189,7 @@ export default function CampaignsPage() {
                   <input
                     id="name"
                     {...register('name')}
-                    placeholder="VD: Khảo sát cuối kỳ 1 năm 2026"
+                    placeholder="VD: Khảo sát cuối kỳ 1"
                     className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   {errors.name && (
@@ -235,8 +231,10 @@ export default function CampaignsPage() {
                   disabled={isSubmitting}
                   className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isSubmitting && (
+                  {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Plus className="h-4 w-4" aria-hidden="true" />
                   )}
                   Tạo đợt khảo sát
                 </button>

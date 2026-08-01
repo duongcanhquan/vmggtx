@@ -99,9 +99,7 @@ export default function StaffTimetablePage() {
             <CalendarDays className="h-6 w-6 text-indigo-600" aria-hidden="true" />
             Thời khóa biểu
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {orgName ? `Toàn bộ lịch dạy của ${orgName} và các đơn vị trực thuộc.` : 'Lịch dạy toàn cơ sở theo tuần.'}
-          </p>
+          {orgName && <p className="mt-1 text-sm text-slate-500">{orgName}</p>}
         </div>
 
         <div className="flex items-center gap-2">

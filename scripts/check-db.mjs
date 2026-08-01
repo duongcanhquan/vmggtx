@@ -17,7 +17,11 @@ for (const line of readFileSync('.env', 'utf8').split('\n')) {
 }
 
 const url = env.NEXT_PUBLIC_SUPABASE_URL
-const key = env.SUPABASE_SERVICE_ROLE_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const key =
+  env.SUPABASE_SERVICE_ROLE_KEY ||
+  env.SUPABASE_SECRET_KEY ||
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 if (!url || !key) {
   console.error('Thiếu NEXT_PUBLIC_SUPABASE_URL / key trong .env')
   process.exit(1)
@@ -104,6 +108,16 @@ await checkTable('evaluation_tokens', '022')
 await checkTable('evaluation_results', '022')
 await checkColumn('assessments', 'grading_deadline', '023')
 await checkColumn('class_results', 'lock_status', '023')
+await checkTable('exam_bank', '024')
+
+console.log('\n-- Migration 025 (LMS Online) --')
+await checkTable('lms_lessons', '025')
+await checkTable('lms_assignments', '025')
+await checkTable('lms_submissions', '025')
+await checkTable('lms_quizzes', '025')
+await checkTable('lms_quiz_questions', '025')
+await checkTable('lms_quiz_attempts', '025')
+await checkFunction('is_class_teacher', { p_class_id: '00000000-0000-0000-0000-000000000000' }, '025')
 
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
@@ -112,8 +126,10 @@ await checkFunction('is_my_session', { p_session_id: '00000000-0000-0000-0000-00
 await checkFunction('is_enrolled_in_class', { p_class_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 
 console.log('\n-- Cấu hình môi trường --')
-console.log(env.SUPABASE_SERVICE_ROLE_KEY ? '[OK]    SUPABASE_SERVICE_ROLE_KEY có trong .env' : '[THIẾU] SUPABASE_SERVICE_ROLE_KEY trong .env  <- Supabase Dashboard -> Settings -> API -> service_role')
+console.log(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY ? '[OK]    Key admin server-side (SERVICE_ROLE hoặc SECRET_KEY) có trong .env' : '[THIẾU] SUPABASE_SERVICE_ROLE_KEY hoặc SUPABASE_SECRET_KEY  <- Supabase Dashboard -> Settings -> API')
 console.log(env.OPENAI_API_KEY ? '[OK]    OPENAI_API_KEY' : '[THIẾU] OPENAI_API_KEY')
 console.log(env.N8N_WEBHOOK_URL ? '[OK]    N8N_WEBHOOK_URL' : '[--]    N8N_WEBHOOK_URL (tùy chọn)')
+const r2Ok = env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET_NAME
+console.log(r2Ok ? '[OK]    Cloudflare R2 (4 biến R2_*)' : '[--]    Cloudflare R2 chưa cấu hình (tùy chọn - cần cho upload file LMS)')
 
 console.log(missing === 0 ? '\n>>> DATABASE ĐẦY ĐỦ - không thiếu migration nào.' : `\n>>> THIẾU ${missing} hạng mục - chạy các file migration được ghi chú ở trên trong Supabase SQL Editor.`)

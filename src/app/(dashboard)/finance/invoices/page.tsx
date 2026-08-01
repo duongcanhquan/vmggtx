@@ -446,15 +446,13 @@ export default function InvoicesPage() {
           Học phí &amp; Công nợ
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Hóa đơn của tổ chức đang chọn và chi nhánh cấp dưới. Dòng đỏ nhạt là
-          công nợ quá hạn cần xử lý.
+          Dòng đỏ nhạt là công nợ quá hạn.
         </p>
       </div>
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống). Thu
-          tiền thật yêu cầu đăng nhập với quyền Giáo vụ/Campus Admin.
+          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống).
         </p>
       )}
 

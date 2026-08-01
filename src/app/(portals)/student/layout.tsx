@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bot, CalendarDays, Home, Medal, Settings } from 'lucide-react'
+import { CalendarDays, Home, Medal, MonitorPlay, Settings } from 'lucide-react'
 
 // ============================================================
 // Layout STUDENT PORTAL (/student/*) — TUYỆT ĐỐI MOBILE-FIRST.
@@ -13,8 +13,8 @@ import { Bot, CalendarDays, Home, Medal, Settings } from 'lucide-react'
 const STUDENT_MENU = [
   { label: 'Trang chủ', href: '/student', icon: Home },
   { label: 'Lịch học', href: '/schedule', icon: CalendarDays },
+  { label: 'Học bài', href: '/learn', icon: MonitorPlay },
   { label: 'Sổ điểm', href: '/grades', icon: Medal },
-  { label: 'Chat AI', href: '/assistant', icon: Bot },
   { label: 'Cài đặt', href: '/student/settings', icon: Settings },
 ]
 

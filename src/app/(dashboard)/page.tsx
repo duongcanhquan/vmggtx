@@ -10,10 +10,20 @@ import {
   FlaskConical,
   type LucideIcon,
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { findOrgNode, type OrgTreeNode } from '@/lib/utils/org-tree'
-import { StudentsByBranchChart } from '@/components/dashboard/StudentsByBranchChart'
+import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
 import { getDashboardStats, type DashboardStats } from './actions'
+
+// Lazy-load recharts: dashboard tương tác được ngay, biểu đồ tải nền
+const StudentsByBranchChart = dynamic(
+  () =>
+    import('@/components/dashboard/StudentsByBranchChart').then(
+      (mod) => mod.StudentsByBranchChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
 
 function formatVnd(amount: number) {
   return amount.toLocaleString('vi-VN') + ' ₫'
@@ -129,13 +139,9 @@ export default function OverviewPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {currentOrg ? (
-              <>
-                Số liệu cộng dồn (roll-up) của{' '}
-                <span className="font-semibold text-foreground">{currentOrg.name}</span> và
-                toàn bộ đơn vị trực thuộc.
-              </>
+              <span className="font-semibold text-foreground">{currentOrg.name}</span>
             ) : (
-              'Chọn cấp quản lý ở góc trên bên phải để xem số liệu.'
+              'Chọn cấp quản lý để xem số liệu.'
             )}
           </p>
         </div>
@@ -154,9 +160,7 @@ export default function OverviewPage() {
             <Building2 className="h-6 w-6" aria-hidden="true" />
           </span>
           <p className="font-heading text-lg font-bold">Chưa chọn cấp quản lý</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Hãy chọn Tổng công ty / Cụm / Cơ sở / Chi nhánh để xem thống kê roll-up tương ứng.
-          </p>
+          <p className="max-w-sm text-sm text-muted-foreground">Chọn đơn vị để xem thống kê.</p>
         </div>
       )}
 
@@ -205,9 +209,6 @@ export default function OverviewPage() {
                 <h2 className="font-heading text-lg font-bold">
                   Học viên theo đơn vị trực thuộc
                 </h2>
-                <p className="text-sm text-muted-foreground">
-                  Mỗi cột là tổng học viên của một nhánh con (đã cộng dồn subtree của nhánh đó).
-                </p>
               </div>
             </div>
 
@@ -215,8 +216,7 @@ export default function OverviewPage() {
               <StudentsByBranchChart data={stats.childrenStats} />
             ) : (
               <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-muted-foreground">
-                Đơn vị này không có nhánh trực thuộc — bạn đang xem cấp thấp nhất của cây tổ
-                chức.
+                Không có nhánh trực thuộc.
               </p>
             )}
           </div>

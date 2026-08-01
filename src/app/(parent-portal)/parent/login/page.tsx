@@ -152,7 +152,7 @@ export default function ParentLoginPage() {
               />
               <FieldError message={errors.otp?.message} />
               <p className="mt-1.5 text-xs text-muted-foreground">
-                Demo: nhập 6 chữ số bất kỳ (chưa gửi SMS thật).
+                Demo: nhập 6 chữ số bất kỳ.
               </p>
             </div>
 

@@ -76,14 +76,9 @@ export default async function StudentHomePage() {
 
   return (
     <div className="space-y-5 px-4 py-5">
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight">
-          Chào {studentName}! 👋
-        </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Hôm nay của bạn có gì nào?
-        </p>
-      </div>
+      <h1 className="font-heading text-2xl font-bold tracking-tight">
+        Chào {studentName}! 👋
+      </h1>
 
       {/* ===== 1. CẢNH BÁO / THÔNG BÁO (luôn lên đầu) ===== */}
       {alerts.length > 0 ? (
@@ -102,9 +97,7 @@ export default async function StudentHomePage() {
           className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-3"
         >
           <PartyPopper className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
-          <p className="text-sm text-emerald-800">
-            Tuyệt vời! Bạn không có cảnh báo học phí hay học vụ nào.
-          </p>
+          <p className="text-sm text-emerald-800">Không có cảnh báo nào.</p>
         </section>
       )}
 
@@ -115,7 +108,7 @@ export default async function StudentHomePage() {
         <section className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-border bg-surface p-8 text-center">
           <CalendarDays className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">
-            Chưa có buổi học nào sắp tới. Xem toàn bộ lịch tại{' '}
+            Chưa có buổi học sắp tới. Xem{' '}
             <Link href="/schedule" className="font-semibold text-primary hover:underline">
               Lịch học
             </Link>

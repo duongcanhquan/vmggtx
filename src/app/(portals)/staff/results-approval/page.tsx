@@ -117,7 +117,7 @@ export default function ResultsApprovalPage() {
             Xét duyệt kết quả
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Duyệt và chốt sổ điểm các lớp đã hết hạn nhập điểm. Cần gia hạn?{' '}
+            Cần gia hạn?{' '}
             <Link href="/staff/exams" className="font-semibold text-indigo-600 hover:underline">
               Sang mục Kỳ thi
             </Link>

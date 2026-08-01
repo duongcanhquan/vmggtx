@@ -12,17 +12,15 @@ import {
   Users,
   Vote,
 } from 'lucide-react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import dynamic from 'next/dynamic'
+import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
 import { useOrgStore } from '@/lib/store/useOrgStore'
+
+// Lazy-load recharts: không chặn thời điểm trang tương tác được
+const EvaluationBarChart = dynamic(() => import('@/components/charts/EvaluationBarChart'), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+})
 import { RoleGuard } from '@/components/shared/RoleGuard'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import {
@@ -118,10 +116,7 @@ export default function EvaluationReportPage() {
               <Star className="h-7 w-7 text-primary" aria-hidden="true" />
               Báo cáo Đánh giá Giáo viên
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Kết quả khảo sát 100% ẩn danh của học sinh — điểm trung bình theo 3 tiêu chí,
-              thang 1-5. Phạm vi: cơ sở đang chọn và toàn bộ chi nhánh cấp dưới.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Khảo sát ẩn danh · thang 1-5</p>
           </div>
           <Link
             href="/academic/campaigns"
@@ -146,9 +141,7 @@ export default function EvaluationReportPage() {
         ) : stats.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">
-              Chưa có kết quả khảo sát nào trong phạm vi này (hoặc migration 022 chưa chạy).
-            </p>
+            <p className="text-sm text-muted-foreground">Chưa có kết quả khảo sát.</p>
           </div>
         ) : (
           <>
@@ -159,25 +152,7 @@ export default function EvaluationReportPage() {
                 {stats.length > 10 && ' (top 10)'}
               </h2>
               <div className="mt-2 h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 8, right: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 11 }}
-                      interval={0}
-                      angle={-15}
-                      textAnchor="end"
-                      height={56}
-                    />
-                    <YAxis domain={[0, 5]} tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="Sư phạm" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Thái độ" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Đúng giờ" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <EvaluationBarChart data={chartData} />
               </div>
             </div>
 
@@ -237,9 +212,7 @@ export default function EvaluationReportPage() {
                 {!selected ? (
                   <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
                     <Users className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
-                    <p className="text-sm text-muted-foreground">
-                      Bấm vào một giáo viên trong bảng để xem chi tiết và tóm tắt AI.
-                    </p>
+                    <p className="text-sm text-muted-foreground">Chọn giáo viên để xem chi tiết.</p>
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-border bg-surface p-5">

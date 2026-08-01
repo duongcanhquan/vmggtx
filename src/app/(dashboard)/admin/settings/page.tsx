@@ -133,9 +133,8 @@ export default function AdminSettingsPage() {
             Cài đặt toàn cục (HQ)
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Giá trị đặt tại đây lưu vào cấu hình của{' '}
-            <strong>{data?.rootOrgName ?? 'Tổng công ty (HQ)'}</strong> và tự động tràn
-            xuống mọi Cụm / Cơ sở chưa tự ghi đè.
+            Áp dụng cho <strong>{data?.rootOrgName ?? 'Tổng công ty (HQ)'}</strong> và
+            mọi Cụm / Cơ sở chưa ghi đè.
           </p>
         </div>
 
@@ -143,12 +142,10 @@ export default function AdminSettingsPage() {
         <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3.5">
           <p className="flex items-center gap-2 text-sm font-semibold text-indigo-900">
             <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
-            Thứ tự ưu tiên khi hệ thống đọc một cài đặt
+            Thứ tự ưu tiên
           </p>
           <p className="mt-1.5 text-sm text-indigo-800">
-            Cài đặt Cá nhân (nếu có) → Cơ sở → Cụm → <strong>HQ (trang này)</strong> →
-            giá trị mặc định trong code. Cấp dưới ghi đè cấp trên; không cấp nào đặt thì
-            dùng mặc định.
+            Cá nhân → Cơ sở → Cụm → <strong>HQ (trang này)</strong> → mặc định.
           </p>
           {data && !data.demo && (
             <p className="mt-1.5 flex items-center gap-1.5 text-xs text-indigo-700">
@@ -180,8 +177,7 @@ export default function AdminSettingsPage() {
                 OpenAI API Key dùng chung
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Dùng cho cơ sở KHÔNG có key riêng (org_ai_settings). Cơ sở nào đã cấu
-                hình key riêng tại Cài đặt AI vẫn được ưu tiên dùng key của họ.
+                Dùng cho cơ sở chưa có key riêng — key riêng luôn được ưu tiên.
               </p>
 
               <div className="mt-3.5">
@@ -195,11 +191,7 @@ export default function AdminSettingsPage() {
                   id="gs-api-key"
                   type="password"
                   autoComplete="off"
-                  placeholder={
-                    data?.hasApiKey
-                      ? 'Đã có key — nhập để thay thế, bỏ trống để giữ nguyên'
-                      : 'sk-…'
-                  }
+                  placeholder={data?.hasApiKey ? 'Nhập key mới để thay' : 'sk-…'}
                   {...register('openai_api_key')}
                   className={INPUT_CLASS}
                 />
@@ -218,7 +210,7 @@ export default function AdminSettingsPage() {
                   ) : (
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
                   )}
-                  Xóa key dùng chung (quay về biến môi trường)
+                  Xóa key dùng chung
                 </button>
               )}
             </section>

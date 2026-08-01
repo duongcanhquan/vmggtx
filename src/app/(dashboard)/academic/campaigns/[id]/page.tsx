@@ -222,8 +222,7 @@ export default function CampaignDetailPage() {
                   <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
                     <Users className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                     <p className="text-sm text-muted-foreground">
-                      Bấm &quot;Sinh mã đánh giá&quot; ở một lớp để nhận danh sách link
-                      gửi cho học sinh.
+                      Chọn một lớp để sinh mã đánh giá.
                     </p>
                   </div>
                 ) : (
@@ -246,8 +245,7 @@ export default function CampaignDetailPage() {
                       </button>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Gửi mỗi link cho đúng học sinh đó qua Zalo. Link cũng tự hiện trên
-                      Cổng học sinh (/portal). Mỗi mã dùng đúng 1 lần.
+                      Mỗi mã dùng 1 lần — gửi đúng học sinh qua Zalo.
                     </p>
 
                     <ul className="mt-3 max-h-[480px] space-y-2 overflow-y-auto pr-1">

@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Home,
   Medal,
+  MonitorPlay,
   Wallet,
 } from 'lucide-react'
 
@@ -20,6 +21,7 @@ import {
 const PORTAL_MENU = [
   { label: 'Trang chủ', href: '/portal', icon: Home },
   { label: 'Lịch học', href: '/schedule', icon: CalendarDays },
+  { label: 'Học Online', href: '/learn', icon: MonitorPlay },
   { label: 'Kết quả học tập', href: '/grades', icon: Medal },
   { label: 'Học phí', href: '/tuition', icon: Wallet },
   { label: 'Trợ lý AI', href: '/assistant', icon: Bot },

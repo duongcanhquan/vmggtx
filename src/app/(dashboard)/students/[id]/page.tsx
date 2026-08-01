@@ -18,25 +18,23 @@ import {
   Sparkles,
   UserRound,
 } from 'lucide-react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import dynamic from 'next/dynamic'
+import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
 import { getStudent360, type Student360 } from './actions'
+
+// Lazy-load recharts: chỉ tải khi mở tab có biểu đồ -> trang mở tức thì
+const SubjectRadarChart = dynamic(
+  () => import('@/components/charts/Student360Charts').then((mod) => mod.SubjectRadarChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
+const AttendancePieChart = dynamic(
+  () => import('@/components/charts/Student360Charts').then((mod) => mod.AttendancePieChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
+const DebtBarChart = dynamic(
+  () => import('@/components/charts/Student360Charts').then((mod) => mod.DebtBarChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
 
 // ============================================================
 // HỒ SƠ HỌC SINH 360° (/students/[id])
@@ -53,8 +51,6 @@ const TABS = [
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
-
-const PIE_COLORS = { present: '#10b981', excused: '#f59e0b', absent: '#f43f5e' }
 
 const INVOICE_STATUS_BADGE: Record<string, { label: string; className: string }> = {
   pending: { label: 'Chờ thu', className: 'bg-amber-50 text-amber-700' },
@@ -379,24 +375,7 @@ export default function Student360Page({ params }: { params: { id: string } }) {
                 </p>
               ) : (
                 <div className="mt-2 h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={data.radar} outerRadius="75%">
-                      <PolarGrid stroke="#e2e8f0" />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fontSize: 12, fill: '#475569' }}
-                      />
-                      <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
-                      <Radar
-                        name="Điểm TB"
-                        dataKey="score"
-                        stroke="#6366f1"
-                        fill="#6366f1"
-                        fillOpacity={0.35}
-                      />
-                      <Tooltip />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                  <SubjectRadarChart data={data.radar} />
                 </div>
               )}
             </div>
@@ -413,27 +392,7 @@ export default function Student360Page({ params }: { params: { id: string } }) {
                 </p>
               ) : (
                 <div className="mt-2 h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius="50%"
-                        outerRadius="75%"
-                        paddingAngle={3}
-                      >
-                        {pieData.map((slice) => (
-                          <Cell
-                            key={slice.key}
-                            fill={PIE_COLORS[slice.key as keyof typeof PIE_COLORS]}
-                          />
-                        ))}
-                      </Pie>
-                      <Legend />
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <AttendancePieChart data={pieData} />
                 </div>
               )}
             </div>
@@ -521,22 +480,7 @@ export default function Student360Page({ params }: { params: { id: string } }) {
                 Biểu đồ công nợ theo hóa đơn
               </h2>
               <div className="mt-2 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={debtChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(value: number) =>
-                        `${Math.round(value / 1_000_000)}tr`
-                      }
-                    />
-                    <Tooltip formatter={(value) => formatVnd(Number(value ?? 0))} />
-                    <Legend />
-                    <Bar dataKey="Đã thu" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="Còn nợ" stackId="a" fill="#f43f5e" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <DebtBarChart data={debtChartData} formatValue={formatVnd} />
               </div>
             </div>
           )}

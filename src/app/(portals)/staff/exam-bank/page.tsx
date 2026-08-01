@@ -7,6 +7,7 @@ import {
   FileText,
   Loader2,
   Plus,
+  Save,
   SearchX,
   Trash2,
   X,
@@ -88,15 +89,10 @@ export default function ExamBankPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
-            <BookMarked className="h-6 w-6 text-indigo-600" aria-hidden="true" />
-            Ngân hàng đề
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Kho đề thi/kiểm tra dùng chung trong cơ sở. Giáo viên được xem, Khảo thí quản lý.
-          </p>
-        </div>
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
+          <BookMarked className="h-6 w-6 text-indigo-600" aria-hidden="true" />
+          Ngân hàng đề
+        </h1>
         <button
           type="button"
           onClick={() => setModalOpen(true)}
@@ -119,7 +115,7 @@ export default function ExamBankPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-slate-500">
           <SearchX className="h-10 w-10 text-slate-300" aria-hidden="true" />
-          <p className="text-sm font-medium">Ngân hàng đề đang trống. Thêm đề đầu tiên nhé!</p>
+          <p className="text-sm font-medium">Chưa có đề nào.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -213,7 +209,7 @@ export default function ExamBankPage() {
                 required
                 minLength={3}
                 maxLength={200}
-                placeholder="VD: Đề kiểm tra giữa kỳ Toán 12 - Đề số 1"
+                placeholder="Tên đề thi…"
                 className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
               />
             </label>
@@ -251,7 +247,7 @@ export default function ExamBankPage() {
               <input
                 name="gradeLevel"
                 maxLength={60}
-                placeholder="VD: Lớp 12, Ôn thi THPT Quốc gia"
+                placeholder="VD: Lớp 12"
                 className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
               />
             </label>
@@ -261,7 +257,7 @@ export default function ExamBankPage() {
               <input
                 name="description"
                 maxLength={500}
-                placeholder="Phạm vi kiến thức, lưu ý khi sử dụng…"
+                placeholder="Mô tả ngắn…"
                 className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
               />
             </label>
@@ -272,7 +268,7 @@ export default function ExamBankPage() {
                 name="content"
                 rows={6}
                 maxLength={20000}
-                placeholder="Dán nội dung đề thi hoặc link Google Drive/OneDrive…"
+                placeholder="Nội dung hoặc link…"
                 className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
               />
             </label>
@@ -290,7 +286,11 @@ export default function ExamBankPage() {
                 disabled={saving}
                 className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
               >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Save className="h-4 w-4" aria-hidden="true" />
+                )}
                 Lưu vào ngân hàng
               </button>
             </div>

@@ -430,6 +430,25 @@ RLS: học sinh đọc/ghi của mình; super_admin đọc tất cả; campus_ad
 
 UI: `/staff/exam-bank` (CRUD, soft delete, xem nhanh nội dung đề). Các trang Staff/Admin hoàn thiện cùng đợt: `/staff/timetable` (TKB tuần toàn cơ sở), `/staff/transcripts` (bảng điểm tổng chỉ đọc + xếp hạng, tái dùng `getGradebook`), `/staff/results-approval` (hàng đợi duyệt & chốt sổ, tái dùng actions Kỳ thi), `/admin/organizations` (cây tổ chức + tạo đơn vị — chỉ super_admin), `/admin/revenue` (doanh thu từ `payments`/`invoices` theo subtree).
 
+## LMS Online — 6 bảng `lms_*` (migration 025) + Cloudflare R2
+
+File (slide, PDF, video, bài nộp) lưu trên **Cloudflare R2** qua presigned URL (`src/lib/storage/r2.ts`) — server chỉ ký link, browser upload/download thẳng với R2. DB chỉ giữ metadata jsonb `[{key, name, size, type}]` trong cột `attachments`. Object key có namespace `org/{orgId}/...` để file các cơ sở không lẫn nhau. Thiếu 4 biến `R2_*` → tính năng file tự ẩn, LMS vẫn chạy.
+
+| Bảng | Vai trò | Điểm chính |
+|---|---|---|
+| `lms_lessons` | Bài giảng theo lớp | `content` text, `video_url` (nhúng YouTube), `attachments`, `status` draft/published |
+| `lms_assignments` | Bài tập giao lớp | `due_at` (NULL = không hạn), `allow_late`, `max_score` ≤ 10 |
+| `lms_submissions` | Bài nộp học viên | UNIQUE (assignment, student); `is_late`; `score` 0-10 + `feedback`; đã chấm → học viên hết sửa (RLS `score is null`) |
+| `lms_quizzes` | Đề trắc nghiệm | `duration_minutes` 1-180, `is_published` |
+| `lms_quiz_questions` | Câu hỏi | `options` jsonb, **`correct_index` — KHÔNG có policy SELECT cho học viên** |
+| `lms_quiz_attempts` | Lượt làm bài | UNIQUE (quiz, student) = làm 1 lần; `score` 0-10 server tự chấm; client KHÔNG có quyền ghi |
+
+**Bảo mật đáp án & chống gian lận**: học viên nhận đề (đã cắt `correct_index`) và nộp bài qua Server Action dùng Service Role sau khi xác thực ghi danh (`is_enrolled_in_class`). Lượt làm tạo ngay khi mở đề → đồng hồ không reset khi refresh; quá hạn + grace 3 phút → tự nộp 0 điểm. Helper mới `is_class_teacher(p_class_id)` dùng cho toàn bộ policy GV.
+
+**Đồng bộ điểm**: nút "Vào sổ điểm" tạo cột `assessments` tên `BT: ...`/`KT: ...` (weight 0.1) rồi upsert vào `grades` — trigger khóa sổ (008/023) vẫn chặn nếu lớp đã chốt.
+
+UI: Giáo viên `/teacher/lms` (soạn bài, giao bài, chấm bài, tạo quiz, xem kết quả, sync điểm). Học viên `/learn` (học bài + video nhúng, nộp bài online, làm kiểm tra có đếm ngược).
+
 ## Smart Auth Routing
 
 - **Login chung** `/login`: Email hoặc SĐT + Password → `signInWithPassword`. SĐT được resolve sang email Auth qua Server Action `resolveLoginEmail` (Admin client). Sau login, client đẩy user theo `getHomePathForRole(role)`.

@@ -143,9 +143,6 @@ export default function AcademicWarningsPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Cảnh báo học vụ sớm
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Tự động gắn cờ học sinh vắng nhiều hoặc học yếu, gửi Zalo cho phụ huynh qua n8n.
-          </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <button
@@ -179,8 +176,7 @@ export default function AcademicWarningsPage() {
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống). Đăng
-          nhập bằng tài khoản Giáo vụ/Campus Admin để quét và gửi thật.
+          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống).
         </p>
       )}
 
@@ -217,7 +213,7 @@ export default function AcademicWarningsPage() {
           <div className="flex flex-col items-center gap-2 p-12 text-center">
             <AlertTriangle className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              Chưa có cảnh báo nào. Bấm &quot;Quét cảnh báo&quot; để hệ thống rà soát.
+              Chưa có cảnh báo nào.
             </p>
           </div>
         ) : (

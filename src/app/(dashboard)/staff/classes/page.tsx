@@ -8,6 +8,7 @@ import {
   Lock,
   Pencil,
   Plus,
+  Save,
   Trash2,
   X,
 } from 'lucide-react'
@@ -146,9 +147,6 @@ export default function StaffClassesPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Vận hành Lớp học
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Khu vực Giáo vụ: thêm/sửa/xóa lớp và xếp thời khóa biểu.
-          </p>
         </div>
         <button
           type="button"
@@ -166,8 +164,7 @@ export default function StaffClassesPage() {
           <Lock className="h-4 w-4 shrink-0 text-indigo-600" aria-hidden="true" />
           <p className="text-sm text-indigo-900">
             Phạm vi thao tác:{' '}
-            <span className="font-semibold">{context.orgName}</span> — khóa cứng
-            theo tài khoản của bạn. Không thể xếp lớp cho chi nhánh khác.
+            <span className="font-semibold">{context.orgName}</span>
             {context.demo && (
               <span className="ml-1 text-indigo-600">(dữ liệu demo)</span>
             )}
@@ -186,7 +183,7 @@ export default function StaffClassesPage() {
           <div className="flex flex-col items-center gap-2 p-12 text-center">
             <BookOpen className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              Chi nhánh chưa có lớp học nào. Bấm &quot;Thêm lớp học&quot; để bắt đầu.
+              Chi nhánh chưa có lớp học nào.
             </p>
           </div>
         ) : (
@@ -317,7 +314,7 @@ export default function StaffClassesPage() {
                   />
                 </div>
                 <p id="cls-org-note" className="mt-1 text-xs text-muted-foreground">
-                  Khóa theo chi nhánh của bạn. Server không nhận org_id từ form.
+                  Khóa theo chi nhánh của bạn.
                 </p>
               </div>
 
@@ -331,7 +328,7 @@ export default function StaffClassesPage() {
                   type="text"
                   required
                   defaultValue={editingClass?.name ?? ''}
-                  placeholder="VD: Toán 12A - Ôn thi THPT"
+                  placeholder="VD: Toán 12A"
                   className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
@@ -395,8 +392,12 @@ export default function StaffClassesPage() {
                   disabled={submitting}
                   className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting && (
+                  {submitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : editingClass ? (
+                    <Save className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Plus className="h-4 w-4" aria-hidden="true" />
                   )}
                   {editingClass ? 'Lưu thay đổi' : 'Tạo lớp'}
                 </button>
@@ -511,11 +512,6 @@ export default function StaffClassesPage() {
                 </div>
               </div>
 
-              <p className="rounded-xl bg-indigo-50/60 px-3 py-2 text-xs text-muted-foreground">
-                Hệ thống sẽ tự kiểm tra trùng lịch giáo viên/phòng học
-                (RPC check_schedule_conflict) trước khi lưu.
-              </p>
-
               <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
@@ -529,8 +525,10 @@ export default function StaffClassesPage() {
                   disabled={submitting}
                   className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting && (
+                  {submitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <CalendarPlus className="h-4 w-4" aria-hidden="true" />
                   )}
                   Thêm buổi học
                 </button>

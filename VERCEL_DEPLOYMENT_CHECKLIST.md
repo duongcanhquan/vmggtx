@@ -9,8 +9,8 @@
 | Biến | Môi trường | Ghi chú |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Production + Preview | URL project Supabase (`https://xxx.supabase.co`) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production + Preview | Anon/public key — dùng cho client + middleware |
-| `SUPABASE_SERVICE_ROLE_KEY` | Production + Preview | **TUYỆT MẬT** — Admin Client (import học viên, chuyển đổi lead, evaluation ẩn danh, portal phụ huynh). KHÔNG có prefix `NEXT_PUBLIC_` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` **hoặc** `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Production + Preview | Key công khai — hệ key CŨ (anon) hoặc MỚI (`sb_publishable_...`). Code nhận cả 2 |
+| `SUPABASE_SERVICE_ROLE_KEY` **hoặc** `SUPABASE_SECRET_KEY` | Production + Preview | **TUYỆT MẬT** — Admin Client (hệ cũ service_role hoặc hệ mới `sb_secret_...`). KHÔNG có prefix `NEXT_PUBLIC_` |
 | `OPENAI_API_KEY` | Production + Preview | Key AI mặc định (fallback khi org chưa cấu hình key riêng trong `org_ai_settings`): Chat Tutor, RAG embedding, lọc feedback độc hại, AI summary, Data Gatekeeper |
 
 ### Tùy chọn (bật thêm tính năng)
@@ -21,10 +21,22 @@
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Fallback khi org chọn provider `google` (Gemini) mà không nhập key riêng |
 | `ANTHROPIC_API_KEY` | Fallback khi org chọn provider `anthropic` (Claude) mà không nhập key riêng |
 | `PARENT_SESSION_SECRET` | Secret ký HMAC cookie Parent Portal (chuỗi ngẫu nhiên dài 32+ ký tự). Không đặt → fallback dùng `SUPABASE_SERVICE_ROLE_KEY` làm secret |
+| `R2_ACCOUNT_ID` | Cloudflare Dashboard → góc phải → Account ID. Cần cho **lưu trữ file LMS** (bài giảng, bài nộp) |
+| `R2_ACCESS_KEY_ID` | Cloudflare → R2 → Manage R2 API Tokens → Create API Token (quyền Object Read & Write) |
+| `R2_SECRET_ACCESS_KEY` | Secret của API Token trên (chỉ hiện 1 lần khi tạo) |
+| `R2_BUCKET_NAME` | Tên bucket R2 (VD: `gdtx-erp`). Tạo tại Cloudflare → R2 → Create bucket |
+
+> **Cấu hình R2 (5 phút)**: 1) Tạo bucket → 2) Tạo API Token → 3) Điền 4 biến trên vào `.env`/Vercel → 4) Vào R2 bucket → Settings → CORS policy, thêm:
+>
+> ```json
+> [{ "AllowedOrigins": ["*"], "AllowedMethods": ["GET", "PUT"], "AllowedHeaders": ["*"] }]
+> ```
+>
+> (production nên thay `*` bằng domain thật). Thiếu R2 → LMS vẫn chạy (bài giảng văn bản, video link, quiz) nhưng không upload được file.
 
 ## 2. Supabase (làm TRƯỚC khi deploy)
 
-- [ ] Chạy đủ migrations theo thứ tự `supabase/migrations/001 → 024`, rồi `999_final_rls_patch.sql` và `999_performance_indexes.sql` (qua `supabase db push` hoặc SQL Editor).
+- [ ] Chạy đủ migrations theo thứ tự `supabase/migrations/001 → 025`, rồi `999_final_rls_patch.sql` và `999_performance_indexes.sql` (qua `supabase db push` hoặc SQL Editor). `025_lms.sql` = module LMS Online (bài giảng, bài tập, kiểm tra).
 - [ ] Kiểm tra nhanh database đã đủ bảng/hàm chưa: điền `.env` thật rồi chạy `node scripts/check-db.mjs` — script liệt kê chính xác migration nào còn thiếu.
 - [ ] **QUAN TRỌNG**: `999_final_rls_patch.sql` bật RLS cho `organizations`, `class_sessions`, `attendance`, `subjects` và thêm policy GHI cho `classes` — bắt buộc cho production đa tầng.
 - [ ] Bật Custom Access Token Hook (migration 006) trong Dashboard → Authentication → Hooks để JWT chứa `role`/`org_id`.

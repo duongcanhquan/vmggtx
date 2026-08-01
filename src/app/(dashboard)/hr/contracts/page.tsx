@@ -10,6 +10,7 @@ import {
   Calculator,
   FileSignature,
   Loader2,
+  Save,
   Settings2,
   X,
 } from 'lucide-react'
@@ -265,9 +266,8 @@ function ContractSheet({
 
           {!canViewFinancials && (
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
-              Bạn <strong>chưa được cấp quyền xem dữ liệu tài chính</strong>
-              (can_view_financials). Các ô lương/đơn giá bị khóa và không thể lưu
-              hợp đồng.
+              <strong>Chưa có quyền xem tài chính</strong> — các ô lương bị khóa,
+              không thể lưu hợp đồng.
             </p>
           )}
 
@@ -466,7 +466,11 @@ function ContractSheet({
               disabled={submitting || !canViewFinancials}
               className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Save className="h-4 w-4" aria-hidden="true" />
+              )}
               {submitting ? 'Đang lưu…' : 'Lưu hợp đồng'}
             </button>
           </div>
@@ -668,24 +672,18 @@ export default function HrContractsPage() {
         <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
           Hợp đồng Giáo viên
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Cấu hình hợp đồng Biên chế / Thỉnh giảng / Khoán giờ cho từng giáo viên và chạy
-          bảng lương tháng.
-        </p>
       </div>
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống). Đăng nhập bằng
-          tài khoản Campus Admin để thao tác thật.
+          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống).
         </p>
       )}
 
       {!isDemo && !canViewFinancials && (
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          Dữ liệu lương/đơn giá đang bị <strong>che (Masked)</strong>: tài khoản của bạn
-          chưa được cấp quyền <code>can_view_financials</code>. Liên hệ quản trị cấp Cụm
-          (Region) hoặc Super Admin để được cấp quyền.
+          Lương/đơn giá đang bị <strong>che (Masked)</strong> — tài khoản chưa có quyền{' '}
+          <code>can_view_financials</code>.
         </p>
       )}
 
@@ -718,9 +716,8 @@ export default function HrContractsPage() {
           Tính lương tháng
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Đếm số giờ dạy thực tế (buổi đã diễn ra và có điểm danh) rồi áp công thức theo
-          từng loại hợp đồng. Kết quả lưu dạng <strong>draft</strong> — bảng lương đã
-          duyệt/đã chi không bị ghi đè.
+          Kết quả lưu dạng <strong>draft</strong> — bảng lương đã duyệt/đã chi không bị
+          ghi đè.
         </p>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">

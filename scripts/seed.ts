@@ -48,11 +48,12 @@ const SEED_PASSWORD = 'Demo@123456' // mật khẩu chung cho MỌI tài khoản
 const HQ_NAME = 'Tổng Công ty GDTX (Demo)'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+// Nhận cả hệ key cũ (service_role) lẫn hệ key mới (sb_secret_...)
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
 
 if (!url || !serviceKey) {
   console.error(
-    'Thiếu NEXT_PUBLIC_SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY trong .env - không thể seed.'
+    'Thiếu NEXT_PUBLIC_SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY/SUPABASE_SECRET_KEY trong .env - không thể seed.'
   )
   process.exit(1)
 }
@@ -116,6 +117,12 @@ async function cleanupPreviousSeed() {
 
       // Bảng TÙY CHỌN (module mở rộng): thiếu bảng thì chỉ cảnh báo
       for (const table of [
+        'lms_quiz_attempts',
+        'lms_quiz_questions',
+        'lms_quizzes',
+        'lms_submissions',
+        'lms_assignments',
+        'lms_lessons',
         'exam_bank',
         'student_ai_chats',
         'evaluation_results',
@@ -663,6 +670,115 @@ async function seedBusinessData(
       console.warn(`   (bỏ qua exam_bank - hãy chạy migration 024: ${examBankError.message})`)
     }
   }
+
+  // 14. LMS: bài giảng + bài tập + quiz cho mỗi lớp (migration 025; thiếu bảng thì bỏ qua)
+  console.log('14) Tạo dữ liệu LMS (bài giảng, bài tập, kiểm tra online)...')
+  let lmsSeeded = 0
+  try {
+    for (let ci = 0; ci < classes!.length; ci++) {
+      const cls = classes![ci]
+      const students = studentsOfClass[ci]
+
+      // 2 bài giảng đã phát hành + 1 nháp
+      const { error: lessonErr } = await supabase.from('lms_lessons').insert([
+        {
+          org_id: cls.org_id, class_id: cls.id, created_by: cls.teacher_id,
+          title: `Bài 1 - Kiến thức nền tảng (${cls.name})`,
+          description: 'Ôn tập kiến thức trọng tâm trước khi vào chương mới.',
+          content: 'Nội dung bài giảng demo:\n1. Khái niệm cơ bản\n2. Ví dụ minh họa\n3. Bài tập vận dụng',
+          video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          status: 'published',
+        },
+        {
+          org_id: cls.org_id, class_id: cls.id, created_by: cls.teacher_id,
+          title: 'Bài 2 - Luyện đề nâng cao',
+          content: 'Phân tích 5 dạng bài thường gặp trong đề thi (demo).',
+          status: 'published',
+        },
+        {
+          org_id: cls.org_id, class_id: cls.id, created_by: cls.teacher_id,
+          title: 'Bài 3 - Đang biên soạn', status: 'draft',
+        },
+      ])
+      if (lessonErr) throw lessonErr
+
+      // 1 bài tập (hạn +7 ngày) - 60% HS đã nộp, một nửa đã chấm
+      const { data: assignment, error: asgErr } = await supabase
+        .from('lms_assignments')
+        .insert({
+          org_id: cls.org_id, class_id: cls.id, created_by: cls.teacher_id,
+          title: `Bài tập tuần - ${cls.name}`,
+          instructions: 'Làm bài trong file đính kèm hoặc trả lời trực tiếp. Trình bày rõ các bước.',
+          due_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+          allow_late: true,
+        })
+        .select('id')
+        .single()
+      if (asgErr) throw asgErr
+
+      const submissionRows = students.slice(0, Math.ceil(students.length * 0.6)).map((st, si) => ({
+        org_id: cls.org_id,
+        assignment_id: assignment!.id,
+        student_id: st.id,
+        content: `Bài làm của em (demo): ${faker.lorem.sentences(2)}`,
+        ...(si % 2 === 0
+          ? { score: 6 + Math.round(Math.random() * 8) / 2, feedback: 'Bài làm khá, chú ý trình bày.', graded_by: cls.teacher_id, graded_at: new Date().toISOString() }
+          : {}),
+      }))
+      const { error: subErr } = await supabase.from('lms_submissions').insert(submissionRows)
+      if (subErr) throw subErr
+
+      // 1 đề trắc nghiệm 5 câu đã mở - 50% HS đã làm
+      const { data: quiz, error: quizErr } = await supabase
+        .from('lms_quizzes')
+        .insert({
+          org_id: cls.org_id, class_id: cls.id, created_by: cls.teacher_id,
+          title: `Kiểm tra 15 phút - ${cls.name}`,
+          description: 'Trắc nghiệm 5 câu, làm 1 lần duy nhất.',
+          duration_minutes: 15, is_published: true,
+        })
+        .select('id')
+        .single()
+      if (quizErr) throw quizErr
+
+      const questionRows = Array.from({ length: 5 }, (_, qi) => ({
+        org_id: cls.org_id,
+        quiz_id: quiz!.id,
+        question: `Câu hỏi demo số ${qi + 1}: chọn đáp án đúng nhất?`,
+        options: ['Phương án A', 'Phương án B', 'Phương án C', 'Phương án D'],
+        correct_index: qi % 4,
+        points: 1,
+        position: qi,
+      }))
+      const { data: questions, error: qErr } = await supabase
+        .from('lms_quiz_questions')
+        .insert(questionRows)
+        .select('id, correct_index')
+      if (qErr) throw qErr
+
+      const attemptRows = students.slice(0, Math.ceil(students.length * 0.5)).map((st) => {
+        const answers: Record<string, number> = {}
+        let earned = 0
+        for (const q of questions!) {
+          const correct = Math.random() < 0.7
+          answers[q.id] = correct ? q.correct_index : (q.correct_index + 1) % 4
+          if (correct) earned += 1
+        }
+        return {
+          org_id: cls.org_id, quiz_id: quiz!.id, student_id: st.id,
+          answers, score: Math.round((earned / 5) * 10 * 100) / 100, total_points: 5,
+          started_at: new Date(Date.now() - 3600000).toISOString(),
+          submitted_at: new Date(Date.now() - 3000000).toISOString(),
+        }
+      })
+      const { error: attErr } = await supabase.from('lms_quiz_attempts').insert(attemptRows)
+      if (attErr) throw attErr
+      lmsSeeded++
+    }
+  } catch (e) {
+    console.warn(`   (bỏ qua LMS - hãy chạy migration 025: ${e instanceof Error ? e.message : e})`)
+  }
+  if (lmsSeeded > 0) console.log(`   LMS: ${lmsSeeded} lớp có bài giảng + bài tập + kiểm tra online.`)
 
   return {
     classCount: classes!.length,

@@ -18,21 +18,14 @@ export default async function TeacherGradingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-          Chấm điểm
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Chọn lớp để mở Sổ điểm điện tử. Lớp đã chốt sổ sẽ bị khóa nhập điểm.
-        </p>
-      </div>
+      <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+        Chấm điểm
+      </h1>
 
       {result.classes.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
           <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">
-            Bạn chưa có lớp nào để chấm điểm.
-          </p>
+          <p className="text-sm text-muted-foreground">Chưa có lớp nào.</p>
         </div>
       ) : (
         <ul className="space-y-2.5">

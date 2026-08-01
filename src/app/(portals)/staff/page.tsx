@@ -18,10 +18,6 @@ export default function StaffPortalPage() {
         <h1 className="mt-1 font-heading text-3xl font-bold tracking-tight">
           Welcome to Staff Portal
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Cổng giáo vụ / kế toán — xếp lớp, điểm danh, học phí và cảnh báo sớm.
-          Menu Khảo thí nằm ở sidebar bên trái.
-        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

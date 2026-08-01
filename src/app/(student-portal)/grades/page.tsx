@@ -40,18 +40,13 @@ export default function StudentGradesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight">
-          Kết quả học tập
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Điểm số theo từng lớp và điểm trung bình dự kiến (tính theo hệ số).
-        </p>
-      </div>
+      <h1 className="font-heading text-2xl font-bold tracking-tight">
+        Kết quả học tập
+      </h1>
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị điểm demo (chưa đăng nhập bằng tài khoản học sinh).
+          Đang hiển thị điểm demo.
         </p>
       )}
 

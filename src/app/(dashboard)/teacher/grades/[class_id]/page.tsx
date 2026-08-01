@@ -146,9 +146,6 @@ export default function GradebookPage({
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Sổ điểm: {book.className}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Nhập điểm rồi bấm Tab / click ra ngoài — hệ thống tự lưu ngầm.
-          </p>
         </div>
 
         {book.canLock && !isLocked && (
@@ -173,16 +170,15 @@ export default function GradebookPage({
         <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
           <Lock className="h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
           <p className="text-sm font-medium text-rose-800">
-            SỔ ĐIỂM ĐÃ CHỐT — mọi ô nhập bị vô hiệu hóa. Database cũng từ chối
-            mọi thay đổi (trigger chặn ở tầng DB).
+            SỔ ĐIỂM ĐÃ CHỐT — không thể sửa điểm.
           </p>
         </div>
       ) : (
         <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <LockOpen className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
           <p className="text-sm text-emerald-800">
-            Sổ điểm đang MỞ — điểm được tự lưu khi rời ô nhập.
-            {book.demo && ' (chế độ demo: điểm không ghi vào database)'}
+            Sổ điểm đang MỞ — tự lưu khi rời ô.
+            {book.demo && ' (demo: không ghi vào database)'}
           </p>
         </div>
       )}
@@ -218,8 +214,8 @@ export default function GradebookPage({
                     className="px-4 py-10 text-center text-sm text-muted-foreground"
                   >
                     {book.students.length === 0
-                      ? 'Lớp chưa có học sinh nào. Hãy ghi danh học viên trước khi nhập điểm.'
-                      : 'Lớp chưa có bài kiểm tra nào. Hãy tạo bài kiểm tra để bắt đầu nhập điểm.'}
+                      ? 'Lớp chưa có học sinh.'
+                      : 'Chưa có bài kiểm tra.'}
                   </td>
                 </tr>
               )}

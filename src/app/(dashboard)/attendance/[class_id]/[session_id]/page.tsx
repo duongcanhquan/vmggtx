@@ -129,7 +129,7 @@ export default function AttendanceSessionPage({ params }: PageProps) {
       {policy && (
         <p className="flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
           <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
-          Quy định của cơ sở: học viên được điểm danh trễ tối đa{' '}
+          Điểm danh trễ tối đa{' '}
           <strong>{policy.allowLateCheckinMinutes} phút</strong>
           {policy.source === 'inherited' && ' (kế thừa từ cấp trên)'}
           {policy.source === 'default' && ' (mặc định hệ thống)'}.

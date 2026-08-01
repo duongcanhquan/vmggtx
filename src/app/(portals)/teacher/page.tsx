@@ -144,21 +144,21 @@ export default async function TeacherHomePage() {
           icon={<Wallet className="h-5 w-5" aria-hidden="true" />}
           label="Tiết đã dạy tháng này"
           value={stats.monthCompleted}
-          hint="Buổi đã chốt điểm danh — dùng ước tính lương tháng."
+          hint="Đã chốt điểm danh."
           accent="bg-indigo-50 text-indigo-600"
         />
         <StatCard
           icon={<BookOpen className="h-5 w-5" aria-hidden="true" />}
           label="Lớp đang dạy"
           value={stats.activeClasses}
-          hint="Tổng số lớp bạn phụ trách trên mọi cơ sở."
+          hint="Trên mọi cơ sở."
           accent="bg-emerald-50 text-emerald-700"
         />
         <StatCard
           icon={<CalendarCheck className="h-5 w-5" aria-hidden="true" />}
           label="Buổi dạy hôm nay"
           value={todaySessions.length}
-          hint="Số buổi trong lịch ngày hôm nay."
+          hint="Theo lịch hôm nay."
           accent="bg-amber-50 text-amber-700"
         />
       </div>
@@ -171,7 +171,7 @@ export default async function TeacherHomePage() {
           <div className="mt-3 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-10 text-center">
             <Inbox className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              Hôm nay bạn không có buổi dạy nào. Xem lịch tuần tại{' '}
+              Không có buổi dạy hôm nay. Xem{' '}
               <Link href="/teacher/schedule" className="font-semibold text-primary hover:underline">
                 Lịch dạy
               </Link>

@@ -71,15 +71,10 @@ export default function StaffTranscriptsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
-            <BookOpenCheck className="h-6 w-6 text-indigo-600" aria-hidden="true" />
-            Bảng điểm tổng
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Xem toàn bộ điểm của lớp (chỉ đọc). Chốt/mở sổ điểm tại mục Kỳ thi.
-          </p>
-        </div>
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
+          <BookOpenCheck className="h-6 w-6 text-indigo-600" aria-hidden="true" />
+          Bảng điểm tổng
+        </h1>
 
         <select
           value={selectedClassId}

@@ -60,16 +60,11 @@ export default function ParentNotificationsPage() {
   return (
     <div className="space-y-4 p-4">
       <h1 className="font-heading text-xl font-bold tracking-tight">Báo bài &amp; Nhận xét</h1>
-      <p className="text-sm text-muted-foreground">
-        Thông báo từ nhà trường và nhận xét hằng ngày của giáo viên.
-      </p>
 
       {notices.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-10 text-center">
           <Bell className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">
-            Chưa có thông báo hay nhận xét nào.
-          </p>
+          <p className="text-sm text-muted-foreground">Chưa có thông báo nào.</p>
         </div>
       ) : (
         <ul className="space-y-3">

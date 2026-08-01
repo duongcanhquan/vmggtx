@@ -87,9 +87,7 @@ export default function FinancePayrollPage() {
           Chạy Bảng Lương Tháng
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Engine thu thập lịch dạy thực tế (buổi đã chốt điểm danh) + hợp đồng của TẤT CẢ
-          giáo viên thuộc cơ sở đang chọn, lưu kết quả dạng <strong>draft</strong> để Kế
-          toán dò lại.
+          Kết quả lưu dạng <strong>draft</strong> để Kế toán dò lại.
         </p>
       </div>
 
@@ -100,7 +98,7 @@ export default function FinancePayrollPage() {
           </span>
           <p className="font-heading text-lg font-bold">Chưa chọn cơ sở</p>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Bảng lương được tính riêng cho từng cơ sở — hãy chọn cơ sở ở góc trên bên phải.
+            Chọn cơ sở ở góc trên bên phải.
           </p>
         </div>
       ) : (
@@ -308,10 +306,6 @@ export default function FinancePayrollPage() {
                 <Wallet className="h-6 w-6" aria-hidden="true" />
               </span>
               <p className="font-heading text-lg font-bold">Chưa chạy kỳ lương nào</p>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                Chọn tháng/năm rồi bấm &quot;Chạy Bảng Lương&quot; — kết quả sẽ lưu nháp
-                vào bảng payrolls và hiển thị tại đây.
-              </p>
             </div>
           )}
         </>

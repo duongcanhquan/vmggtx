@@ -11,6 +11,7 @@ import {
   Megaphone,
   Phone,
   Plus,
+  Save,
   UserRound,
   X,
 } from 'lucide-react'
@@ -208,7 +209,11 @@ function NewLeadModal({
             disabled={submitting}
             className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Save className="h-4 w-4" aria-hidden="true" />
+            )}
             {submitting ? 'Đang lưu…' : 'Lưu Lead'}
           </button>
         </form>
@@ -304,8 +309,8 @@ function ConvertLeadModal({
           </button>
         </div>
         <p className="mb-4 text-sm text-muted-foreground">
-          <strong>{lead.full_name}</strong> ({lead.phone}) — hệ thống sẽ tạo tài khoản
-          học sinh, ghi danh vào lớp và xuất hóa đơn học phí đầu tiên.
+          <strong>{lead.full_name}</strong> ({lead.phone}) — tạo tài khoản, ghi danh
+          và xuất hóa đơn học phí đầu tiên.
         </p>
 
         <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
@@ -398,7 +403,11 @@ function ConvertLeadModal({
               disabled={submitting}
               className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <GraduationCap className="h-4 w-4" aria-hidden="true" />
+              )}
               {submitting ? 'Đang chuyển hóa…' : 'Xác nhận nhập học'}
             </button>
           </div>
@@ -488,10 +497,6 @@ export default function CrmLeadsPage() {
             <Megaphone className="h-7 w-7 text-primary" aria-hidden="true" />
             Tuyển sinh (CRM)
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Kéo thả lead giữa các cột theo tiến trình tư vấn. Kéo vào &quot;Đã nhập
-            học&quot; để chuyển hóa thành học sinh chính thức.
-          </p>
         </div>
         <button
           type="button"
@@ -505,8 +510,7 @@ export default function CrmLeadsPage() {
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống). Đăng nhập
-          bằng tài khoản Tư vấn viên / Campus Admin để thao tác thật.
+          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống).
         </p>
       )}
 

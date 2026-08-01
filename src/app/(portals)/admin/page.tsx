@@ -27,10 +27,6 @@ export default function AdminPortalPage() {
         <h1 className="mt-1 font-heading text-3xl font-bold tracking-tight">
           Welcome to Admin Portal
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Cổng quản trị dành cho Super Admin và Campus Admin. Dùng bộ chọn Cụm/Cơ
-          sở/Chi nhánh trên header để lọc dữ liệu toàn cục.
-        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

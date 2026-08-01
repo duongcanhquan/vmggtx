@@ -56,14 +56,11 @@ export default function ParentGradesPage() {
   return (
     <div className="space-y-4 p-4">
       <h1 className="font-heading text-xl font-bold tracking-tight">Sổ điểm của con</h1>
-      <p className="text-sm text-muted-foreground">
-        Điểm trung bình tính theo hệ số từng bài kiểm tra.
-      </p>
 
       {reports.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-10 text-center">
           <Medal className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">Chưa có điểm nào được nhập.</p>
+          <p className="text-sm text-muted-foreground">Chưa có điểm nào.</p>
         </div>
       ) : (
         reports.map((report) => (

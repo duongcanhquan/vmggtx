@@ -140,9 +140,6 @@ export default function LoginPage() {
             <h1 className="mt-4 font-heading text-2xl font-bold tracking-tight text-foreground">
               GDTX ERP
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Đăng nhập để vào cổng làm việc của bạn
-            </p>
           </div>
 
           <form onSubmit={handleSubmit(onValid)} noValidate className="mt-7 space-y-4">
@@ -223,10 +220,6 @@ export default function LoginPage() {
               >
                 Đăng nhập bằng OTP
               </Link>
-            </p>
-            <p>
-              Hệ thống tự đưa bạn vào đúng cổng theo quyền (Admin / Staff /
-              Giáo viên / Học sinh).
             </p>
           </div>
         </div>

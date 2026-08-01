@@ -320,8 +320,7 @@ export default function StudentImportPage() {
           Import Học sinh từ Excel/CSV
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Kéo/thả file, kiểm tra lỗi ngay trên trình duyệt — chỉ import khi dữ liệu sạch
-          100%. Học sinh luôn được gán vào cơ sở đang chọn (không nhận cơ sở từ file).
+          Học sinh được gán vào cơ sở đang chọn.
         </p>
       </div>
 

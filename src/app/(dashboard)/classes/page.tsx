@@ -44,9 +44,6 @@ export default function ClassesPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Quản lý Lớp học
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Danh sách lớp học của cơ sở đang chọn (lọc theo campus_id).
-          </p>
         </div>
         <Link
           href="/classes/new"
@@ -65,7 +62,7 @@ export default function ClassesPage() {
           </span>
           <p className="font-heading text-lg font-bold">Chưa chọn cơ sở</p>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Đây là hệ thống đa cơ sở — hãy chọn cơ sở ở góc trên bên phải để xem danh sách lớp học.
+            Chọn cơ sở ở góc trên bên phải.
           </p>
         </div>
       )}
@@ -143,9 +140,6 @@ export default function ClassesPage() {
             <BookOpen className="h-6 w-6" aria-hidden="true" />
           </span>
           <p className="font-heading text-lg font-bold">Chưa có lớp học nào</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Cơ sở này chưa có lớp học. Bấm &quot;Tạo lớp mới&quot; để thêm lớp đầu tiên.
-          </p>
           <Link
             href="/classes/new"
             className="mt-1 flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

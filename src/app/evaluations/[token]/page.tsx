@@ -112,21 +112,21 @@ export default async function PublicEvaluationPage({
           <StatusCard
             icon={<ShieldQuestion className="h-10 w-10 text-rose-500" aria-hidden="true" />}
             title="Mã không hợp lệ"
-            description="Đường link hoặc mã khảo sát không tồn tại. Vui lòng kiểm tra lại tin nhắn được gửi cho bạn."
+            description="Đường link hoặc mã khảo sát không tồn tại."
           />
         )}
         {state.kind === 'used' && (
           <StatusCard
             icon={<BadgeCheck className="h-10 w-10 text-emerald-500" aria-hidden="true" />}
             title="Bạn đã gửi đánh giá"
-            description="Mã này đã được sử dụng. Mỗi mã chỉ dùng được một lần để đảm bảo tính công bằng của khảo sát. Cảm ơn bạn!"
+            description="Mỗi mã chỉ dùng được một lần. Cảm ơn bạn!"
           />
         )}
         {state.kind === 'closed' && (
           <StatusCard
             icon={<CalendarOff className="h-10 w-10 text-amber-500" aria-hidden="true" />}
             title="Đợt khảo sát đã đóng"
-            description={`"${state.campaignName}" hiện không trong thời gian nhận đánh giá. Vui lòng liên hệ nhà trường nếu bạn nghĩ đây là nhầm lẫn.`}
+            description={`"${state.campaignName}" hiện không trong thời gian nhận đánh giá.`}
           />
         )}
         {state.kind === 'ok' && (

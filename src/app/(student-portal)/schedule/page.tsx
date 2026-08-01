@@ -57,18 +57,13 @@ export default function StudentSchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight">
-          Lịch học của tôi
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Các buổi học sắp tới của những lớp bạn đang theo học.
-        </p>
-      </div>
+      <h1 className="font-heading text-2xl font-bold tracking-tight">
+        Lịch học của tôi
+      </h1>
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị lịch demo (chưa đăng nhập bằng tài khoản học sinh).
+          Đang hiển thị lịch demo.
         </p>
       )}
 
@@ -80,9 +75,7 @@ export default function StudentSchedulePage() {
       ) : sessions.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
           <CalendarDays className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">
-            Bạn chưa có buổi học nào sắp tới.
-          </p>
+          <p className="text-sm text-muted-foreground">Chưa có buổi học sắp tới.</p>
         </div>
       ) : (
         <div className="space-y-6">

@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   Loader2,
   MapPin,
+  Save,
   X,
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
@@ -178,9 +179,6 @@ export default function TeacherSchedulePage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Lịch dạy của tôi
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Tổng hợp mọi buổi dạy trên tất cả chi nhánh bạn được phân công.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -212,8 +210,7 @@ export default function TeacherSchedulePage() {
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị lịch demo (chưa đăng nhập). Khi đăng nhập bằng tài khoản
-          Giáo viên, lịch sẽ gom đúng các buổi có teacher_id của bạn trên mọi chi nhánh.
+          Đang hiển thị lịch demo (chưa đăng nhập).
         </p>
       )}
 
@@ -422,8 +419,10 @@ export default function TeacherSchedulePage() {
                     onClick={handleSaveAttendance}
                     className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {saving && (
+                    {saving ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Save className="h-4 w-4" aria-hidden="true" />
                     )}
                     {saving ? 'Đang lưu…' : 'Lưu điểm danh'}
                   </button>

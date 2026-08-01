@@ -109,15 +109,10 @@ export default function AdminOrganizationsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
-            <Network className="h-6 w-6 text-indigo-600" aria-hidden="true" />
-            Quản lý Cơ sở
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Cây tổ chức đa tầng: Tổng công ty → Cụm → Cơ sở → Chi nhánh.
-          </p>
-        </div>
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-slate-900">
+          <Network className="h-6 w-6 text-indigo-600" aria-hidden="true" />
+          Quản lý Cơ sở
+        </h1>
         {isSuperAdmin && (
           <button
             type="button"
@@ -228,7 +223,11 @@ export default function AdminOrganizationsPage() {
                 disabled={saving}
                 className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
               >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                )}
                 Tạo đơn vị
               </button>
             </div>

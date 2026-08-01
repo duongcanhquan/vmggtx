@@ -94,9 +94,6 @@ export default function KnowledgeBasePage() {
             <BookMarked className="h-7 w-7 text-secondary" aria-hidden="true" />
             Kho tri thức AI
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Nạp tài liệu giảng dạy để Gia sư AI trả lời dựa trên kiến thức của cơ sở.
-          </p>
         </div>
 
         <div
@@ -105,8 +102,7 @@ export default function KnowledgeBasePage() {
         >
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <p>
-            Tài liệu được <strong>cách ly tuyệt đối theo cơ sở</strong>: AI của cơ sở
-            khác không bao giờ đọc được tài liệu của cơ sở bạn, và ngược lại.
+            Tài liệu được <strong>cách ly tuyệt đối theo cơ sở</strong>.
           </p>
         </div>
 
@@ -163,7 +159,7 @@ export default function KnowledgeBasePage() {
                 defaultValue=""
                 className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="">Toàn cơ sở (mọi lớp đều dùng được)</option>
+                <option value="">Toàn cơ sở</option>
                 {classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>
                     {cls.name}
@@ -243,8 +239,8 @@ export default function KnowledgeBasePage() {
                 <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
                 <p className="text-sm text-muted-foreground">
                   {isDemo
-                    ? 'Chưa đăng nhập hoặc database trống - đăng nhập để xem kho tri thức.'
-                    : 'Kho tri thức trống. Nạp tài liệu đầu tiên để Gia sư AI bắt đầu học.'}
+                    ? 'Đăng nhập để xem kho tri thức.'
+                    : 'Kho tri thức trống.'}
                 </p>
               </div>
             ) : (
