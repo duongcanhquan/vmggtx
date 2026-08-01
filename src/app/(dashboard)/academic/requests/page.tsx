@@ -257,12 +257,11 @@ export default function AcademicRequestsPage() {
                     </div>
                     {req.request_type === 'leave' ? (
                       <p className="text-[11px] text-muted-foreground">
-                        Chọn GV dạy thay = buổi học giữ nguyên, chỉ đổi giáo viên. Không chọn =
-                        buổi tự chuyển Hủy (TKB, điểm danh, lương nhận biết).
+                        Chọn GV thay: giữ buổi · Bỏ trống: buổi tự hủy.
                       </p>
                     ) : (
                       <p className="text-[11px] text-muted-foreground">
-                        Duyệt = tự tạo buổi học mới (đã kiểm tra trùng lịch giáo viên).
+                        Duyệt = tạo buổi mới, tự chống trùng lịch.
                       </p>
                     )}
                   </div>

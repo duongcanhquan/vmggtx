@@ -1343,7 +1343,7 @@ function ProgressPanel({ classId, onError }: { classId: string; onError: (m: str
     <section className="space-y-3">
       {!progress.progressAvailable && (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
-          Chưa chạy migration 039 (lms_lesson_progress) - tạm thời chỉ theo dõi được bài nộp và lượt làm kiểm tra, chưa theo dõi được lượt xem bài giảng.
+          Chưa bật theo dõi lượt xem bài giảng — hiện chỉ thấy bài nộp &amp; kiểm tra.
         </p>
       )}
 

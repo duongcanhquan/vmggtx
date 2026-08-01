@@ -198,8 +198,7 @@ function RescheduleModal({
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              Buổi học giữ nguyên giờ/phòng, chỉ đổi người dạy. Server kiểm tra trùng lịch lần
-              cuối bằng check_schedule_conflict.
+              Chỉ đổi người dạy — giờ/phòng giữ nguyên, tự chống trùng lịch.
             </p>
           </div>
         ) : (
@@ -235,8 +234,7 @@ function RescheduleModal({
               />
             </label>
             <p className="text-xs text-muted-foreground">
-              Buổi gốc chuyển HỦY, buổi bù được đánh dấu DẠY BÙ và liên kết về buổi gốc. Hệ
-              thống chặn trùng lịch giáo viên + phòng (check_schedule_conflict).
+              Buổi gốc: HỦY · buổi bù: DẠY BÙ. Tự chặn trùng lịch.
             </p>
           </div>
         )}
@@ -313,8 +311,7 @@ export default function ScheduleManagementPage() {
             Điều phối Lịch học
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Click buổi học để báo nghỉ: gán GV dạy thay (chỉ hiện GV rảnh) hoặc hủy &amp; xếp
-            lịch bù — chống trùng lịch tự động.
+            Bấm buổi học → gán GV thay hoặc xếp bù, tự chống trùng.
           </p>
         </div>
         <div className="flex items-center gap-2">

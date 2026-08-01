@@ -341,8 +341,7 @@ export default function AssessmentOpsPage() {
           <h2 className="font-heading text-lg font-bold">Phân công giám thị</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Phòng thi lấy từ Lịch thi (mục &quot;Lịch thi &amp; Giám thị&quot;). Chọn giáo viên
-          rồi bấm gán — hệ thống tự xếp Giám thị 1/Giám thị 2 và chặn trùng lịch coi thi.
+          Chọn GV → gán. Hệ thống tự xếp giám thị, chặn trùng lịch.
         </p>
 
         {board.rooms.length === 0 ? (

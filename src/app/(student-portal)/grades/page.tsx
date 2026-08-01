@@ -109,8 +109,7 @@ function ReviewRequestModal({
           />
         </label>
         <p className="mt-1 text-xs text-muted-foreground">
-          Sau khi gửi, bộ phận Khảo thí sẽ xem xét và trả kết quả. Điểm hiển thị trạng thái
-          &quot;Đang phúc khảo&quot; đến khi có kết quả.
+          Gửi xong → điểm hiện &quot;Đang phúc khảo&quot; tới khi có kết quả.
         </p>
 
         {error && (

@@ -440,8 +440,7 @@ export default function AdminRequestsPage() {
           Cổng dịch vụ — Phê duyệt
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Kanban đơn/yêu cầu của học sinh &amp; giáo viên. Duyệt / từ chối kèm lý do — người
-          gửi nhận phản hồi ngay trên cổng của họ.
+          Duyệt / từ chối đơn HS &amp; GV — người gửi nhận phản hồi ngay.
         </p>
       </div>
 

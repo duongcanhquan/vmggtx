@@ -306,9 +306,7 @@ export default function BudgetForecastPage() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                * Số liệu GIẢ LẬP theo thời khóa biểu, tính gross (lương cứng + tiền tiết dạy,
-                chưa trừ BHXH/thuế). Lịch thay đổi thì dự báo thay đổi theo — chốt số thật ở
-                mục Chạy Bảng Lương Tháng sau khi giáo viên chốt điểm danh.
+                Dự báo gross từ TKB — số thật chốt ở Bảng Lương Tháng.
               </p>
             </>
           )}
