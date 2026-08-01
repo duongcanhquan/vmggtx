@@ -120,26 +120,35 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-500 px-4 py-10">
-      {/* Trang trí bento nhẹ */}
+    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#0c0a09] px-4 py-10">
+      {/* Hào quang gold sang trọng */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-white/10 blur-3xl"
+        className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-[#c9a227]/15 blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-amber-300/20 blur-3xl"
+        className="pointer-events-none absolute -bottom-32 -right-20 h-[28rem] w-[28rem] rounded-full bg-[#8d6532]/20 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        style={{
+          backgroundImage:
+            'radial-gradient(ellipse 70% 45% at 50% 0%, rgba(201,162,39,0.14), transparent)',
+        }}
       />
 
       <div className="relative w-full max-w-[420px]">
-        <div className="rounded-3xl border border-white/20 bg-surface/95 p-7 shadow-2xl backdrop-blur-md sm:p-8">
+        <div className="rounded-[2rem] border border-[#c9a227]/25 bg-surface p-7 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.7)] sm:p-8">
           <div className="text-center">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-indigo-500/30">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#c9a227]/40 bg-gradient-to-br from-[#292524] to-[#0c0a09] text-[#e5c369] shadow-lg">
               <GraduationCap className="h-7 w-7" aria-hidden="true" />
             </span>
-            <h1 className="mt-4 font-heading text-2xl font-bold tracking-tight text-foreground">
-              GDTX ERP
+            <h1 className="mt-4 font-heading text-3xl font-bold tracking-tight text-foreground">
+              GDTX <span className="text-gold-gradient">ERP</span>
             </h1>
+            <div className="gold-hairline mx-auto mt-4 w-2/3" aria-hidden="true" />
           </div>
 
           <form onSubmit={handleSubmit(onValid)} noValidate className="mt-7 space-y-4">
@@ -199,7 +208,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md shadow-indigo-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#292524] to-[#0c0a09] px-4 text-sm font-semibold text-[#f1dfae] ring-1 ring-[#c9a227]/40 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-8px_rgba(201,162,39,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

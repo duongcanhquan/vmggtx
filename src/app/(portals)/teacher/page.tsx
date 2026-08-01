@@ -66,8 +66,8 @@ function StatCard({
   accent: string
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
-      <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${accent}`}>
+    <div className="bento-card p-5">
+      <span className={`bento-icon ${accent}`}>
         {icon}
       </span>
       <p className="mt-3 font-heading text-3xl font-bold tracking-tight">{value}</p>
@@ -164,7 +164,7 @@ export default async function TeacherHomePage() {
       </div>
 
       {/* ===== Lịch dạy hôm nay ===== */}
-      <div className="rounded-2xl border border-border bg-surface p-5">
+      <div className="bento-card p-5">
         <h2 className="font-heading text-base font-bold">Các buổi dạy hôm nay</h2>
 
         {todaySessions.length === 0 ? (

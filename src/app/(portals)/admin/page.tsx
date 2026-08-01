@@ -20,25 +20,27 @@ const LINKS = [
 export default function AdminPortalPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-primary">
+      {/* Hero bento tối */}
+      <div className="bento-card-dark p-7 sm:p-8">
+        <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#e5c369]">
           Admin Portal
         </p>
-        <h1 className="mt-1 font-heading text-3xl font-bold tracking-tight">
-          Welcome to Admin Portal
+        <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight sm:text-4xl">
+          Trung tâm Điều hành
         </h1>
+        <div className="gold-hairline mt-5 w-40" aria-hidden="true" />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {LINKS.map((link) => {
           const Icon = link.icon
           return (
             <Link
               key={link.href}
               href={link.href}
-              className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="bento-card flex items-center gap-3 p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <span className="bento-icon bg-stone-100 text-stone-700">
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
               <span className="font-heading text-sm font-bold">{link.label}</span>

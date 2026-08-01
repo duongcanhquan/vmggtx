@@ -22,19 +22,19 @@ import {
 // Tách riêng để lazy-load: recharts chỉ tải khi mở tab có biểu đồ.
 
 const PIE_COLORS: Record<string, string> = {
-  present: '#10b981',
-  excused: '#f59e0b',
-  absent: '#f43f5e',
+  present: '#3a7157',
+  excused: '#c9a227',
+  absent: '#9f3b3b',
 }
 
 export function SubjectRadarChart({ data }: { data: { subject: string; score: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <RadarChart data={data} outerRadius="75%">
-        <PolarGrid stroke="#e2e8f0" />
-        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#475569' }} />
+        <PolarGrid stroke="#e7e2da" />
+        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#57534e' }} />
         <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
-        <Radar name="Điểm TB" dataKey="score" stroke="#6366f1" fill="#6366f1" fillOpacity={0.35} />
+        <Radar name="Điểm TB" dataKey="score" stroke="#8d6532" fill="#8d6532" fillOpacity={0.35} />
         <Tooltip />
       </RadarChart>
     </ResponsiveContainer>
@@ -58,7 +58,7 @@ export function AttendancePieChart({
           paddingAngle={3}
         >
           {data.map((slice) => (
-            <Cell key={slice.key} fill={PIE_COLORS[slice.key] ?? '#94a3b8'} />
+            <Cell key={slice.key} fill={PIE_COLORS[slice.key] ?? '#aaa093'} />
           ))}
         </Pie>
         <Legend />
@@ -78,7 +78,7 @@ export function DebtBarChart({
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e7e2da" />
         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
         <YAxis
           tick={{ fontSize: 11 }}
@@ -86,8 +86,8 @@ export function DebtBarChart({
         />
         <Tooltip formatter={(value) => formatValue(Number(value ?? 0))} />
         <Legend />
-        <Bar dataKey="Đã thu" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-        <Bar dataKey="Còn nợ" stackId="a" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+        <Bar dataKey="Đã thu" stackId="a" fill="#3a7157" radius={[0, 0, 0, 0]} />
+        <Bar dataKey="Còn nợ" stackId="a" fill="#9f3b3b" radius={[6, 6, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

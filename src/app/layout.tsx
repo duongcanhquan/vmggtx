@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { Be_Vietnam_Pro, Inter } from 'next/font/google'
+import { Playfair_Display, Inter } from 'next/font/google'
 import './globals.css'
 
-const beVietnamPro = Be_Vietnam_Pro({
+// Heading serif "luxury editorial" — hỗ trợ đầy đủ tiếng Việt
+const playfair = Playfair_Display({
   subsets: ['latin', 'vietnamese'],
-  weight: ['600', '700', '800'],
+  weight: ['500', '600', '700', '800'],
   variable: '--font-heading',
   display: 'swap',
 })
@@ -29,7 +30,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi" className={`${beVietnamPro.variable} ${inter.variable}`}>
+    <html lang="vi" className={`${playfair.variable} ${inter.variable}`}>
       <body>{children}</body>
     </html>
   )

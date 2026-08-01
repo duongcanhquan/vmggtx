@@ -3,23 +3,99 @@
 @tailwind utilities;
 
 :root {
-  /* Semantic tokens - nguồn: design-system/gdtx-erp/MASTER.md */
-  --color-primary: #4f46e5;
-  --color-on-primary: #ffffff;
-  --color-secondary: #7c3aed;
-  --color-accent: #f59e0b;
-  --color-background: #f8fafc;
-  --color-surface: #ffffff;
-  --color-foreground: #0f172a;
-  --color-muted-foreground: #64748b;
-  --color-border: #e2e8f0;
-  --color-destructive: #dc2626;
-  --color-ring: #4f46e5;
+  /* ============================================================
+     LUXURY BENTO THEME — "Noir & Gold"
+     Than chì ấm (charcoal) + vàng đồng (gold) + nền kem (cream).
+     Mọi màu đi qua semantic tokens; các palette Tailwind
+     (indigo/violet/slate/amber...) đã được remap trong
+     tailwind.config.ts về cùng tông này.
+     ============================================================ */
+  --color-primary: #1c1917;
+  --color-on-primary: #faf9f7;
+  --color-secondary: #57534e;
+  --color-accent: #a16207;
+  --color-background: #f6f4f0;
+  --color-surface: #fffdfa;
+  --color-foreground: #1c1917;
+  --color-muted-foreground: #78716c;
+  --color-border: #e7e2da;
+  --color-destructive: #b91c1c;
+  --color-ring: #a16207;
+
+  /* Gold phụ trợ cho gradient / viền kim loại */
+  --gold-300: #e5c369;
+  --gold-500: #c9a227;
+  --gold-700: #a16207;
 }
 
 body {
   @apply bg-background font-body text-foreground antialiased;
   touch-action: manipulation;
+  background-image: radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      rgba(201, 162, 39, 0.06),
+      transparent
+    );
+}
+
+/* ============================================================
+   BENTO UTILITIES
+   ============================================================ */
+@layer components {
+  /* Thẻ bento chuẩn: bo lớn, viền mảnh, nổi nhẹ khi hover */
+  .bento-card {
+    @apply rounded-3xl border border-border bg-surface shadow-sm transition-all duration-300;
+    box-shadow:
+      0 1px 2px rgba(28, 25, 23, 0.04),
+      0 8px 24px -12px rgba(28, 25, 23, 0.08);
+  }
+  .bento-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 2px 4px rgba(28, 25, 23, 0.05),
+      0 16px 40px -12px rgba(28, 25, 23, 0.14);
+  }
+
+  /* Thẻ tối sang trọng (hero / KPI nổi bật) */
+  .bento-card-dark {
+    @apply rounded-3xl border border-stone-800 text-stone-100 shadow-lg transition-all duration-300;
+    background:
+      radial-gradient(120% 120% at 100% 0%, rgba(201, 162, 39, 0.16), transparent 55%),
+      linear-gradient(150deg, #292524 0%, #1c1917 55%, #0c0a09 100%);
+  }
+  .bento-card-dark:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 48px -16px rgba(12, 10, 9, 0.5);
+  }
+
+  /* Thẻ nhấn vàng gold (CTA / con số quan trọng) */
+  .bento-card-gold {
+    @apply rounded-3xl border border-amber-200 shadow-sm transition-all duration-300;
+    background: linear-gradient(140deg, #fdf8ec 0%, #f8ecd2 60%, #f1e0b8 100%);
+  }
+  .bento-card-gold:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px -14px rgba(161, 98, 7, 0.28);
+  }
+
+  /* Vạch kim tuyến mảnh (đầu card / divider) */
+  .gold-hairline {
+    background: linear-gradient(90deg, transparent, var(--gold-500), transparent);
+    height: 1px;
+  }
+
+  /* Chữ mạ vàng cho tiêu đề hero */
+  .text-gold-gradient {
+    background: linear-gradient(120deg, #8a5a06 0%, #c9a227 45%, #e5c369 70%, #a16207 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Icon tile chuẩn bento */
+  .bento-icon {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

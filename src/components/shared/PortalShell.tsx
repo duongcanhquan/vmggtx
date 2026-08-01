@@ -58,7 +58,7 @@ function NavLinks({
       {navGroups.map((group, groupIndex) => (
         <div key={group.label ?? groupIndex}>
           {group.label && !collapsed && (
-            <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            <p className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-widest text-stone-500">
               {group.label}
             </p>
           )}
@@ -80,8 +80,8 @@ function NavLinks({
                     collapsed ? 'justify-center' : ''
                   } ${
                     isActive
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:bg-indigo-50 hover:text-primary'
+                      ? 'border border-[#c9a227]/30 bg-[#c9a227]/10 text-[#e5c369] shadow-sm'
+                      : 'text-stone-400 hover:bg-white/5 hover:text-stone-100'
                   }`}
                 >
                   <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -99,19 +99,19 @@ function NavLinks({
 function Brand({ portalName, collapsed }: { portalName: string; collapsed: boolean }) {
   return (
     <div
-      className={`flex h-16 items-center gap-2.5 border-b border-border px-4 ${
+      className={`flex h-16 items-center gap-2.5 border-b border-white/10 px-4 ${
         collapsed ? 'justify-center px-2' : ''
       }`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#c9a227]/40 bg-gradient-to-br from-[#292524] to-[#0c0a09] text-[#e5c369]">
         <GraduationCap className="h-5 w-5" aria-hidden="true" />
       </span>
       {!collapsed && (
         <span className="min-w-0">
-          <span className="block truncate font-heading text-base font-bold leading-tight tracking-tight">
-            GDTX <span className="text-primary">ERP</span>
+          <span className="block truncate font-heading text-base font-bold leading-tight tracking-tight text-stone-100">
+            GDTX <span className="text-gold-gradient">ERP</span>
           </span>
-          <span className="block truncate text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <span className="block truncate text-[11px] font-semibold uppercase tracking-widest text-stone-500">
             {portalName}
           </span>
         </span>
@@ -119,6 +119,10 @@ function Brand({ portalName, collapsed }: { portalName: string; collapsed: boole
     </div>
   )
 }
+
+/** Nền sidebar tối sang trọng dùng chung desktop + drawer */
+const SIDEBAR_BG =
+  'bg-[linear-gradient(170deg,#221f1c_0%,#1c1917_55%,#141110_100%)]'
 
 export function PortalShell({
   portalName,
@@ -155,19 +159,19 @@ export function PortalShell({
     <div className="flex min-h-dvh bg-background">
       {/* ===== Sidebar desktop (thu gọn được) ===== */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-surface transition-[width] duration-200 lg:flex ${
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col transition-[width] duration-200 lg:flex ${SIDEBAR_BG} ${
           collapsed ? 'w-[76px]' : 'w-64'
         }`}
       >
         <Brand portalName={portalName} collapsed={collapsed} />
         <NavLinks navGroups={navGroups} collapsed={collapsed} />
-        <div className="border-t border-border p-3">
+        <div className="border-t border-white/10 p-3">
           <button
             type="button"
             onClick={toggleCollapsed}
             aria-label={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
             aria-expanded={!collapsed}
-            className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium text-stone-400 transition-colors duration-200 hover:bg-white/5 hover:text-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               collapsed ? 'justify-center' : ''
             }`}
           >
@@ -192,12 +196,14 @@ export function PortalShell({
             onClick={() => setDrawerOpen(false)}
             className="absolute inset-0 cursor-pointer bg-black/50"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-surface shadow-lg">
+          <aside
+            className={`absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col shadow-lg ${SIDEBAR_BG}`}
+          >
             <button
               type="button"
               aria-label="Đóng menu"
               onClick={() => setDrawerOpen(false)}
-              className="absolute right-3 top-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors duration-200 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-3 top-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-stone-400 transition-colors duration-200 hover:bg-white/10 hover:text-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>

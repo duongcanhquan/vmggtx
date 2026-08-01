@@ -121,7 +121,7 @@ export default async function StudentHomePage() {
       <section aria-label="Lối tắt" className="grid grid-cols-2 gap-3">
         <Link
           href="/grades"
-          className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="bento-card flex items-center gap-2.5 p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
             <Medal className="h-5 w-5" aria-hidden="true" />
@@ -130,7 +130,7 @@ export default async function StudentHomePage() {
         </Link>
         <Link
           href="/tuition"
-          className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="bento-card flex items-center gap-2.5 p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
             <Wallet className="h-5 w-5" aria-hidden="true" />

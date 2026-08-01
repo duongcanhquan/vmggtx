@@ -114,6 +114,24 @@ async function cleanupPreviousSeed() {
       // Xóa theo THỨ TỰ NGƯỢC khóa ngoại
       // (mở khóa class_results trước để trigger không chặn xóa grades)
       await supabase.from('class_results').update({ lock_status: 'open' }).in('org_id', ids)
+      // Gỡ hạn nhập điểm: trigger 023 chặn cả DELETE grades khi quá deadline
+      await supabase.from('assessments').update({ grading_deadline: null }).in('org_id', ids)
+
+      // evaluation_tokens KHÔNG có org_id -> xóa qua campaign_id
+      {
+        const { data: oldCampaigns } = await supabase
+          .from('evaluation_campaigns')
+          .select('id')
+          .in('org_id', ids)
+        const campaignIds = (oldCampaigns ?? []).map((c) => c.id)
+        if (campaignIds.length > 0) {
+          const { error: tokenErr } = await supabase
+            .from('evaluation_tokens')
+            .delete()
+            .in('campaign_id', campaignIds)
+          if (tokenErr) console.warn(`   (bỏ qua evaluation_tokens: ${tokenErr.message})`)
+        }
+      }
 
       // Bảng TÙY CHỌN (module mở rộng): thiếu bảng thì chỉ cảnh báo
       for (const table of [
@@ -126,7 +144,6 @@ async function cleanupPreviousSeed() {
         'exam_bank',
         'student_ai_chats',
         'evaluation_results',
-        'evaluation_tokens',
         'evaluation_campaigns',
         'lead_activities',
         'leads',

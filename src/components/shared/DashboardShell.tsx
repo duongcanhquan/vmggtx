@@ -51,15 +51,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+      <div className="flex h-16 items-center gap-2.5 px-5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#c9a227]/40 bg-gradient-to-br from-[#292524] to-[#0c0a09] text-[#e5c369]">
           <GraduationCap className="h-5 w-5" aria-hidden="true" />
         </span>
-        <span className="font-heading text-lg font-bold tracking-tight">
-          GDTX <span className="text-primary">ERP</span>
+        <span className="font-heading text-lg font-bold tracking-tight text-stone-100">
+          GDTX <span className="text-gold-gradient">ERP</span>
         </span>
       </div>
-      <nav className="flex-1 space-y-1 p-3" aria-label="Menu chính">
+      <div className="gold-hairline mx-5" aria-hidden="true" />
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Menu chính">
         {MENU_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive =
@@ -72,8 +73,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               aria-current={isActive ? 'page' : undefined}
               className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 isActive
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:bg-indigo-50 hover:text-primary'
+                  ? 'border border-[#c9a227]/30 bg-[#c9a227]/10 text-[#e5c369] shadow-sm'
+                  : 'text-stone-400 hover:bg-white/5 hover:text-stone-100'
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -86,13 +87,19 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+/** Nền sidebar tối sang trọng dùng chung desktop + drawer */
+const SIDEBAR_BG =
+  'bg-[linear-gradient(170deg,#221f1c_0%,#1c1917_55%,#141110_100%)]'
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="flex min-h-dvh">
       {/* Sidebar desktop (>= lg) */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-surface lg:flex">
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 hidden w-64 flex-col lg:flex ${SIDEBAR_BG}`}
+      >
         <SidebarContent />
       </aside>
 
@@ -105,12 +112,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             onClick={() => setSidebarOpen(false)}
             className="absolute inset-0 cursor-pointer bg-black/50"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-surface shadow-lg">
+          <aside
+            className={`absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col shadow-lg ${SIDEBAR_BG}`}
+          >
             <button
               type="button"
               aria-label="Đóng menu"
               onClick={() => setSidebarOpen(false)}
-              className="absolute right-3 top-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors duration-200 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-3 top-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-stone-400 transition-colors duration-200 hover:bg-white/10 hover:text-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>

@@ -23,7 +23,7 @@ export default function EvaluationBarChart({ data }: { data: EvaluationChartRow[
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 8, right: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e7e2da" />
         <XAxis
           dataKey="name"
           tick={{ fontSize: 11 }}
@@ -35,9 +35,9 @@ export default function EvaluationBarChart({ data }: { data: EvaluationChartRow[
         <YAxis domain={[0, 5]} tick={{ fontSize: 11 }} />
         <Tooltip />
         <Legend />
-        <Bar dataKey="Sư phạm" fill="#6366f1" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="Thái độ" fill="#10b981" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="Đúng giờ" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Sư phạm" fill="#8d6532" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Thái độ" fill="#3a7157" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Đúng giờ" fill="#c9a227" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

@@ -124,13 +124,13 @@ export default function Student360Page({ params }: { params: { id: string } }) {
     win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8">
 <title>Biên lai ${invoice.code}</title>
 <style>
-  body{font-family:system-ui,sans-serif;padding:24px;color:#0f172a}
+  body{font-family:system-ui,sans-serif;padding:24px;color:#1c1917}
   h1{font-size:18px;margin:0 0 4px}
-  .muted{color:#64748b;font-size:12px}
+  .muted{color:#78716c;font-size:12px}
   table{width:100%;border-collapse:collapse;margin-top:16px;font-size:14px}
-  td{padding:6px 0;border-bottom:1px dashed #e2e8f0}
+  td{padding:6px 0;border-bottom:1px dashed #e7e2da}
   td:last-child{text-align:right;font-weight:600}
-  .total{font-size:16px;color:#4f46e5}
+  .total{font-size:16px;color:#a16207}
 </style></head><body>
   <h1>BIÊN LAI THU HỌC PHÍ</h1>
   <p class="muted">${data.profile.orgName} · In lúc ${new Date().toLocaleString('vi-VN')}</p>
