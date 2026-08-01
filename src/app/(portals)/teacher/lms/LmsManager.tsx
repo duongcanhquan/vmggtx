@@ -1040,7 +1040,9 @@ function SubmissionsModal({
         )
       }
     })()
-  }, [classId, assignment.id, onError])
+    // onError là arrow prop đổi mỗi render cha -> đưa vào deps sẽ refetch vô hạn khi có lỗi
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, assignment.id])
 
   async function handleGrade(s: SubmissionRow) {
     const draft = drafts[s.id]
@@ -1156,7 +1158,8 @@ function QuizResultsModal({
         setRows(res.data)
       }
     })()
-  }, [classId, quiz.id, onError])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, quiz.id])
 
   return (
     <ModalShell title={`Kết quả - ${quiz.title}`} onClose={onClose}>

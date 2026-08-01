@@ -36,7 +36,8 @@
 
 ## 2. Supabase (làm TRƯỚC khi deploy)
 
-- [ ] Chạy đủ migrations theo thứ tự `supabase/migrations/001 → 025`, rồi `999_final_rls_patch.sql` và `999_performance_indexes.sql` (qua `supabase db push` hoặc SQL Editor). `025_lms.sql` = module LMS Online (bài giảng, bài tập, kiểm tra).
+- [ ] Chạy đủ migrations theo thứ tự `supabase/migrations/001 → 026`, rồi `999_final_rls_patch.sql` và `999_performance_indexes.sql` (qua `supabase db push` hoặc SQL Editor). `025_lms.sql` = module LMS Online; `026_lms_hardening.sql` = vá constraint role (admission_staff) + gia cố RLS bài nộp.
+- [ ] Sau khi seed, chạy `node scripts/smoke-lms.mjs` để test RLS LMS bằng tài khoản thật (học viên không đọc được đáp án, không tự chấm điểm được...).
 - [ ] Kiểm tra nhanh database đã đủ bảng/hàm chưa: điền `.env` thật rồi chạy `node scripts/check-db.mjs` — script liệt kê chính xác migration nào còn thiếu.
 - [ ] **QUAN TRỌNG**: `999_final_rls_patch.sql` bật RLS cho `organizations`, `class_sessions`, `attendance`, `subjects` và thêm policy GHI cho `classes` — bắt buộc cho production đa tầng.
 - [ ] Bật Custom Access Token Hook (migration 006) trong Dashboard → Authentication → Hooks để JWT chứa `role`/`org_id`.

@@ -119,6 +119,27 @@ await checkTable('lms_quiz_questions', '025')
 await checkTable('lms_quiz_attempts', '025')
 await checkFunction('is_class_teacher', { p_class_id: '00000000-0000-0000-0000-000000000000' }, '025')
 
+console.log('\n-- Migration 026 (vá drift + gia cố LMS) --')
+// Test HÀNH VI constraint role: id ngẫu nhiên không có trong auth.users
+// -> CHECK constraint chạy TRƯỚC FK trigger, nên:
+//    23514 (check_violation) = constraint CŨ (thiếu admission_staff)
+//    23503 (FK violation)    = constraint ĐÃ ĐÚNG, row không được tạo
+{
+  const { error } = await supabase.from('profiles').insert({
+    id: '00000000-0000-4000-8000-00000000dead',
+    full_name: '__check_db__',
+    role: 'admission_staff',
+  })
+  if (error && error.code === '23514') {
+    console.log('[THIẾU] profiles_role_check chưa có admission_staff  <- chạy 026_lms_hardening.sql')
+    missing++
+  } else {
+    console.log('[OK]    profiles_role_check đã gồm admission_staff')
+    // Phòng hờ: nếu vì lý do nào đó row được tạo thật thì dọn ngay
+    if (!error) await supabase.from('profiles').delete().eq('id', '00000000-0000-4000-8000-00000000dead')
+  }
+}
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

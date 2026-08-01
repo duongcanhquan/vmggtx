@@ -424,10 +424,24 @@ export async function getQuizForTaking(quizId: string): Promise<QuizTakingState>
     // RLS: học viên chỉ đọc được quiz PUBLISHED của lớp mình ghi danh
     const { data: quiz } = await supabase
       .from('lms_quizzes')
-      .select('id, org_id, title, duration_minutes')
+      .select('id, org_id, class_id, title, duration_minutes, is_published')
       .eq('id', quizId)
       .maybeSingle()
-    if (!quiz) return { error: 'Đề kiểm tra không tồn tại hoặc chưa mở.' }
+    if (!quiz || !quiz.is_published)
+      return { error: 'Đề kiểm tra không tồn tại hoặc chưa mở.' }
+
+    // Chỉ HỌC VIÊN GHI DANH mới được tạo lượt làm (GV/Staff cũng đọc
+    // được quiz qua RLS nhưng không được "làm bài" - tránh lượt rác
+    // chặn việc sửa đề và làm nhiễu bảng kết quả).
+    const { data: enrollment } = await supabase
+      .from('enrollments')
+      .select('id')
+      .eq('class_id', quiz.class_id)
+      .eq('student_id', user.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!enrollment)
+      return { error: 'Chỉ học viên ghi danh lớp này mới được làm bài. Giáo viên xem đề trong trang LMS.' }
 
     const admin = createAdminClient()
 
