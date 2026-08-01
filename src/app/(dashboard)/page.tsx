@@ -13,6 +13,8 @@ import {
   FlaskConical,
   GripVertical,
   Loader2,
+  Lock,
+  Send,
   SlidersHorizontal,
   X,
 } from 'lucide-react'
@@ -20,11 +22,17 @@ import dynamic from 'next/dynamic'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { findOrgNode, type OrgTreeNode } from '@/lib/utils/org-tree'
 import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
-import { RoleGuard } from '@/components/shared/RoleGuard'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { DEFAULT_ORG_CONFIG, type OrgConfig } from '@/lib/validation/schemas'
-import { getOrgSettings, saveOrgSettings } from './settings/actions'
+import { getOrgSettings } from './settings/actions'
 import { getDashboardStats, type DashboardStats } from './actions'
+import {
+  applyMainLayoutTemplate,
+  getMainDashboardLayout,
+  saveMainDashboardLayout,
+  type MainTemplateRoleTarget,
+  type MainWidgetItem,
+} from './layout-actions'
 
 // Lazy-load recharts: dashboard tương tác được ngay, biểu đồ tải nền
 const StudentsByBranchChart = dynamic(
@@ -78,12 +86,23 @@ function buildDemoStats(node: OrgTreeNode): DashboardStats {
 
 // ============================================================
 // HỆ WIDGET CÁ NHÂN HÓA (kéo thả trong chế độ "Tùy biến"):
-// thứ tự + ẩn/hiện lưu vào org_settings.config.dashboard_widgets
-// -> mỗi CƠ SỞ tự cá nhân hóa dashboard của mình.
+// thứ tự + ẩn/hiện lưu vào user_preferences (TỪNG USER - migration
+// 034). Ưu tiên: template ép buộc (is_forced) > layout riêng của
+// user > template theo role > org_settings cũ (legacy) > default.
+// QTV có thể áp bố cục hiện tại cho toàn bộ nhân sự 1 role.
 // ============================================================
 
 type WidgetItem = OrgConfig['dashboard_widgets'][number]
 type WidgetId = WidgetItem['id']
+
+/** Nhãn role hiển thị trên panel "Áp cho nhân sự" của QTV */
+const PUSH_ROLE_LABELS: Record<MainTemplateRoleTarget, string> = {
+  campus_admin: 'Quản lý cơ sở',
+  academic_staff: 'Giáo vụ',
+  admission_staff: 'Tuyển sinh',
+  accountant: 'Kế toán',
+  teacher: 'Giáo viên',
+}
 
 const WIDGET_META: Record<WidgetId, { title: string; gridClass: string }> = {
   kpi_students: { title: 'Tổng học viên', gridClass: 'sm:col-span-2 lg:col-span-6' },
@@ -93,9 +112,14 @@ const WIDGET_META: Record<WidgetId, { title: string; gridClass: string }> = {
   branch_ranking: { title: 'Xếp hạng chi nhánh', gridClass: 'sm:col-span-2 lg:col-span-4' },
 }
 
-/** Đảm bảo đủ 5 widget (config cũ thiếu widget mới sẽ tự bổ sung cuối) */
-function normalizeLayout(layout: WidgetItem[] | undefined): WidgetItem[] {
-  const base = layout && layout.length > 0 ? [...layout] : []
+/**
+ * Đảm bảo đủ widget (config cũ thiếu widget mới sẽ tự bổ sung cuối);
+ * đồng thời LOẠI id lạ (dữ liệu server trả về dạng {id, visible} tự do).
+ */
+function normalizeLayout(layout: MainWidgetItem[] | null | undefined): WidgetItem[] {
+  const base = (layout ?? [])
+    .filter((item): item is WidgetItem => item.id in WIDGET_META)
+    .map((item) => ({ ...item }))
   for (const item of DEFAULT_ORG_CONFIG.dashboard_widgets) {
     if (!base.some((existing) => existing.id === item.id)) base.push({ ...item })
   }
@@ -111,15 +135,26 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(false)
   const [isDemo, setIsDemo] = useState(false)
 
-  // --- Cá nhân hóa widget ---
-  const [orgConfig, setOrgConfig] = useState<OrgConfig>(DEFAULT_ORG_CONFIG)
+  // --- Cá nhân hóa widget (lưu THEO USER - user_preferences) ---
   const [layout, setLayout] = useState<WidgetItem[]>(
+    DEFAULT_ORG_CONFIG.dashboard_widgets
+  )
+  /** Bố cục đã lưu gần nhất - dùng khi bấm Hủy */
+  const [savedLayout, setSavedLayout] = useState<WidgetItem[]>(
     DEFAULT_ORG_CONFIG.dashboard_widgets
   )
   const [editMode, setEditMode] = useState(false)
   const [savingLayout, setSavingLayout] = useState(false)
   const [dragWidgetId, setDragWidgetId] = useState<WidgetId | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
+  /** true = QTV ép bố cục (is_forced) - user thường bị khóa Tùy biến */
+  const [isForced, setIsForced] = useState(false)
+  /** true = được áp bố cục cho toàn bộ nhân sự 1 role */
+  const [canPushTemplate, setCanPushTemplate] = useState(false)
+  // --- Panel "Áp cho nhân sự" (QTV) ---
+  const [pushRole, setPushRole] = useState<MainTemplateRoleTarget>('academic_staff')
+  const [pushForced, setPushForced] = useState(false)
+  const [pushing, setPushing] = useState(false)
 
   useEffect(() => {
     if (!currentOrgId) {
@@ -128,24 +163,40 @@ export default function OverviewPage() {
     }
     let cancelled = false
     setLoading(true)
-    // Số liệu + layout cá nhân hóa tải SONG SONG
-    Promise.all([getDashboardStats(currentOrgId), getOrgSettings(currentOrgId)]).then(
-      ([result, settings]) => {
-        if (cancelled) return
-        if (result.data) {
-          setStats(result.data)
-          setIsDemo(false)
-        } else {
-          // DB chưa sẵn sàng -> số liệu demo nhất quán với cây org đang chọn
-          const node = findOrgNode(useOrgStore.getState().orgTree, currentOrgId)
-          setStats(node ? buildDemoStats(node) : null)
-          setIsDemo(true)
-        }
-        setOrgConfig(settings.config)
-        setLayout(normalizeLayout(settings.config.dashboard_widgets))
-        setLoading(false)
+    // Số liệu + layout cá nhân hóa tải SONG SONG:
+    // user_preferences/template (theo user) + org_settings (fallback legacy)
+    Promise.all([
+      getDashboardStats(currentOrgId),
+      getOrgSettings(currentOrgId),
+      getMainDashboardLayout(),
+    ]).then(([result, settings, layoutResult]) => {
+      if (cancelled) return
+      if (result.data) {
+        setStats(result.data)
+        setIsDemo(false)
+      } else {
+        // DB chưa sẵn sàng -> số liệu demo nhất quán với cây org đang chọn
+        const node = findOrgNode(useOrgStore.getState().orgTree, currentOrgId)
+        setStats(node ? buildDemoStats(node) : null)
+        setIsDemo(true)
       }
-    )
+
+      // Ưu tiên: layout theo user/template -> org_settings cũ -> default
+      const personal =
+        layoutResult.error === undefined && layoutResult.layout
+          ? layoutResult.layout
+          : null
+      const chosen = normalizeLayout(
+        personal ?? settings.config.dashboard_widgets
+      )
+      setLayout(chosen)
+      setSavedLayout(chosen)
+      if (layoutResult.error === undefined) {
+        setIsForced(layoutResult.isForced)
+        setCanPushTemplate(layoutResult.canPushTemplate)
+      }
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }
@@ -176,24 +227,38 @@ export default function OverviewPage() {
   }
 
   async function handleSaveLayout() {
-    if (!currentOrgId) return
     setSavingLayout(true)
-    const result = await saveOrgSettings(currentOrgId, {
-      ...orgConfig,
-      dashboard_widgets: layout,
-    })
+    const result = await saveMainDashboardLayout(layout)
     setSavingLayout(false)
     if (result.error) {
       setToast({ type: 'error', message: result.error })
       return
     }
+    setSavedLayout(layout)
     setEditMode(false)
-    setToast({ type: 'success', message: 'Đã lưu bố cục dashboard cho cơ sở này.' })
+    setToast({ type: 'success', message: 'Đã lưu bố cục dashboard của bạn.' })
   }
 
   function handleCancelEdit() {
-    setLayout(normalizeLayout(orgConfig.dashboard_widgets))
+    setLayout(savedLayout)
     setEditMode(false)
+  }
+
+  /** QTV: áp bố cục đang chỉnh cho toàn bộ nhân sự 1 role */
+  async function handlePushTemplate() {
+    setPushing(true)
+    const result = await applyMainLayoutTemplate(pushRole, layout, pushForced)
+    setPushing(false)
+    if (result.error) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({
+      type: 'success',
+      message: `Đã áp bố cục cho toàn bộ nhân sự role "${PUSH_ROLE_LABELS[pushRole]}"${
+        pushForced ? ' (khóa tùy biến)' : ''
+      }.`,
+    })
   }
 
   // ----- Nội dung từng widget -----
@@ -351,9 +416,16 @@ export default function OverviewPage() {
               Dữ liệu demo
             </span>
           )}
-          {/* Tùy biến bố cục: Campus Admin / Super Admin */}
-          {currentOrgId && !loading && stats && (
-            <RoleGuard allowedRoles={['super_admin', 'campus_admin']} fallback={null}>
+          {/* Tùy biến bố cục: MỖI USER tự cá nhân hóa (lưu user_preferences).
+              is_forced = QTV áp đặt -> user thường bị khóa. */}
+          {currentOrgId && !loading && stats && isForced && (
+            <span className="flex items-center gap-1.5 rounded-lg bg-stone-100 px-2.5 py-1.5 text-xs font-semibold text-muted-foreground">
+              <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+              Bố cục do QTV áp đặt
+            </span>
+          )}
+          {currentOrgId && !loading && stats && !isForced && (
+            <>
               {editMode ? (
                 <>
                   <button
@@ -388,16 +460,59 @@ export default function OverviewPage() {
                   Tùy biến
                 </button>
               )}
-            </RoleGuard>
+            </>
           )}
         </div>
       </div>
 
       {editMode && (
-        <p className="rounded-2xl border border-[#c9a227]/30 bg-[#c9a227]/5 px-4 py-3 text-sm text-[#6b3f10]">
-          Chế độ tùy biến: <strong>kéo thả</strong> để đổi vị trí, bấm{' '}
-          <strong>biểu tượng mắt</strong> để ẩn/hiện widget, rồi bấm Lưu bố cục.
-        </p>
+        <div className="space-y-3 rounded-2xl border border-[#c9a227]/30 bg-[#c9a227]/5 px-4 py-3 text-sm text-[#6b3f10]">
+          <p>
+            Chế độ tùy biến: <strong>kéo thả</strong> để đổi vị trí, bấm{' '}
+            <strong>biểu tượng mắt</strong> để ẩn/hiện widget, rồi bấm Lưu bố cục.
+            Bố cục được lưu <strong>riêng cho tài khoản của bạn</strong>.
+          </p>
+          {/* QTV: áp bố cục hiện tại làm mặc định cho toàn bộ nhân sự 1 role */}
+          {canPushTemplate && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-[#c9a227]/20 pt-3">
+              <span className="font-semibold">Áp cho nhân sự:</span>
+              <select
+                value={pushRole}
+                onChange={(e) => setPushRole(e.target.value as MainTemplateRoleTarget)}
+                aria-label="Role đích"
+                className="min-h-9 cursor-pointer rounded-lg border border-[#c9a227]/40 bg-surface px-2.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {Object.entries(PUSH_ROLE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <label className="flex cursor-pointer items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={pushForced}
+                  onChange={(e) => setPushForced(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer accent-[#a16207]"
+                />
+                Khóa tùy biến (bắt buộc dùng)
+              </label>
+              <button
+                type="button"
+                onClick={handlePushTemplate}
+                disabled={pushing}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-[#a16207] px-3 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pushing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                )}
+                Áp dụng
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Chưa chọn org */}

@@ -55,6 +55,30 @@ function sanitizeLayout(raw: unknown): WidgetLayoutItem[] | null {
   return items.length > 0 ? items : null
 }
 
+// ------------------------------------------------------------
+// NAMESPACE jsonb: cột dashboard_layout / default_layout dùng chung
+// với dashboard chính (/) nên lưu dạng object có khóa riêng:
+//   { staff_grid: [{i,x,y,w,h}...], main_widgets: [{id,visible}...] }
+// Dữ liệu cũ dạng MẢNG được hiểu là staff_grid (legacy).
+// ------------------------------------------------------------
+
+/** Đọc grid của staff từ giá trị jsonb (mảng legacy hoặc object.staff_grid) */
+function extractStaffGrid(raw: unknown): WidgetLayoutItem[] | null {
+  if (Array.isArray(raw)) return sanitizeLayout(raw)
+  if (typeof raw === 'object' && raw !== null) {
+    return sanitizeLayout((raw as Record<string, unknown>).staff_grid)
+  }
+  return null
+}
+
+/** Gộp staff_grid vào giá trị hiện có, KHÔNG phá khóa main_widgets */
+function mergeStaffGrid(existing: unknown, grid: WidgetLayoutItem[]): Record<string, unknown> {
+  if (typeof existing === 'object' && existing !== null && !Array.isArray(existing)) {
+    return { ...(existing as Record<string, unknown>), staff_grid: grid }
+  }
+  return { staff_grid: grid }
+}
+
 async function getAuthProfile(): Promise<
   { error: string } | { error?: undefined; userId: string; orgId: string | null; role: string }
 > {
@@ -101,8 +125,11 @@ export async function getDashboardLayout(): Promise<
       prefsResult.error !== null && /user_preferences|does not exist/i.test(prefsResult.error.message)
     const canPushTemplate = ADMIN_ROLES.includes(auth.role)
 
-    const templateLayout = sanitizeLayout(templateResult.data?.default_layout)
-    const isForced = templateResult.data?.is_forced === true && !ADMIN_ROLES.includes(auth.role)
+    const templateLayout = extractStaffGrid(templateResult.data?.default_layout)
+    const isForced =
+      templateResult.data?.is_forced === true &&
+      templateLayout !== null &&
+      !ADMIN_ROLES.includes(auth.role)
 
     // Template ép buộc -> bỏ qua layout riêng của user
     if (isForced && templateLayout) {
@@ -115,7 +142,7 @@ export async function getDashboardLayout(): Promise<
       }
     }
 
-    const userLayout = sanitizeLayout(prefsResult.data?.dashboard_layout)
+    const userLayout = extractStaffGrid(prefsResult.data?.dashboard_layout)
     if (userLayout) {
       return {
         layout: userLayout,
@@ -152,20 +179,27 @@ export async function saveDashboardLayout(layout: WidgetLayoutItem[]): Promise<A
     if (!ADMIN_ROLES.includes(auth.role)) {
       const { data: template } = await supabase
         .from('global_layout_templates')
-        .select('is_forced')
+        .select('default_layout, is_forced')
         .eq('role_target', auth.role)
         .is('deleted_at', null)
         .maybeSingle()
-      if (template?.is_forced === true) {
+      if (template?.is_forced === true && extractStaffGrid(template.default_layout) !== null) {
         return { error: 'Layout này do Quản trị viên áp đặt — bạn không thể tự thay đổi.' }
       }
     }
+
+    // Đọc giá trị hiện có để merge namespace (không phá main_widgets)
+    const { data: existing } = await supabase
+      .from('user_preferences')
+      .select('dashboard_layout')
+      .eq('user_id', auth.userId)
+      .maybeSingle()
 
     const { error } = await supabase.from('user_preferences').upsert(
       {
         user_id: auth.userId,
         org_id: auth.orgId,
-        dashboard_layout: clean,
+        dashboard_layout: mergeStaffGrid(existing?.dashboard_layout, clean),
       },
       { onConflict: 'user_id' }
     )
@@ -205,11 +239,20 @@ export async function applyLayoutTemplate(
     if (!auth.orgId) return { error: 'Tài khoản chưa gắn cơ sở.' }
 
     const supabase = createClient()
+
+    // Giữ nguyên khóa main_widgets nếu template đã có
+    const { data: existing } = await supabase
+      .from('global_layout_templates')
+      .select('default_layout')
+      .eq('org_id', auth.orgId)
+      .eq('role_target', roleTarget)
+      .maybeSingle()
+
     const { error } = await supabase.from('global_layout_templates').upsert(
       {
         org_id: auth.orgId,
         role_target: roleTarget,
-        default_layout: clean,
+        default_layout: mergeStaffGrid(existing?.default_layout, clean),
         is_forced: isForced,
         created_by: auth.userId,
         deleted_at: null,
