@@ -50,3 +50,10 @@
   wizard validate từng bước; cấm campus lồng / campus_admin tạo campus;
   badge hạn theo giờ VN; capacity lọc deleted_at.
 - BUG1 redirect loop `/` đã vá từ 71769a2 (subagent đọc code cũ).
+
+## 2026-08-01 | 2c4dde8 | Fix hiểu lầm "không đổi tên được cơ sở mình"
+- Nguyên nhân: RLS cho campus_admin THẤY cả HQ/Cụm cấp trên (để vẽ cây) nhưng UI
+  hiện nút sửa/xóa trên mọi node → bấm node cấp trên bị "TỪ CHỐI ngoài phạm vi".
+  Đổi tên node CÓ badge "Cơ sở của bạn" hoạt động đúng (đã test session admin.cs1 thật).
+- Làm: getOrgManagementData trả manageableIds (subtree); UI chỉ hiện nút thao tác
+  trong phạm vi, cấp trên gắn badge "Cấp trên · chỉ xem"; select cha khi tạo mới lọc theo phạm vi.
