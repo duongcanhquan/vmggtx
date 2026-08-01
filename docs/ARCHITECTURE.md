@@ -45,7 +45,8 @@ Deploy: Vercel. TypeScript + Zod toàn bộ.
 ## Route groups (src/app)
 `(auth)` login các cổng • `(dashboard)` nhân viên/quản lý (students, classes, attendance, finance,
 hr, crm, assets, announcements, campus-admin/users, settings, hdsd...) • `(portals)` admin, staff,
-teacher, b2b, student • `(student-portal)`, parent/* • api/ (ai/copilot, chat/tutor, cron/tuition-reminders).
+teacher, b2b, student • `(student-portal)`, parent/* • `coso/[slug]` cổng công khai theo cơ sở
+(landing + login 3 cổng, D14) • api/ (ai/copilot, chat/tutor, cron/tuition-reminders).
 
 ## Nhóm migration (001→043, 999 chạy cuối)
 - 001-006 nền: schema đa tầng, AI functions, subjects, profiles, RBAC matrix, JWT claims.

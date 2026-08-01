@@ -71,3 +71,9 @@
 - Làm: bỏ max-w shell (Dashboard/Portal/student/teacher); vá brand teacher+hdsd;
   licenses bỏ padding kép; staff header slot thừa; tutor ẩn UUID; chuẩn hóa
   7 header slate → token; 6 empty state py-16 → p-12 token; hero admin gọn hơn.
+
+## 2026-08-01 | (commit kế tiếp) | Cổng path /coso/[slug] theo cơ sở
+- Làm: migration 045 (slug + RPC get_public_campus_by_slug); landing /coso/{slug};
+  3 login staff/student/parent gắn campus + chặn ngoài subtree; UI org hiện badge link;
+  wizard license tự sinh slug; D14 chốt path trước subdomain.
+- Tồn: user chạy 045 trên DB thật; chưa làm DNS subdomain.

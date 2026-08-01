@@ -3,7 +3,7 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-01 - vá bug license/org từ audit logic (536cfa02)
+**Cập nhật lần cuối**: 2026-08-01 - cổng /coso/[slug] theo cơ sở (045)
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
@@ -12,9 +12,9 @@
 - "Phó giám đốc" = tài khoản campus_admin gắn vào org con (không có role riêng).
 
 ## Migrations
-- Đã có file: `001 → 044` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
-- ⚠️ **CHƯA chạy trên DB thật: 042 (overview report), 043 (menu permissions), 044 (tenant licenses)** - user phải chạy tay
-  qua Supabase SQL Editor. Code đã fail-safe khi RPC chưa tồn tại (dashboard fallback demo, menu fail-open).
+- Đã có file: `001 → 045` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
+- ⚠️ **CHƯA chạy trên DB thật: 042, 043, 044, 045 (org slugs /coso)** - user phải chạy tay
+  qua Supabase SQL Editor. Code fail-safe khi RPC/cột chưa tồn tại.
 - ⚠️ `scripts/apply-migration.mjs` lỗi "password authentication failed" - DATABASE_URL trong .env sai
   mật khẩu. Muốn tự động hóa phải xin user cập nhật.
 
@@ -35,11 +35,17 @@
   (/admin/permissions, menuRegistry, RPC get_my_menu_keys).
 
 ## Tồn đọng / việc tiếp theo
-1. Migration 042/043/044 chờ user chạy tay (xem trên).
+1. Migration 042/043/044/045 chờ user chạy tay (xem trên) — **045 bắt buộc** để `/coso/[slug]` hoạt động.
 2. Production Vercel: set `PARENT_SESSION_SECRET` + `PARENT_MOCK_OTP` (bắt buộc, không còn fallback).
-3. Subdomain per cơ sở - làm sau khi license chạy thực tế.
+3. Subdomain DNS per cơ sở (`ten.domain.com`) — sau path `/coso/` (D14 đã chốt path trước).
 4. Backlog: OTP phụ huynh thật (SMS); attendance/payroll/warnings auto-scan (xem WORKLOG audit).
 5. License: phụ huynh CHƯA bị chặn khi cơ sở hết hạn (chấp nhận được).
+6. Login lỗi production: kiểm tra env Supabase + JWT hook 006; dùng `/coso/{slug}/login` sau khi có slug.
+
+## Cổng /coso/[slug] (mới - 2026-08-01)
+- `organizations.slug` (campus) + RPC `get_public_campus_by_slug`.
+- Public: `/coso/{slug}` landing → 3 login staff/student/parent gắn cơ sở.
+- Login qua cổng cơ sở: chặn tài khoản ngoài subtree; UI admin hiện badge link.
 
 ## Tầng LICENSE (mới - 2026-08-01)
 - Gói = tổ hợp module (MenuKey). 3 preset trong `src/lib/licensing/packages.ts`

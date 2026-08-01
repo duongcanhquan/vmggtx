@@ -7,6 +7,8 @@ export type OrgFlat = {
   name: string
   type: OrgType
   parent_id: string | null
+  /** Slug URL công khai (campus) → /coso/[slug] */
+  slug?: string | null
 }
 
 /** Node dạng cây sau khi dựng từ dữ liệu phẳng */

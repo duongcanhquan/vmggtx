@@ -194,7 +194,8 @@ const PUBLIC_EXACT = new Set([
   '/parent/login',
   '/license-expired',
 ])
-const PUBLIC_PREFIXES = ['/evaluations', '/hdsd']
+/** /coso/[slug] landing + login 3 cổng theo cơ sở (path-based tenant) */
+const PUBLIC_PREFIXES = ['/evaluations', '/hdsd', '/coso']
 
 /**
  * TÁCH CỔNG ĐĂNG NHẬP (mỗi cổng sẵn sàng chạy tên miền riêng):
@@ -217,11 +218,35 @@ function isParentArea(pathname: string): boolean {
   return matchesPrefix(pathname, '/parent') || pathname === '/dashboard'
 }
 
+/** Trích slug từ /coso/{slug}/... — null nếu không phải cổng cơ sở */
+function campusSlugFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/coso\/([a-z0-9][a-z0-9-]{0,46}[a-z0-9]|[a-z0-9])(?:\/|$)/)
+  return m?.[1] ?? null
+}
+
 function loginPathFor(pathname: string): string {
+  const slug = campusSlugFromPath(pathname)
+  if (slug) {
+    if (matchesPrefix(pathname, `/coso/${slug}/parent`)) {
+      return `/coso/${slug}/parent/login`
+    }
+    if (matchesPrefix(pathname, `/coso/${slug}/student`)) {
+      return `/coso/${slug}/student/login`
+    }
+    return `/coso/${slug}/login`
+  }
   if (isParentArea(pathname)) return '/parent/login'
   return STUDENT_AREA_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
     ? '/student/login'
     : '/login'
+}
+
+function isCampusLoginPath(pathname: string): boolean {
+  return (
+    /^\/coso\/[^/]+\/login\/?$/.test(pathname) ||
+    /^\/coso\/[^/]+\/student\/login\/?$/.test(pathname) ||
+    /^\/coso\/[^/]+\/parent\/login\/?$/.test(pathname)
+  )
 }
 
 /**
@@ -337,7 +362,10 @@ export async function middleware(request: NextRequest) {
     // Đã đăng nhập mà vào trang login → đẩy về portal đúng role
     if (
       session &&
-      (pathname === '/login' || pathname === '/student/login' || pathname === '/')
+      (pathname === '/login' ||
+        pathname === '/student/login' ||
+        pathname === '/' ||
+        isCampusLoginPath(pathname))
     ) {
       const role = await resolveRole()
       if (role) {

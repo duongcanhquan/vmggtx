@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getDescendantOrgIds, invalidateOrgScopeCache } from '@/lib/utils/orgScope'
 import { zodFail, type ActionResult } from '@/lib/validation/schemas'
 import type { OrgFlat, OrgType } from '@/lib/utils/org-tree'
+import { orgSlugSchema, slugifyOrgName } from '@/lib/utils/orgSlug'
 
 // ============================================================
 // QUẢN LÝ CƠ SỞ (/admin/organizations)
@@ -51,13 +52,8 @@ export async function getOrgManagementData(): Promise<OrgManagementResult> {
     } = await supabase.auth.getUser()
     if (!user) return { error: 'Bạn chưa đăng nhập.' }
 
-    const [{ data: profile }, orgsRes, studentsRes, classesRes] = await Promise.all([
+    const [{ data: profile }, studentsRes, classesRes] = await Promise.all([
       supabase.from('profiles').select('role, org_id').eq('id', user.id).maybeSingle(),
-      supabase
-        .from('organizations')
-        .select('id, name, type, parent_id')
-        .is('deleted_at', null)
-        .order('name'),
       // [ĐA TẦNG] RLS cắt sẵn theo subtree - chỉ đếm những gì được thấy
       supabase
         .from('profiles')
@@ -67,8 +63,32 @@ export async function getOrgManagementData(): Promise<OrgManagementResult> {
       supabase.from('classes').select('org_id').is('deleted_at', null),
     ])
 
-    if (orgsRes.error) {
-      return { error: `Không tải được cây tổ chức: ${orgsRes.error.message}` }
+    // slug (045) — fail-soft nếu chưa chạy migration
+    let orgRows: OrgFlat[] = []
+    {
+      const withSlug = await supabase
+        .from('organizations')
+        .select('id, name, type, parent_id, slug')
+        .is('deleted_at', null)
+        .order('name')
+      if (
+        withSlug.error &&
+        /slug|42703|PGRST204|does not exist|schema cache/i.test(withSlug.error.message)
+      ) {
+        const fallback = await supabase
+          .from('organizations')
+          .select('id, name, type, parent_id')
+          .is('deleted_at', null)
+          .order('name')
+        if (fallback.error) {
+          return { error: `Không tải được cây tổ chức: ${fallback.error.message}` }
+        }
+        orgRows = (fallback.data ?? []) as OrgFlat[]
+      } else if (withSlug.error) {
+        return { error: `Không tải được cây tổ chức: ${withSlug.error.message}` }
+      } else {
+        orgRows = (withSlug.data ?? []) as OrgFlat[]
+      }
     }
 
     const studentByOrg = new Map<string, number>()
@@ -80,7 +100,7 @@ export async function getOrgManagementData(): Promise<OrgManagementResult> {
       classByOrg.set(row.org_id, (classByOrg.get(row.org_id) ?? 0) + 1)
     }
 
-    const orgs: OrgManagementRow[] = ((orgsRes.data ?? []) as OrgFlat[]).map((org) => ({
+    const orgs: OrgManagementRow[] = orgRows.map((org) => ({
       ...org,
       studentCount: studentByOrg.get(org.id) ?? 0,
       classCount: classByOrg.get(org.id) ?? 0,
@@ -173,13 +193,49 @@ const createOrgSchema = z.object({
   name: orgNameSchema,
   type: orgTypeSchema,
   parentId: z.string({ required_error: 'Vui lòng chọn đơn vị cha.' }).uuid('Đơn vị cha không hợp lệ.'),
+  slug: z.string().trim().optional(),
 })
+
+async function ensureUniqueSlug(
+  admin: ReturnType<typeof createAdminClient>,
+  desired: string,
+  excludeId?: string
+): Promise<string | { error: string }> {
+  const baseParsed = orgSlugSchema.safeParse(desired)
+  if (!baseParsed.success) return zodFail(baseParsed.error)
+  let candidate = baseParsed.data
+  let n = 2
+  while (n < 50) {
+    let q = admin
+      .from('organizations')
+      .select('id')
+      .eq('slug', candidate)
+      .is('deleted_at', null)
+      .limit(1)
+    if (excludeId) q = q.neq('id', excludeId)
+    const { data, error } = await q.maybeSingle()
+    if (error) {
+      if (/slug|42703|PGRST204|does not exist|schema cache/i.test(error.message)) {
+        return {
+          error:
+            'Chưa chạy migration 045_org_slugs.sql trên database. Hãy chạy trong Supabase SQL Editor.',
+        }
+      }
+      return { error: `Không kiểm tra được slug: ${error.message}` }
+    }
+    if (!data) return candidate
+    candidate = `${baseParsed.data.slice(0, 40)}-${n}`
+    n++
+  }
+  return { error: 'Không tạo được slug duy nhất. Hãy đổi mã đường dẫn.' }
+}
 
 export async function createOrganization(formData: FormData): Promise<ActionResult> {
   const parsed = createOrgSchema.safeParse({
     name: String(formData.get('name') ?? ''),
     type: String(formData.get('type') ?? ''),
     parentId: String(formData.get('parentId') ?? ''),
+    slug: String(formData.get('slug') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
 
@@ -246,12 +302,38 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
     }
 
     // Trigger DB tự tính path ltree từ parent_id (migration 001)
-    const { error } = await admin.from('organizations').insert({
+    const insertRow: {
+      name: string
+      type: OrgType
+      parent_id: string
+      slug?: string
+    } = {
       name: parsed.data.name,
       type: parsed.data.type as OrgType,
       parent_id: parsed.data.parentId,
-    })
-    if (error) return { error: `Không thể tạo đơn vị: ${error.message}` }
+    }
+
+    // Campus bắt buộc có slug → cổng /coso/[slug]
+    if (parsed.data.type === 'campus') {
+      const rawSlug =
+        parsed.data.slug && parsed.data.slug.length > 0
+          ? parsed.data.slug
+          : slugifyOrgName(parsed.data.name)
+      const unique = await ensureUniqueSlug(admin, rawSlug)
+      if (typeof unique === 'object') return unique
+      insertRow.slug = unique
+    }
+
+    const { error } = await admin.from('organizations').insert(insertRow)
+    if (error) {
+      if (/slug|045|unique|duplicate/i.test(error.message)) {
+        return {
+          error:
+            'Mã đường dẫn (slug) đã tồn tại hoặc chưa chạy migration 045. Đổi slug hoặc chạy 045_org_slugs.sql.',
+        }
+      }
+      return { error: `Không thể tạo đơn vị: ${error.message}` }
+    }
 
     invalidateOrgScopeCache()
     revalidatePath('/admin/organizations')
@@ -271,6 +353,7 @@ const updateOrgSchema = z.object({
   name: orgNameSchema,
   // Cho phép bỏ trống type = giữ nguyên (đơn vị hq không đổi loại)
   type: orgTypeSchema.optional(),
+  slug: z.string().trim().optional(),
 })
 
 export async function updateOrganization(formData: FormData): Promise<ActionResult> {
@@ -279,6 +362,7 @@ export async function updateOrganization(formData: FormData): Promise<ActionResu
     orgId: String(formData.get('orgId') ?? ''),
     name: String(formData.get('name') ?? ''),
     type: rawType === '' ? undefined : rawType,
+    slug: String(formData.get('slug') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
 
@@ -292,23 +376,44 @@ export async function updateOrganization(formData: FormData): Promise<ActionResu
     const admin = createAdminClient()
     const { data: target } = await admin
       .from('organizations')
-      .select('id, type')
+      .select('id, type, slug')
       .eq('id', parsed.data.orgId)
       .is('deleted_at', null)
       .maybeSingle()
     if (!target) return { error: 'Đơn vị không tồn tại hoặc đã bị xóa.' }
 
-    const updates: { name: string; type?: OrgType } = { name: parsed.data.name }
+    const nextType = (parsed.data.type && target.type !== 'hq'
+      ? parsed.data.type
+      : target.type) as OrgType
+
+    const updates: { name: string; type?: OrgType; slug?: string | null } = {
+      name: parsed.data.name,
+    }
     // Trụ sở chính (hq) giữ nguyên loại; các đơn vị khác được đổi loại
     if (parsed.data.type && target.type !== 'hq') {
       updates.type = parsed.data.type as OrgType
+    }
+
+    if (nextType === 'campus') {
+      const rawSlug =
+        parsed.data.slug && parsed.data.slug.length > 0
+          ? parsed.data.slug
+          : target.slug || slugifyOrgName(parsed.data.name)
+      const unique = await ensureUniqueSlug(admin, rawSlug, parsed.data.orgId)
+      if (typeof unique === 'object') return unique
+      updates.slug = unique
     }
 
     const { error } = await admin
       .from('organizations')
       .update(updates)
       .eq('id', parsed.data.orgId)
-    if (error) return { error: `Không thể cập nhật đơn vị: ${error.message}` }
+    if (error) {
+      if (/slug|unique|duplicate/i.test(error.message)) {
+        return { error: 'Mã đường dẫn (slug) đã được dùng bởi cơ sở khác.' }
+      }
+      return { error: `Không thể cập nhật đơn vị: ${error.message}` }
+    }
 
     invalidateOrgScopeCache()
     revalidatePath('/admin/organizations')

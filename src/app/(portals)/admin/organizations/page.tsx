@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Building2,
+  ExternalLink,
   GraduationCap,
   Loader2,
   Network,
@@ -13,6 +14,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { campusPortalPath, slugifyOrgName } from '@/lib/utils/orgSlug'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { buildOrgTree, ORG_TYPE_LABELS, type OrgTreeNode } from '@/lib/utils/org-tree'
 import {
@@ -57,6 +59,10 @@ export default function AdminOrganizationsPage() {
   const [editOrg, setEditOrg] = useState<OrgManagementRow | null>(null)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [createType, setCreateType] = useState<'region' | 'campus' | 'branch'>('branch')
+  const [createName, setCreateName] = useState('')
+  const [createSlug, setCreateSlug] = useState('')
+  const [editSlug, setEditSlug] = useState('')
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -159,6 +165,18 @@ export default function AdminOrganizationsPage() {
               Cấp trên · chỉ xem
             </span>
           )}
+          {node.type === 'campus' && counts?.slug && (
+            <a
+              href={campusPortalPath(counts.slug)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Mở cổng ${campusPortalPath(counts.slug)}`}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-violet-700 transition hover:bg-violet-100"
+            >
+              /coso/{counts.slug}
+              <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            </a>
+          )}
           <span className="ml-auto flex shrink-0 items-center gap-4 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1">
               <Users className="h-3.5 w-3.5" aria-hidden="true" />
@@ -175,7 +193,12 @@ export default function AdminOrganizationsPage() {
             <span className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
-                onClick={() => setCreateParentId(node.id)}
+                onClick={() => {
+                  setCreateParentId(node.id)
+                  setCreateType('branch')
+                  setCreateName('')
+                  setCreateSlug('')
+                }}
                 title="Thêm đơn vị con"
                 aria-label={`Thêm đơn vị con cho ${node.name}`}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -184,7 +207,11 @@ export default function AdminOrganizationsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setEditOrg(countById.get(node.id) ?? null)}
+                onClick={() => {
+                  const row = countById.get(node.id) ?? null
+                  setEditOrg(row)
+                  setEditSlug(row?.slug ?? (row ? slugifyOrgName(row.name) : ''))
+                }}
                 title="Sửa / đổi tên"
                 aria-label={`Sửa đơn vị ${node.name}`}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-amber-100 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -231,7 +258,12 @@ export default function AdminOrganizationsPage() {
         {canManage && (
           <button
             type="button"
-            onClick={() => setCreateParentId('')}
+            onClick={() => {
+              setCreateParentId('')
+              setCreateType('branch')
+              setCreateName('')
+              setCreateSlug('')
+            }}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -242,8 +274,8 @@ export default function AdminOrganizationsPage() {
 
       {canManage && !loading && (
         <p className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
-          Rê chuột vào từng dòng: ➕ thêm nhánh · ✏️ đổi tên · 🗑️ xóa. Tối đa 3 cấp
-          dưới 1 Cơ sở.
+          Mỗi Cơ sở có đường dẫn riêng <span className="font-mono">/coso/ten-co-so</span>{' '}
+          (landing + 3 cổng login). Bấm badge tím để mở. Tối đa 3 cấp dưới 1 Cơ sở.
         </p>
       )}
 
@@ -295,18 +327,60 @@ export default function AdminOrganizationsPage() {
                 minLength={3}
                 maxLength={120}
                 placeholder="VD: Chi nhánh Hà Đông"
+                value={createName}
+                onChange={(e) => {
+                  setCreateName(e.target.value)
+                  if (createType === 'campus') {
+                    setCreateSlug(slugifyOrgName(e.target.value))
+                  }
+                }}
                 className={inputClass}
               />
             </label>
 
             <label className="mt-3 block text-sm font-medium text-slate-700">
               Loại đơn vị
-              <select name="type" required defaultValue="branch" className={inputClass}>
+              <select
+                name="type"
+                required
+                value={createType}
+                onChange={(e) => {
+                  const next = e.target.value as 'region' | 'campus' | 'branch'
+                  setCreateType(next)
+                  if (next === 'campus' && createName) {
+                    setCreateSlug(slugifyOrgName(createName))
+                  }
+                }}
+                className={inputClass}
+              >
                 <option value="region">Cụm/Vùng</option>
                 <option value="campus">Cơ sở</option>
                 <option value="branch">Chi nhánh</option>
               </select>
             </label>
+
+            {createType === 'campus' && (
+              <label className="mt-3 block text-sm font-medium text-slate-700">
+                Mã đường dẫn (slug)
+                <input
+                  name="slug"
+                  required
+                  minLength={2}
+                  maxLength={48}
+                  pattern="[a-z0-9]([a-z0-9-]*[a-z0-9])?"
+                  value={createSlug}
+                  onChange={(e) => setCreateSlug(e.target.value.toLowerCase())}
+                  placeholder="vd: cau-giay"
+                  className={`${inputClass} font-mono`}
+                />
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  Cổng công khai:{' '}
+                  <span className="font-mono text-indigo-600">
+                    /coso/{createSlug || '…'}
+                  </span>
+                </span>
+              </label>
+            )}
 
             <label className="mt-3 block text-sm font-medium text-slate-700">
               Trực thuộc (đơn vị cha)
@@ -400,6 +474,33 @@ export default function AdminOrganizationsPage() {
                   <option value="campus">Cơ sở</option>
                   <option value="branch">Chi nhánh</option>
                 </select>
+              </label>
+            )}
+
+            {(editOrg.type === 'campus' || editOrg.slug) && (
+              <label className="mt-3 block text-sm font-medium text-slate-700">
+                Mã đường dẫn (slug)
+                <input
+                  name="slug"
+                  required
+                  minLength={2}
+                  maxLength={48}
+                  pattern="[a-z0-9]([a-z0-9-]*[a-z0-9])?"
+                  value={editSlug}
+                  onChange={(e) => setEditSlug(e.target.value.toLowerCase())}
+                  className={`${inputClass} font-mono`}
+                />
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  Cổng:{' '}
+                  <a
+                    href={campusPortalPath(editSlug || 'x')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono font-semibold text-indigo-600 hover:underline"
+                  >
+                    /coso/{editSlug || '…'}
+                  </a>
+                </span>
               </label>
             )}
 

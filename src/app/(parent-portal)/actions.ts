@@ -214,9 +214,16 @@ export async function parentLogin(
 
   try {
     const supabase = admin()
+    const campusOrgIdRaw = String(formData.get('campusOrgId') ?? '').trim()
+    const campusOrgId =
+      campusOrgIdRaw &&
+      /^[0-9a-f-]{36}$/i.test(campusOrgIdRaw)
+        ? campusOrgIdRaw
+        : null
+
     const { data: student, error } = await supabase
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, org_id')
       .eq('phone', phone)
       .eq('role', 'student')
       .is('deleted_at', null)
@@ -227,6 +234,28 @@ export async function parentLogin(
     if (!student) {
       // Thông báo đồng nhất — tránh dò SĐT có/không trong hệ thống
       return { error: 'Số điện thoại hoặc mã OTP không hợp lệ.' }
+    }
+
+    // Cổng /coso/[slug]/parent/login: học viên phải thuộc cây cơ sở đó
+    if (campusOrgId) {
+      if (!student.org_id) {
+        return { error: 'Số điện thoại hoặc mã OTP không hợp lệ.' }
+      }
+      const { data: subtree, error: subErr } = await supabase.rpc(
+        'get_descendant_org_ids',
+        { p_org_id: campusOrgId }
+      )
+      if (subErr) throw subErr
+      const ids = (subtree ?? []).map((row: { id?: string } | string) =>
+        typeof row === 'string' ? row : (row.id as string)
+      )
+      const allowed = ids.length > 0 ? ids : [campusOrgId]
+      if (!allowed.includes(student.org_id)) {
+        return {
+          error:
+            'Số điện thoại này không thuộc cơ sở bạn đang truy cập. Kiểm tra lại đường dẫn /coso/… hoặc liên hệ nhà trường.',
+        }
+      }
     }
 
     setParentCookie(student.id)

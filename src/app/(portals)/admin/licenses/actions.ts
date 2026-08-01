@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { invalidateOrgScopeCache } from '@/lib/utils/orgScope'
 import { isMenuKey, type MenuKey } from '@/lib/auth/menuRegistry'
+import { slugifyOrgName } from '@/lib/utils/orgSlug'
 import {
   provisionCampusSchema,
   saveLicenseSchema,
@@ -285,19 +286,59 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
       }
     }
 
-    // BƯỚC 1: tạo cơ sở
+    // BƯỚC 1: tạo cơ sở (+ slug cổng /coso/[slug] nếu đã có cột 045)
+    const baseSlug = slugifyOrgName(parsed.data.campusName)
+    let campusSlug = baseSlug
+    for (let n = 2; n < 40; n++) {
+      const { data: clash, error: clashErr } = await admin
+        .from('organizations')
+        .select('id')
+        .eq('slug', campusSlug)
+        .is('deleted_at', null)
+        .limit(1)
+        .maybeSingle()
+      if (clashErr && /slug|42703|PGRST204|does not exist|schema cache/i.test(clashErr.message)) {
+        break // cột slug chưa có — insert phía dưới sẽ fail-soft
+      }
+      if (!clash) break
+      campusSlug = `${baseSlug.slice(0, 40)}-${n}`
+    }
+
+    let newOrgId: string
     const { data: newOrg, error: orgError } = await admin
       .from('organizations')
-      .insert({ name: parsed.data.campusName, type: 'campus', parent_id: parentId })
+      .insert({
+        name: parsed.data.campusName,
+        type: 'campus',
+        parent_id: parentId,
+        slug: campusSlug,
+      })
       .select('id')
       .single()
-    if (orgError || !newOrg) {
+
+    if (
+      orgError &&
+      /slug|42703|PGRST204|does not exist|schema cache/i.test(orgError.message)
+    ) {
+      // Fail-soft: DB chưa có cột slug → tạo lại không slug
+      const retry = await admin
+        .from('organizations')
+        .insert({ name: parsed.data.campusName, type: 'campus', parent_id: parentId })
+        .select('id')
+        .single()
+      if (retry.error || !retry.data) {
+        return { error: `Không tạo được cơ sở: ${retry.error?.message ?? 'không xác định'}` }
+      }
+      newOrgId = retry.data.id
+    } else if (orgError || !newOrg) {
       return { error: `Không tạo được cơ sở: ${orgError?.message ?? 'không xác định'}` }
+    } else {
+      newOrgId = newOrg.id
     }
 
     // BƯỚC 2: gán license
     const { error: licenseError } = await admin.from('tenant_licenses').insert({
-      org_id: newOrg.id,
+      org_id: newOrgId,
       plan_name: parsed.data.planName,
       module_keys: moduleKeys,
       max_students: parsed.data.maxStudents === '' ? null : Number(parsed.data.maxStudents),
@@ -306,7 +347,7 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
       created_by: auth.userId,
     })
     if (licenseError) {
-      await admin.from('organizations').delete().eq('id', newOrg.id) // rollback
+      await admin.from('organizations').delete().eq('id', newOrgId) // rollback
       if (/does not exist|schema cache/i.test(licenseError.message)) {
         return { error: 'Chưa chạy migration 044_tenant_licenses.sql trên database. Hãy chạy trong Supabase SQL Editor rồi thử lại.' }
       }
@@ -321,8 +362,8 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
       user_metadata: { full_name: parsed.data.adminFullName },
     })
     if (createError || !created.user) {
-      await admin.from('tenant_licenses').delete().eq('org_id', newOrg.id)
-      await admin.from('organizations').delete().eq('id', newOrg.id)
+      await admin.from('tenant_licenses').delete().eq('org_id', newOrgId)
+      await admin.from('organizations').delete().eq('id', newOrgId)
       return { error: `Không tạo được tài khoản admin: ${createError?.message ?? 'không xác định'}` }
     }
 
@@ -331,12 +372,12 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
       full_name: parsed.data.adminFullName,
       email: parsed.data.adminEmail,
       role: 'campus_admin',
-      org_id: newOrg.id,
+      org_id: newOrgId,
     })
     if (profileError) {
       await admin.auth.admin.deleteUser(created.user.id)
-      await admin.from('tenant_licenses').delete().eq('org_id', newOrg.id)
-      await admin.from('organizations').delete().eq('id', newOrg.id)
+      await admin.from('tenant_licenses').delete().eq('org_id', newOrgId)
+      await admin.from('organizations').delete().eq('id', newOrgId)
       return { error: `Không tạo được hồ sơ admin cơ sở: ${profileError.message}` }
     }
 
