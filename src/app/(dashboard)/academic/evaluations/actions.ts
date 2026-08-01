@@ -191,6 +191,7 @@ export async function summarizeTeacherFeedback(
       const openaiClient = createOpenAI({ apiKey })
       const { text } = await generateText({
         model: openaiClient('gpt-4o-mini'),
+        abortSignal: AbortSignal.timeout(30_000),
         prompt: `Dưới đây là ${feedbacks.length} ý kiến ẨN DANH của học sinh đánh giá một giáo viên (tiếng Việt):
 
 ${feedbacks.map((f, i) => `${i + 1}. "${f}"`).join('\n')}

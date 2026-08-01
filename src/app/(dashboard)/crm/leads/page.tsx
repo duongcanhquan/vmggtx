@@ -435,7 +435,10 @@ export default function CrmLeadsPage() {
   const [toast, setToast] = useState<ToastData | null>(null)
 
   const loadData = useCallback(async () => {
-    if (!currentOrgId) return
+    if (!currentOrgId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const [leadResult, options] = await Promise.all([
       getLeads(currentOrgId),

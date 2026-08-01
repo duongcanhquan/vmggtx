@@ -60,7 +60,10 @@ export default function EvaluationReportPage() {
   const [toast, setToast] = useState<ToastData | null>(null)
 
   const loadData = useCallback(async () => {
-    if (!currentOrgId) return
+    if (!currentOrgId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setLoadError(null)
     setSelected(null)

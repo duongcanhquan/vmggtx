@@ -289,7 +289,7 @@ export const evaluationSubmitSchema = z.object({
   feedbackText: z
     .string()
     .trim()
-    .max(1000, 'Ý kiến đóng góp tối đa 1000 ký tự.')
+    .max(500, 'Ý kiến đóng góp tối đa 500 ký tự.')
     .refine((v) => !DANGEROUS_CHARS.test(v), 'Ý kiến chứa ký tự không được phép.')
     .default(''),
 })

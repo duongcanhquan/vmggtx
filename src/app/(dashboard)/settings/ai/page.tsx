@@ -78,7 +78,10 @@ export default function AISettingsPage() {
   const selectedProvider = watch('aiProvider') ?? 'openai'
 
   const loadData = useCallback(async () => {
-    if (!currentOrgId) return
+    if (!currentOrgId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const result = await getAISettings(currentOrgId)
     setView(result)

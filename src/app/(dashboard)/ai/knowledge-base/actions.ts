@@ -196,6 +196,7 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
       const result = await embedMany({
         model: openaiClient.embedding('text-embedding-3-small'),
         values: chunks,
+        abortSignal: AbortSignal.timeout(30_000),
       })
       embeddings = result.embeddings
     } catch {

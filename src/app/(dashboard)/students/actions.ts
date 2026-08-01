@@ -102,6 +102,7 @@ async function normalizeWithAI(
     const { object } = await generateObject({
       model: openai('gpt-4o-mini'),
       schema: normalizationSchema,
+      abortSignal: AbortSignal.timeout(30_000),
       prompt: `Bạn là công cụ chuẩn hóa dữ liệu học sinh Việt Nam. Với MỖI học sinh trong danh sách sau,
 trả về đúng thứ tự: họ tên viết hoa chuẩn tiếng Việt (VD: "nguyễn văn a" -> "Nguyễn Văn A"),
 địa chỉ mở rộng viết tắt (VD: "hn" -> "Hà Nội", "hcm"/"sg" -> "TP. Hồ Chí Minh").

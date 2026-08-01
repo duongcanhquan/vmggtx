@@ -504,7 +504,10 @@ export default function HrContractsPage() {
   const [payrollWarnings, setPayrollWarnings] = useState<string[]>([])
 
   const loadData = useCallback(async () => {
-    if (!currentOrgId) return
+    if (!currentOrgId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const [teacherResult, contractResult, permissions] = await Promise.all([
       getTeachersInScope(currentOrgId),

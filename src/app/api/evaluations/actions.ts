@@ -53,6 +53,7 @@ async function filterToxicFeedback(
     const { object } = await generateObject({
       model: openaiClient('gpt-4o-mini'),
       schema: toxicFilterSchema,
+      abortSignal: AbortSignal.timeout(30_000),
       prompt: `Phân tích đoạn text sau (ý kiến học sinh đánh giá giáo viên, tiếng Việt):
 """
 ${feedback}

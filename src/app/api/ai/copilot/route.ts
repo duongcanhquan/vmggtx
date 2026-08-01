@@ -225,6 +225,7 @@ export async function POST(request: NextRequest) {
       const { embedding } = await embed({
         model: embeddingClient.embedding('text-embedding-3-small'),
         value: prompt,
+        abortSignal: AbortSignal.timeout(30_000),
       })
 
       // [CÁCH LY TUYỆT ĐỐI] p_org_id bắt buộc; tutor khoanh theo lớp,

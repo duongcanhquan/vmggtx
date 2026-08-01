@@ -51,7 +51,10 @@ export default function CampaignsPage() {
   })
 
   const loadData = useCallback(async () => {
-    if (!currentOrgId) return
+    if (!currentOrgId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setLoadError(null)
     const result = await getCampaigns(currentOrgId)

@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
     const { embedding } = await embed({
       model: openaiClient.embedding('text-embedding-3-small'),
       value: lastUserMessage.content,
+      abortSignal: AbortSignal.timeout(30_000),
     })
 
     // Bước 3: tìm tài liệu giảng dạy liên quan - match_lesson_materials

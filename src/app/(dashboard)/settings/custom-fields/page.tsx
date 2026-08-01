@@ -82,7 +82,10 @@ export default function CustomFieldsPage() {
   const watchedType = watch('fieldType')
 
   const loadData = useCallback(async () => {
-    if (!currentOrgId) return
+    if (!currentOrgId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const result = await getCustomFields(currentOrgId)
     setFields(result.data)

@@ -62,7 +62,10 @@ export default function AcademicWarningsPage() {
   const [toast, setToast] = useState<ToastData | null>(null)
 
   const loadWarnings = useCallback(async () => {
-    if (!currentOrgId) return
+    if (!currentOrgId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const result = await getWarnings(currentOrgId)
     setWarnings(result.data)

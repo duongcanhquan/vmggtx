@@ -183,7 +183,7 @@ export function EvaluationForm({
           value={feedback}
           onChange={(event) => setFeedback(event.target.value)}
           rows={4}
-          maxLength={1000}
+          maxLength={500}
           placeholder="Nhập góp ý…"
           className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
