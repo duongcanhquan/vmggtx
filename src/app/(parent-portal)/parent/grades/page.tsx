@@ -28,14 +28,16 @@ export default function ParentGradesPage() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const student = await getParentStudent()
+      // Chạy song song: action dữ liệu tự xác thực phiên phụ huynh server-side
+      const [student, data] = await Promise.all([
+        getParentStudent(),
+        getParentGradeReport(),
+      ])
       if (cancelled) return
       if (!student) {
         router.replace('/parent/login')
         return
       }
-      const data = await getParentGradeReport()
-      if (cancelled) return
       setReports(data)
       setLoading(false)
     }

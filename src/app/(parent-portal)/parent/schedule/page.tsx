@@ -35,14 +35,16 @@ export default function ParentSchedulePage() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const student = await getParentStudent()
+      // Chạy song song: action dữ liệu tự xác thực phiên phụ huynh server-side
+      const [student, data] = await Promise.all([
+        getParentStudent(),
+        getWeekSessions(),
+      ])
       if (cancelled) return
       if (!student) {
         router.replace('/parent/login')
         return
       }
-      const data = await getWeekSessions()
-      if (cancelled) return
       setSessions(data)
       setLoading(false)
     }

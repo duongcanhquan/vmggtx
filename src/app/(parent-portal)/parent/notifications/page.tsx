@@ -32,14 +32,16 @@ export default function ParentNotificationsPage() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const student = await getParentStudent()
+      // Chạy song song: action dữ liệu tự xác thực phiên phụ huynh server-side
+      const [student, data] = await Promise.all([
+        getParentStudent(),
+        getParentNotices(),
+      ])
       if (cancelled) return
       if (!student) {
         router.replace('/parent/login')
         return
       }
-      const data = await getParentNotices()
-      if (cancelled) return
       setNotices(data)
       setLoading(false)
     }
