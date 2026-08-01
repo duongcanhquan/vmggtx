@@ -181,6 +181,10 @@ await checkFunction(
   '033_diary_facilities.sql'
 )
 
+console.log('\n-- Migration 034 (cá nhân hóa giao diện: user_preferences, layout templates) --')
+await checkTable('user_preferences', '034_user_preferences.sql')
+await checkTable('global_layout_templates', '034_user_preferences.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
