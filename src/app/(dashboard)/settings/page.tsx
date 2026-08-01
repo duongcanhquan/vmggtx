@@ -8,9 +8,11 @@ import {
   IdCard,
   ListPlus,
   Loader2,
+  Lock,
   MessageSquareMore,
   Save,
   Settings as SettingsIcon,
+  ShieldCheck,
   Wallet,
 } from 'lucide-react'
 import { STUDENT_CODE_FORMATS } from '@/lib/utils/studentCodeFormats'
@@ -18,7 +20,12 @@ import { useOrgStore } from '@/lib/store/useOrgStore'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { RoleGuard } from '@/components/shared/RoleGuard'
 import { DEFAULT_ORG_CONFIG, type OrgConfig } from '@/lib/validation/schemas'
-import { getOrgSettings, saveOrgSettings } from './actions'
+import {
+  POLICY_OPTIONS,
+  type OverridePolicies,
+  type OverridePolicy,
+} from '@/lib/settings/settingsPolicy'
+import { getOrgSettings, saveOrgSettings, saveSettingsPolicies } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
@@ -135,6 +142,11 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
+  // [G5] Chính sách ghi đè theo nhóm do Đơn vị gốc đặt
+  const [policies, setPolicies] = useState<OverridePolicies>({})
+  const [isUnitRoot, setIsUnitRoot] = useState(false)
+  const [unitName, setUnitName] = useState<string | null>(null)
+  const [policySaving, setPolicySaving] = useState(false)
 
   const loadData = useCallback(async () => {
     if (!currentOrgId) {
@@ -146,6 +158,9 @@ export default function SettingsPage() {
     setConfig(result.config)
     setHasOwnRecord(result.hasOwnRecord)
     setIsDemo(result.demo)
+    setPolicies(result.policies)
+    setIsUnitRoot(result.isUnitRoot)
+    setUnitName(result.unitName)
     setLoading(false)
   }, [currentOrgId])
 
@@ -156,6 +171,26 @@ export default function SettingsPage() {
   function patch<K extends keyof OrgConfig>(key: K, value: OrgConfig[K]) {
     setConfig((current) => ({ ...current, [key]: value }))
   }
+
+  /** [G5] Đơn vị gốc đổi chính sách nhóm — lưu ngay (optimistic) */
+  async function changePolicy(policy: OverridePolicy) {
+    if (!currentOrgId) return
+    const previous = policies
+    setPolicies((current) => ({ ...current, [activeTab]: policy }))
+    setPolicySaving(true)
+    const result = await saveSettingsPolicies(currentOrgId, activeTab, policy)
+    setPolicySaving(false)
+    if (result.error) {
+      setPolicies(previous)
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({ type: 'success', message: 'Đã cập nhật quyền của các Cơ sở bên dưới.' })
+  }
+
+  const activePolicy: OverridePolicy = policies[activeTab] ?? 'inherit'
+  // Cơ sở con + nhóm bị khóa cứng -> chỉ xem
+  const tabLocked = !isUnitRoot && activePolicy === 'locked'
 
   async function handleSave() {
     if (!currentOrgId) {
@@ -232,9 +267,16 @@ export default function SettingsPage() {
           </p>
         )}
 
-        {!isDemo && !loading && !hasOwnRecord && (
+        {!isDemo && !loading && !hasOwnRecord && !isUnitRoot && (
           <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-            Cơ sở này <strong>chưa có cấu hình riêng</strong> — đang kế thừa từ cấp cha.
+            Cơ sở này <strong>chưa có cấu hình riêng</strong> — đang kế thừa quy định chung
+            {unitName ? (
+              <>
+                {' '}từ <strong>{unitName}</strong>.
+              </>
+            ) : (
+              ' từ cấp trên.'
+            )}
           </p>
         )}
 
@@ -263,11 +305,68 @@ export default function SettingsPage() {
           })}
         </div>
 
+        {/* ===== [G5] Chính sách ghi đè của nhóm đang xem ===== */}
+        {!loading && isUnitRoot && (
+          <div className="rounded-2xl border border-[#c9a227]/30 bg-[#c9a227]/5 p-4">
+            <p className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <ShieldCheck className="h-4 w-4 text-[#a16207]" aria-hidden="true" />
+              Quyền của các Cơ sở bên dưới với mục này
+            </p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {POLICY_OPTIONS.map((option) => {
+                const selected = activePolicy === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={policySaving}
+                    onClick={() => void changePolicy(option.value)}
+                    title={option.hint}
+                    className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${
+                      selected
+                        ? 'border-[#a16207] bg-[#a16207] text-white'
+                        : 'border-border bg-surface text-muted-foreground hover:border-[#c9a227]/60 hover:text-foreground'
+                    }`}
+                  >
+                    {option.value === 'locked' && (
+                      <Lock className="h-3 w-3" aria-hidden="true" />
+                    )}
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {POLICY_OPTIONS.find((o) => o.value === activePolicy)?.hint}
+            </p>
+          </div>
+        )}
+
+        {!loading && tabLocked && (
+          <p className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+            <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Mục này bị {unitName ? <strong>{unitName}</strong> : 'Đơn vị'} KHÓA CỨNG toàn
+            Đơn vị — bạn chỉ xem, không tự thay đổi được.
+          </p>
+        )}
+
+        {!loading && !isUnitRoot && activePolicy === 'required' && !hasOwnRecord && (
+          <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-800">
+            {unitName ?? 'Đơn vị'} yêu cầu mỗi cơ sở <strong>tự cấu hình riêng</strong> mục
+            này — hãy điền giá trị phù hợp địa bàn rồi bấm Lưu.
+          </p>
+        )}
+
         {/* ===== Nội dung tab ===== */}
         {loading ? (
           <FunLoader label="Đang tải cấu hình…" />
         ) : (
-          <div className="space-y-3 rounded-2xl border border-border bg-surface p-5">
+          <div
+            className={`space-y-3 rounded-2xl border border-border bg-surface p-5 ${
+              tabLocked ? 'pointer-events-none opacity-60' : ''
+            }`}
+            aria-disabled={tabLocked}
+          >
             {activeTab === 'academic' && (
               <>
                 <NumberSetting

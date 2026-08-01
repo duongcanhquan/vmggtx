@@ -14,11 +14,14 @@ export type OrgFlat = {
 /** Node dạng cây sau khi dựng từ dữ liệu phẳng */
 export type OrgTreeNode = OrgFlat & { children: OrgTreeNode[] }
 
+// [ORG_MODEL.md] Thuật ngữ thống nhất: campus = ĐƠN VỊ giáo dục gốc
+// (Trường/Trung tâm GD), branch = Cơ sở/Trung tâm bên trong Đơn vị.
+// hq/region là di sản — chỉ hiển thị, không tạo mới.
 export const ORG_TYPE_LABELS: Record<OrgType, string> = {
-  hq: 'Tổng công ty',
-  region: 'Cụm/Vùng',
-  campus: 'Cơ sở',
-  branch: 'Chi nhánh',
+  hq: 'Hệ thống',
+  region: 'Khối (cũ)',
+  campus: 'Đơn vị (Trường)',
+  branch: 'Cơ sở / Trung tâm',
 }
 
 /**

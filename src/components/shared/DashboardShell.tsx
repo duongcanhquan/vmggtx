@@ -245,7 +245,7 @@ const MENU: MenuEntry[] = [
 // MỌI cài đặt/vận hành khác thuộc Admin CƠ SỞ tự cá nhân hóa.
 // ============================================================
 const SUPER_MENU: MenuEntry[] = [
-  { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
+  { label: 'Quản lý Đơn vị', href: '/admin/organizations', icon: Building2 },
   { label: 'Phân quyền Module', href: '/admin/licenses', icon: PackageOpen },
   { label: 'Trung tâm Module', href: '/admin/modules', icon: Boxes },
 ]

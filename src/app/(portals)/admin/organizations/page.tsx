@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  BarChart3,
   Building2,
   ExternalLink,
   GraduationCap,
@@ -52,6 +53,7 @@ export default function AdminOrganizationsPage() {
   const setCurrentOrgId = useOrgStore((s) => s.setCurrentOrgId)
   const [rows, setRows] = useState<OrgManagementRow[]>([])
   const [canManage, setCanManage] = useState(false)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [myOrgId, setMyOrgId] = useState<string | null>(null)
   // null = không giới hạn (super_admin); mảng = chỉ các org trong cây con
   const [manageableIds, setManageableIds] = useState<string[] | null>(null)
@@ -64,7 +66,8 @@ export default function AdminOrganizationsPage() {
   const [editOrg, setEditOrg] = useState<OrgManagementRow | null>(null)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [createType, setCreateType] = useState<'region' | 'campus' | 'branch'>('branch')
+  // [ORG_MODEL.md G1] chỉ 2 loại: campus = Đơn vị (Trường), branch = Cơ sở/Trung tâm
+  const [createType, setCreateType] = useState<'campus' | 'branch'>('branch')
   const [createName, setCreateName] = useState('')
   const [createSlug, setCreateSlug] = useState('')
   const [editSlug, setEditSlug] = useState('')
@@ -80,6 +83,7 @@ export default function AdminOrganizationsPage() {
     setLoadError(null)
     setRows(result.orgs)
     setCanManage(result.canManage)
+    setIsSuperAdmin(result.isSuperAdmin)
     setMyOrgId(result.myOrgId)
     setManageableIds(result.manageableIds)
   }, [])
@@ -137,6 +141,11 @@ export default function AdminOrganizationsPage() {
   // Đơn vị NGOÀI cây con (cấp trên hiển thị để vẽ cây) -> chỉ xem
   const inMyScope = (id: string) => manageableIds === null || manageableIds.includes(id)
   const manageableRows = rows.filter((org) => inMyScope(org.id))
+  // Đơn vị (Trường) nằm ở gốc hệ thống; Cơ sở/Trung tâm nằm trong Đơn vị
+  const parentOptions =
+    createType === 'campus'
+      ? rows.filter((org) => org.type === 'hq' || org.type === 'region')
+      : manageableRows.filter((org) => org.type === 'campus' || org.type === 'branch')
 
   function renderNode(node: OrgNode, depth: number): React.ReactNode {
     const counts = countById.get(node.id)
@@ -159,7 +168,7 @@ export default function AdminOrganizationsPage() {
           </span>
           {isMyRoot && (
             <span className="shrink-0 rounded-full bg-[#c9a227]/15 px-2 py-0.5 text-[11px] font-semibold text-[#a16207]">
-              Cơ sở của bạn
+              Đơn vị của bạn
             </span>
           )}
           {canManage && !inMyScope(node.id) && (
@@ -193,9 +202,20 @@ export default function AdminOrganizationsPage() {
             </span>
           </span>
 
-          {/* Thao tác: quản lý admin / thêm con / sửa / xóa - CHỈ trong phạm vi */}
+          {/* Thao tác: hồ sơ / quản lý admin / thêm con / sửa / xóa - CHỈ trong phạm vi */}
           {canTouch && (
             <span className="flex shrink-0 items-center gap-1">
+              {node.type === 'campus' && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/admin/organizations/${node.id}`)}
+                  title={`Hồ sơ Đơn vị: ${node.name} — nhân sự, học viên, module đang hoạt động`}
+                  aria-label={`Hồ sơ Đơn vị ${node.name}`}
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -243,9 +263,9 @@ export default function AdminOrganizationsPage() {
                 disabled={isMyRoot || hasChildren || isDeleting || node.type === 'hq'}
                 title={
                   node.type === 'hq'
-                    ? 'Không thể xóa Trụ sở chính'
+                    ? 'Không thể xóa gốc hệ thống'
                     : isMyRoot
-                      ? 'Không thể xóa cơ sở gốc của chính bạn'
+                      ? 'Không thể xóa Đơn vị gốc của chính bạn'
                       : hasChildren
                         ? 'Còn đơn vị trực thuộc - không thể xóa'
                         : 'Xóa đơn vị (xóa mềm)'
@@ -272,29 +292,30 @@ export default function AdminOrganizationsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight text-foreground">
           <Network className="h-6 w-6 text-indigo-600" aria-hidden="true" />
-          Quản lý Cơ sở
+          {isSuperAdmin ? 'Quản lý Đơn vị' : 'Cơ sở & Trung tâm'}
         </h1>
         {canManage && (
           <button
             type="button"
             onClick={() => {
               setCreateParentId('')
-              setCreateType('branch')
+              setCreateType(isSuperAdmin ? 'campus' : 'branch')
               setCreateName('')
               setCreateSlug('')
             }}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Thêm đơn vị
+            {isSuperAdmin ? 'Thêm Đơn vị (Trường)' : 'Thêm Cơ sở / Trung tâm'}
           </button>
         )}
       </div>
 
       {canManage && !loading && (
         <p className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
-          Mỗi Cơ sở có đường dẫn riêng <span className="font-mono">/coso/ten-co-so</span>{' '}
-          (landing + 3 cổng login). Bấm badge tím để mở. Tối đa 3 cấp dưới 1 Cơ sở.
+          {isSuperAdmin
+            ? 'Mỗi Đơn vị (Trường) có cổng riêng /coso/ten-don-vi và gói module riêng. Bấm biểu tượng biểu đồ để xem Hồ sơ Đơn vị: nhân sự, học viên, module đang hoạt động.'
+            : 'Bên trong Đơn vị bạn được tạo tối đa 3 cấp: Đơn vị → Cơ sở → Trung tâm. Học viên, giảng viên đều thuộc Đơn vị — cơ sở chỉ là nơi học/làm việc.'}
         </p>
       )}
 
@@ -327,7 +348,9 @@ export default function AdminOrganizationsPage() {
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="flex items-start justify-between">
-              <h2 className="font-heading text-lg font-bold text-slate-900">Thêm đơn vị mới</h2>
+              <h2 className="font-heading text-lg font-bold text-slate-900">
+                {createType === 'campus' ? 'Thêm Đơn vị (Trường)' : 'Thêm Cơ sở / Trung tâm'}
+              </h2>
               <button
                 type="button"
                 onClick={() => setCreateParentId(null)}
@@ -357,26 +380,29 @@ export default function AdminOrganizationsPage() {
               />
             </label>
 
-            <label className="mt-3 block text-sm font-medium text-slate-700">
-              Loại đơn vị
-              <select
-                name="type"
-                required
-                value={createType}
-                onChange={(e) => {
-                  const next = e.target.value as 'region' | 'campus' | 'branch'
-                  setCreateType(next)
-                  if (next === 'campus' && createName) {
-                    setCreateSlug(slugifyOrgName(createName))
-                  }
-                }}
-                className={inputClass}
-              >
-                <option value="region">Cụm/Vùng</option>
-                <option value="campus">Cơ sở</option>
-                <option value="branch">Chi nhánh</option>
-              </select>
-            </label>
+            {isSuperAdmin ? (
+              <label className="mt-3 block text-sm font-medium text-slate-700">
+                Loại đơn vị
+                <select
+                  name="type"
+                  required
+                  value={createType}
+                  onChange={(e) => {
+                    const next = e.target.value as 'campus' | 'branch'
+                    setCreateType(next)
+                    if (next === 'campus' && createName) {
+                      setCreateSlug(slugifyOrgName(createName))
+                    }
+                  }}
+                  className={inputClass}
+                >
+                  <option value="campus">Đơn vị (Trường) — pháp nhân gốc, có gói module riêng</option>
+                  <option value="branch">Cơ sở / Trung tâm — bên trong một Đơn vị</option>
+                </select>
+              </label>
+            ) : (
+              <input type="hidden" name="type" value="branch" />
+            )}
 
             {createType === 'campus' && (
               <label className="mt-3 block text-sm font-medium text-slate-700">
@@ -402,19 +428,24 @@ export default function AdminOrganizationsPage() {
             )}
 
             <label className="mt-3 block text-sm font-medium text-slate-700">
-              Trực thuộc (đơn vị cha)
+              Trực thuộc
               <select
                 name="parentId"
                 required
                 defaultValue={createParentId || undefined}
                 className={inputClass}
               >
-                {manageableRows.map((org) => (
+                {parentOptions.map((org) => (
                   <option key={org.id} value={org.id}>
                     {ORG_TYPE_LABELS[org.type]} · {org.name}
                   </option>
                 ))}
               </select>
+              {createType === 'campus' && (
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  Đơn vị (Trường) nằm ở cấp gốc hệ thống.
+                </span>
+              )}
             </label>
 
             <div className="mt-5 flex justify-end gap-2">
@@ -483,15 +514,21 @@ export default function AdminOrganizationsPage() {
 
             {editOrg.type === 'hq' ? (
               <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                Đây là <strong>Trụ sở chính</strong> — không thể đổi loại đơn vị.
+                Đây là <strong>gốc hệ thống</strong> — không thể đổi loại đơn vị.
               </p>
             ) : (
               <label className="mt-3 block text-sm font-medium text-slate-700">
                 Loại đơn vị
-                <select name="type" defaultValue={editOrg.type} className={inputClass}>
-                  <option value="region">Cụm/Vùng</option>
-                  <option value="campus">Cơ sở</option>
-                  <option value="branch">Chi nhánh</option>
+                <select
+                  name="type"
+                  defaultValue={editOrg.type === 'region' ? '' : editOrg.type}
+                  className={inputClass}
+                >
+                  {editOrg.type === 'region' && (
+                    <option value="">Giữ nguyên: Khối (cũ)</option>
+                  )}
+                  <option value="campus">Đơn vị (Trường)</option>
+                  <option value="branch">Cơ sở / Trung tâm</option>
                 </select>
               </label>
             )}

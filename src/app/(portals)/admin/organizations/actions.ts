@@ -8,6 +8,7 @@ import { getDescendantOrgIds, invalidateOrgScopeCache } from '@/lib/utils/orgSco
 import { zodFail, type ActionResult } from '@/lib/validation/schemas'
 import type { OrgFlat, OrgType } from '@/lib/utils/org-tree'
 import { orgSlugSchema, slugifyOrgName } from '@/lib/utils/orgSlug'
+import { MODULE_CATALOG } from '@/lib/licensing/moduleCatalog'
 
 // ============================================================
 // QUẢN LÝ CƠ SỞ (/admin/organizations)
@@ -182,7 +183,9 @@ const orgNameSchema = z
   .max(120, 'Tên đơn vị tối đa 120 ký tự.')
   .regex(/^[^<>{};]*$/, 'Tên đơn vị chứa ký tự không hợp lệ.')
 
-const orgTypeSchema = z.enum(['region', 'campus', 'branch'], {
+// [ORG_MODEL.md G1] Chỉ còn 2 loại tạo mới: 'campus' = Đơn vị (Trường),
+// 'branch' = Cơ sở/Trung tâm. hq/region là di sản, không tạo/đổi sang nữa.
+const orgTypeSchema = z.enum(['campus', 'branch'], {
   errorMap: () => ({ message: 'Loại đơn vị không hợp lệ.' }),
 })
 
@@ -248,10 +251,11 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
       return { error: 'TỪ CHỐI: Đơn vị cha nằm ngoài phạm vi quản lý của bạn.' }
     }
 
-    // Campus admin chỉ tạo nhánh — không tự tạo thêm "Cơ sở" (tránh bypass 3 cấp)
+    // Admin Đơn vị chỉ tạo Cơ sở/Trung tâm bên trong — Đơn vị mới do Super Admin lập
     if (auth.role === 'campus_admin' && parsed.data.type === 'campus') {
       return {
-        error: 'Quản lý cơ sở chỉ được tạo Nhánh / Nhánh con. Cơ sở mới do Super Admin khởi tạo.',
+        error:
+          'Admin Đơn vị chỉ được tạo Cơ sở / Trung tâm bên trong Đơn vị mình. Đơn vị (Trường) mới do Super Admin khởi tạo.',
       }
     }
 
@@ -287,17 +291,19 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
         steps++
       }
     }
-    // Cấm campus lồng campus (parent đã thuộc cây một cơ sở, hoặc chính parent là campus)
+    // Cấm Đơn vị lồng trong Đơn vị (parent đã thuộc cây một Đơn vị)
     if (parsed.data.type === 'campus' && (parent.type === 'campus' || parentTier > 0)) {
-      return { error: 'Không tạo Cơ sở lồng trong Cơ sở khác. Chỉ tạo Nhánh (branch).' }
+      return {
+        error: 'Không tạo Đơn vị lồng trong Đơn vị khác. Bên trong Đơn vị chỉ tạo Cơ sở / Trung tâm.',
+      }
     }
     if (parsed.data.type === 'campus' && parent.type !== 'hq' && parent.type !== 'region') {
-      return { error: 'Cơ sở mới chỉ được gắn dưới Trụ sở hoặc Cụm/Vùng.' }
+      return { error: 'Đơn vị (Trường) mới phải nằm ở cấp gốc hệ thống.' }
     }
     if (parentTier >= 3) {
       return {
         error:
-          'Đã chạm giới hạn 3 cấp dưới một Cơ sở (Cơ sở → Nhánh → Nhánh con). Không thể tạo thêm cấp thứ 4.',
+          'Đã chạm giới hạn 3 cấp dưới một Đơn vị (Đơn vị → Cơ sở → Trung tâm). Không thể tạo thêm cấp thứ 4.',
       }
     }
 
@@ -497,6 +503,165 @@ export async function deleteOrganization(orgId: string): Promise<ActionResult> {
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Lỗi không xác định khi xóa đơn vị.',
+    }
+  }
+}
+
+// ------------------------------------------------------------
+// HỒ SƠ ĐƠN VỊ [ORG_MODEL.md G2] — Super Admin bấm vào 1 Đơn vị
+// để thấy: bao nhiêu admin/nhân viên/GV/HS (GỘP CẢ CÂY — con người
+// thuộc Đơn vị, cơ sở chỉ là nơi học/làm), module đang hoạt động,
+// tình trạng license, và các Cơ sở/Trung tâm bên trong.
+// ------------------------------------------------------------
+export type UnitProfile =
+  | { error: string }
+  | {
+      error?: undefined
+      org: { id: string; name: string; type: OrgType; slug: string | null }
+      /** Đếm GỘP toàn cây của Đơn vị */
+      counts: {
+        admins: number
+        staff: number
+        teachers: number
+        students: number
+        classes: number
+      }
+      /** Cơ sở/Trung tâm bên trong (không gồm chính Đơn vị) */
+      children: {
+        id: string
+        name: string
+        type: OrgType
+        parent_id: string | null
+        students: number
+        teachers: number
+      }[]
+      license: {
+        planName: string
+        moduleKeys: string[] | null // null = gói đầy đủ (chưa có dòng license)
+        maxStudents: number | null
+        validUntil: string | null
+        status: string
+      }
+      /** Module key đang bị TẮT với đơn vị này (flag global hoặc riêng org) */
+      offModules: string[]
+    }
+
+export async function getUnitProfile(orgId: string): Promise<UnitProfile> {
+  if (!z.string().uuid().safeParse(orgId).success) {
+    return { error: 'Đơn vị không hợp lệ.' }
+  }
+  try {
+    const auth = await requireOrgManager()
+    if (auth.error !== undefined) return { error: auth.error }
+    if (!inScope(auth, orgId)) {
+      return { error: 'TỪ CHỐI: Đơn vị này nằm ngoài phạm vi quản lý của bạn.' }
+    }
+
+    const admin = createAdminClient()
+    const { data: org } = await admin
+      .from('organizations')
+      .select('id, name, type, slug')
+      .eq('id', orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!org) return { error: 'Đơn vị không tồn tại hoặc đã bị xóa.' }
+
+    const subtreeIds = await getDescendantOrgIds(admin, orgId)
+
+    const [profilesRes, classesRes, childrenRes, licenseRes, flagsRes] =
+      await Promise.all([
+        admin
+          .from('profiles')
+          .select('role, org_id')
+          .in('org_id', subtreeIds)
+          .is('deleted_at', null),
+        admin
+          .from('classes')
+          .select('id', { count: 'exact', head: true })
+          .in('org_id', subtreeIds)
+          .is('deleted_at', null),
+        admin
+          .from('organizations')
+          .select('id, name, type, parent_id')
+          .in('id', subtreeIds)
+          .neq('id', orgId)
+          .is('deleted_at', null)
+          .order('name'),
+        admin
+          .from('tenant_licenses')
+          .select('plan_name, module_keys, max_students, valid_until, status')
+          .eq('org_id', orgId)
+          .maybeSingle(),
+        admin
+          .from('module_flags')
+          .select('org_id, module_key, feature_key')
+          .eq('enabled', false)
+          .is('feature_key', null),
+      ])
+
+    const counts = { admins: 0, staff: 0, teachers: 0, students: 0, classes: 0 }
+    const studentsByOrg = new Map<string, number>()
+    const teachersByOrg = new Map<string, number>()
+    for (const row of profilesRes.data ?? []) {
+      if (row.role === 'campus_admin') counts.admins++
+      else if (row.role === 'teacher') {
+        counts.teachers++
+        if (row.org_id) teachersByOrg.set(row.org_id, (teachersByOrg.get(row.org_id) ?? 0) + 1)
+      } else if (row.role === 'student') {
+        counts.students++
+        if (row.org_id) studentsByOrg.set(row.org_id, (studentsByOrg.get(row.org_id) ?? 0) + 1)
+      } else if (
+        row.role === 'academic_staff' ||
+        row.role === 'admission_staff' ||
+        row.role === 'accountant'
+      ) {
+        counts.staff++
+      }
+    }
+    counts.classes = classesRes.count ?? 0
+
+    const children = (childrenRes.data ?? []).map((child) => ({
+      id: child.id,
+      name: child.name,
+      type: child.type as OrgType,
+      parent_id: (child.parent_id as string | null) ?? null,
+      students: studentsByOrg.get(child.id) ?? 0,
+      teachers: teachersByOrg.get(child.id) ?? 0,
+    }))
+
+    const license = {
+      planName: licenseRes.data?.plan_name ?? 'Gói đầy đủ',
+      moduleKeys: licenseRes.data ? ((licenseRes.data.module_keys as string[]) ?? []) : null,
+      maxStudents: licenseRes.data?.max_students ?? null,
+      validUntil: licenseRes.data?.valid_until ?? null,
+      status: licenseRes.data?.status ?? 'active',
+    }
+
+    // Module bị TẮT với đơn vị này = flag global HOẶC flag đúng org
+    const offModules = Array.from(
+      new Set(
+        (flagsRes.data ?? [])
+          .filter((f) => f.org_id === null || f.org_id === orgId)
+          .map((f) => f.module_key as string)
+          .filter((key) => MODULE_CATALOG.some((m) => m.key === key))
+      )
+    )
+
+    return {
+      org: {
+        id: org.id,
+        name: org.name,
+        type: org.type as OrgType,
+        slug: (org.slug as string | null) ?? null,
+      },
+      counts,
+      children,
+      license,
+      offModules,
+    }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Lỗi không xác định khi tải hồ sơ đơn vị.',
     }
   }
 }

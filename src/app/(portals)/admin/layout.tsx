@@ -27,7 +27,7 @@ import { useMyRole } from '@/lib/hooks/useMyRole'
 const SUPER_NAV: PortalNavGroup[] = [
   {
     items: [
-      { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
+      { label: 'Quản lý Đơn vị', href: '/admin/organizations', icon: Building2 },
       { label: 'Phân quyền Module', href: '/admin/licenses', icon: PackageOpen },
       { label: 'Trung tâm Module', href: '/admin/modules', icon: Blocks },
     ],
@@ -38,7 +38,7 @@ const ADMIN_NAV: PortalNavGroup[] = [
   {
     items: [
       { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
-      { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
+      { label: 'Cơ sở & Trung tâm', href: '/admin/organizations', icon: Building2 },
       { label: 'Quản lý Nhân sự', href: '/campus-admin/users', icon: Users },
       { label: 'Cổng dịch vụ', href: '/admin/requests', icon: TicketCheck },
       { label: 'Cài đặt Hệ thống', href: '/settings', icon: Settings },
