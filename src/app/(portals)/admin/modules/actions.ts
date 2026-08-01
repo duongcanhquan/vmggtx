@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMenuKey, type MenuKey } from '@/lib/auth/menuRegistry'
-import { MODULE_BY_KEY } from '@/lib/licensing/moduleCatalog'
+import { MODULE_BY_KEY, MODULE_CATALOG } from '@/lib/licensing/moduleCatalog'
 import type { ActionResult } from '@/lib/validation/schemas'
 
 // ============================================================
@@ -209,6 +209,68 @@ export async function setModuleFlag(input: {
 
     revalidatePath('/admin/modules')
     return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
+  }
+}
+
+/**
+ * GHÉP / GỠ module khỏi GÓI LICENSE của 1 cơ sở (tenant_licenses.module_keys).
+ * - granted true  = ghép thêm module vào gói -> cơ sở thấy menu + vào được URL.
+ * - granted false = gỡ khỏi gói.
+ * - Cơ sở CHƯA có dòng license = "gói đầy đủ" (fail-open):
+ *   + ghép  -> không cần làm gì (đã có sẵn toàn bộ).
+ *   + gỡ    -> vật chất hóa gói: tạo dòng license với TẤT CẢ module trừ module này.
+ * Trả về danh sách module trong gói sau thao tác (null = gói đầy đủ).
+ */
+export async function setLicenseModule(input: {
+  orgId: string
+  moduleKey: string
+  granted: boolean
+}): Promise<{ error?: string; licenseModules?: string[] | null }> {
+  try {
+    const auth = await requireSuper()
+    if (auth.error !== undefined) return { error: auth.error }
+    if (!isMenuKey(input.moduleKey)) return { error: 'Module không hợp lệ.' }
+
+    const admin = createAdminClient()
+    const { data: license, error: licError } = await admin
+      .from('tenant_licenses')
+      .select('id, module_keys')
+      .eq('org_id', input.orgId)
+      .maybeSingle()
+    if (licError) {
+      return { error: `Không đọc được gói license: ${licError.message}` }
+    }
+
+    if (!license) {
+      if (input.granted) return { licenseModules: null } // gói đầy đủ sẵn
+      const remaining = MODULE_CATALOG.map((m) => m.key as string).filter(
+        (key) => key !== input.moduleKey
+      )
+      const { error: insError } = await admin.from('tenant_licenses').insert({
+        org_id: input.orgId,
+        plan_name: 'custom',
+        module_keys: remaining,
+        created_by: auth.userId,
+      })
+      if (insError) return { error: `Không gỡ được module: ${insError.message}` }
+      revalidatePath('/admin/modules')
+      return { licenseModules: remaining }
+    }
+
+    const current = (license.module_keys as string[]) ?? []
+    const next = input.granted
+      ? Array.from(new Set([...current, input.moduleKey]))
+      : current.filter((key) => key !== input.moduleKey)
+    const { error: updError } = await admin
+      .from('tenant_licenses')
+      .update({ module_keys: next })
+      .eq('id', license.id)
+    if (updError) return { error: `Không cập nhật được gói: ${updError.message}` }
+
+    revalidatePath('/admin/modules')
+    return { licenseModules: next }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
   }

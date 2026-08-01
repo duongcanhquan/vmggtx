@@ -9,6 +9,9 @@ import {
   ChevronRight,
   Globe,
   Info,
+  Loader2,
+  PackageMinus,
+  PackagePlus,
   Power,
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
@@ -16,6 +19,7 @@ import { FunLoader } from '@/components/shared/FunLoader'
 import { MODULE_CATALOG, type ModuleInfo } from '@/lib/licensing/moduleCatalog'
 import {
   getModuleCenterData,
+  setLicenseModule,
   setModuleFlag,
   type ModuleCenterData,
   type ModuleFlagRow,
@@ -155,6 +159,41 @@ export default function ModuleCenterPage() {
     })
   }
 
+  /** Ghép / gỡ module khỏi GÓI license của 1 cơ sở */
+  async function toggleLicense(campusId: string, granted: boolean) {
+    if (!data) return
+    const busyKey = `lic:${campusId}:${selected.key}`
+    setBusyFlag(busyKey)
+    const result = await setLicenseModule({
+      orgId: campusId,
+      moduleKey: selected.key,
+      granted,
+    })
+    setBusyFlag(null)
+    if (result.error !== undefined) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            campuses: prev.campuses.map((c) =>
+              c.id === campusId
+                ? { ...c, licenseModules: result.licenseModules ?? null }
+                : c
+            ),
+          }
+        : prev
+    )
+    setToast({
+      type: 'success',
+      message: granted
+        ? `Đã ghép "${selected.label}" vào gói của cơ sở — menu sẽ hiện ngay.`
+        : `Đã gỡ "${selected.label}" khỏi gói của cơ sở.`,
+    })
+  }
+
   if (loading) return <FunLoader label="Đang tải Trung tâm Module…" />
   if (loadError) {
     return (
@@ -166,6 +205,10 @@ export default function ModuleCenterPage() {
   if (!data) return null
 
   const globalOff = isDisabled(null, selected.key, null)
+  const offGlobalCount = data.disabledFlags.filter(
+    (f) => !f.orgId && !f.featureKey
+  ).length
+  const orgOverrideCount = data.disabledFlags.filter((f) => f.orgId).length
 
   return (
     <div className="space-y-6">
@@ -175,9 +218,33 @@ export default function ModuleCenterPage() {
           Trung tâm Module
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Theo dõi hoạt động, xem cách vận hành và bật/tắt từng module — toàn hệ thống,
-          theo cơ sở, hoặc từng phần của module.
+          Trung tâm thông tin: mỗi module phục vụ gì, vận hành ra sao, đang được dùng
+          bao nhiêu — và ghép/gỡ module cho từng cơ sở khi cần.
         </p>
+      </div>
+
+      {/* Dải thống kê tổng quan */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Module hệ thống', value: MODULE_CATALOG.length, tone: 'text-indigo-600' },
+          {
+            label: 'Đang bật toàn hệ thống',
+            value: MODULE_CATALOG.length - offGlobalCount,
+            tone: 'text-emerald-600',
+          },
+          { label: 'Tắt toàn hệ thống', value: offGlobalCount, tone: 'text-rose-600' },
+          { label: 'Điều chỉnh theo cơ sở', value: orgOverrideCount, tone: 'text-amber-600' },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-border bg-surface px-4 py-3"
+          >
+            <p className={`font-heading text-2xl font-bold ${stat.tone}`}>
+              {stat.value.toLocaleString('vi-VN')}
+            </p>
+            <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
+          </div>
+        ))}
       </div>
 
       {data.migrationMissing && (
@@ -328,10 +395,11 @@ export default function ModuleCenterPage() {
             ) : (
               <div className="mt-3 space-y-2">
                 {data.campuses.map((campus) => {
+                  const hasLicenseRow = campus.licenseModules !== null
                   const inLicense =
-                    campus.licenseModules === null ||
-                    campus.licenseModules.includes(selected.key)
+                    !hasLicenseRow || campus.licenseModules!.includes(selected.key)
                   const off = isDisabled(campus.id, selected.key, null)
+                  const licBusy = busyFlag === `lic:${campus.id}:${selected.key}`
                   return (
                     <div
                       key={campus.id}
@@ -342,29 +410,65 @@ export default function ModuleCenterPage() {
                           <p className="truncate text-sm font-semibold text-foreground">
                             {campus.name}
                           </p>
-                          {!inLicense && (
+                          {!inLicense ? (
                             <p className="text-xs font-medium text-amber-600">
-                              Ngoài gói license — cơ sở này vốn không có module (công tắc
-                              chỉ có tác dụng khi được cấp trong gói).
+                              Chưa ghép vào gói — cơ sở không thấy module này.
                             </p>
-                          )}
+                          ) : !hasLicenseRow ? (
+                            <p className="text-xs text-muted-foreground">
+                              Gói đầy đủ (chưa giới hạn module riêng).
+                            </p>
+                          ) : null}
                         </div>
                         <div className="flex items-center gap-2">
-                          {off && (
+                          {inLicense ? (
+                            <button
+                              type="button"
+                              disabled={licBusy}
+                              onClick={() => void toggleLicense(campus.id, false)}
+                              title={`Gỡ "${selected.label}" khỏi gói của ${campus.name}`}
+                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {licBusy ? (
+                                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <PackageMinus className="h-3 w-3" aria-hidden="true" />
+                              )}
+                              Gỡ khỏi gói
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={licBusy}
+                              onClick={() => void toggleLicense(campus.id, true)}
+                              title={`Ghép "${selected.label}" vào gói của ${campus.name}`}
+                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {licBusy ? (
+                                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <PackagePlus className="h-3 w-3" aria-hidden="true" />
+                              )}
+                              Ghép vào gói
+                            </button>
+                          )}
+                          {inLicense && off && (
                             <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-700">
                               Đang tắt
                             </span>
                           )}
-                          <Switch
-                            on={!off}
-                            busy={busyFlag === `${campus.id}:${selected.key}:`}
-                            onToggle={() => void toggle(campus.id, selected.key, null)}
-                            label={`Bật/tắt ${selected.label} cho ${campus.name}`}
-                          />
+                          {inLicense && (
+                            <Switch
+                              on={!off}
+                              busy={busyFlag === `${campus.id}:${selected.key}:`}
+                              onToggle={() => void toggle(campus.id, selected.key, null)}
+                              label={`Bật/tắt ${selected.label} cho ${campus.name}`}
+                            />
+                          )}
                         </div>
                       </div>
 
-                      {selected.features.length > 0 && !off && (
+                      {selected.features.length > 0 && inLicense && !off && (
                         <div className="mt-2 flex flex-wrap gap-2 border-t border-dashed border-border pt-2">
                           {selected.features.map((feature) => {
                             const fOff = isDisabled(campus.id, selected.key, feature.key)
