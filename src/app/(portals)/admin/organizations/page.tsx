@@ -6,8 +6,10 @@ import {
   GraduationCap,
   Loader2,
   Network,
+  Pencil,
   Plus,
   SearchX,
+  Trash2,
   Users,
   X,
 } from 'lucide-react'
@@ -15,13 +17,17 @@ import { Toast, type ToastData } from '@/components/shared/Toast'
 import { buildOrgTree, ORG_TYPE_LABELS, type OrgTreeNode } from '@/lib/utils/org-tree'
 import {
   createOrganization,
+  deleteOrganization,
   getOrgManagementData,
+  updateOrganization,
   type OrgManagementRow,
 } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
-// QUẢN LÝ CƠ SỞ (Admin Portal) - cây tổ chức đa tầng + thêm đơn vị.
+// QUẢN LÝ CƠ SỞ (Admin Portal) - cây tổ chức đa tầng.
+// Super Admin: toàn quyền. Campus Admin: thêm/sửa/xóa đơn vị
+// TRONG cây con của mình (không xóa được cơ sở gốc của chính mình).
 // ============================================================
 
 type OrgNode = OrgTreeNode & { studentCount?: number; classCount?: number }
@@ -33,14 +39,22 @@ const TYPE_BADGE: Record<string, string> = {
   branch: 'bg-amber-100 text-amber-700',
 }
 
+const inputClass =
+  'mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100'
+
 export default function AdminOrganizationsPage() {
   const [rows, setRows] = useState<OrgManagementRow[]>([])
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const [canManage, setCanManage] = useState(false)
+  const [myOrgId, setMyOrgId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
+
+  // Modal tạo: null = đóng; string = parentId chọn sẵn; '' = tự chọn
+  const [createParentId, setCreateParentId] = useState<string | null>(null)
+  const [editOrg, setEditOrg] = useState<OrgManagementRow | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -52,7 +66,8 @@ export default function AdminOrganizationsPage() {
     }
     setLoadError(null)
     setRows(result.orgs)
-    setIsSuperAdmin(result.isSuperAdmin)
+    setCanManage(result.canManage)
+    setMyOrgId(result.myOrgId)
   }, [])
 
   useEffect(() => {
@@ -69,7 +84,37 @@ export default function AdminOrganizationsPage() {
       return
     }
     setToast({ type: 'success', message: 'Đã tạo đơn vị mới.' })
-    setModalOpen(false)
+    setCreateParentId(null)
+    void loadData()
+  }
+
+  async function handleUpdate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    const result = await updateOrganization(new FormData(event.currentTarget))
+    setSaving(false)
+    if (result.error !== undefined) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({ type: 'success', message: 'Đã cập nhật đơn vị.' })
+    setEditOrg(null)
+    void loadData()
+  }
+
+  async function handleDelete(node: OrgNode) {
+    const ok = window.confirm(
+      `Xóa đơn vị "${node.name}"?\n\nChỉ xóa được khi đơn vị không còn đơn vị con, học viên hay lớp học. Thao tác là XÓA MỀM (khôi phục được qua kỹ thuật).`
+    )
+    if (!ok) return
+    setDeletingId(node.id)
+    const result = await deleteOrganization(node.id)
+    setDeletingId(null)
+    if (result.error !== undefined) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({ type: 'success', message: `Đã xóa đơn vị "${node.name}".` })
     void loadData()
   }
 
@@ -78,20 +123,28 @@ export default function AdminOrganizationsPage() {
 
   function renderNode(node: OrgNode, depth: number): React.ReactNode {
     const counts = countById.get(node.id)
+    const hasChildren = node.children.length > 0
+    const isMyRoot = node.id === myOrgId
+    const isDeleting = deletingId === node.id
     return (
       <div key={node.id}>
         <div
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-indigo-50/50"
+          className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-indigo-50/50"
           style={{ marginLeft: depth * 20 }}
         >
           <Building2 className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-          <span className="font-medium text-slate-900">{node.name}</span>
+          <span className="min-w-0 truncate font-medium text-slate-900">{node.name}</span>
           <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TYPE_BADGE[node.type] ?? 'bg-slate-100 text-slate-600'}`}
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${TYPE_BADGE[node.type] ?? 'bg-slate-100 text-slate-600'}`}
           >
             {ORG_TYPE_LABELS[node.type]}
           </span>
-          <span className="ml-auto flex items-center gap-4 text-xs text-slate-500">
+          {isMyRoot && (
+            <span className="shrink-0 rounded-full bg-[#c9a227]/15 px-2 py-0.5 text-[11px] font-semibold text-[#a16207]">
+              Cơ sở của bạn
+            </span>
+          )}
+          <span className="ml-auto flex shrink-0 items-center gap-4 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1">
               <Users className="h-3.5 w-3.5" aria-hidden="true" />
               {counts?.studentCount ?? 0} HV
@@ -101,6 +154,52 @@ export default function AdminOrganizationsPage() {
               {counts?.classCount ?? 0} lớp
             </span>
           </span>
+
+          {/* Thao tác: thêm con / sửa / xóa */}
+          {canManage && (
+            <span className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCreateParentId(node.id)}
+                title="Thêm đơn vị con"
+                aria-label={`Thêm đơn vị con cho ${node.name}`}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditOrg(countById.get(node.id) ?? null)}
+                title="Sửa / đổi tên"
+                aria-label={`Sửa đơn vị ${node.name}`}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-amber-100 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDelete(node)}
+                disabled={isMyRoot || hasChildren || isDeleting || node.type === 'hq'}
+                title={
+                  node.type === 'hq'
+                    ? 'Không thể xóa Trụ sở chính'
+                    : isMyRoot
+                      ? 'Không thể xóa cơ sở gốc của chính bạn'
+                      : hasChildren
+                        ? 'Còn đơn vị trực thuộc - không thể xóa'
+                        : 'Xóa đơn vị (xóa mềm)'
+                }
+                aria-label={`Xóa đơn vị ${node.name}`}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-100 hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </span>
+          )}
         </div>
         {node.children.map((child) => renderNode(child as OrgNode, depth + 1))}
       </div>
@@ -114,10 +213,10 @@ export default function AdminOrganizationsPage() {
           <Network className="h-6 w-6 text-indigo-600" aria-hidden="true" />
           Quản lý Cơ sở
         </h1>
-        {isSuperAdmin && (
+        {canManage && (
           <button
             type="button"
-            onClick={() => setModalOpen(true)}
+            onClick={() => setCreateParentId('')}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -125,6 +224,14 @@ export default function AdminOrganizationsPage() {
           </button>
         )}
       </div>
+
+      {canManage && !loading && (
+        <p className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
+          Di chuột vào từng dòng để <strong>thêm đơn vị con</strong> (dấu +),{' '}
+          <strong>sửa / đổi tên</strong> (bút chì) hoặc <strong>xóa</strong> (thùng rác).
+          Chỉ xóa được đơn vị không còn đơn vị con, học viên hay lớp học.
+        </p>
+      )}
 
       {loading ? (
         <FunLoader label="Đang tải cây tổ chức…" />
@@ -143,8 +250,8 @@ export default function AdminOrganizationsPage() {
         </div>
       )}
 
-      {/* Modal thêm đơn vị */}
-      {modalOpen && (
+      {/* ===== Modal thêm đơn vị ===== */}
+      {createParentId !== null && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
           role="dialog"
@@ -155,12 +262,10 @@ export default function AdminOrganizationsPage() {
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="flex items-start justify-between">
-              <h2 className="font-heading text-lg font-bold text-slate-900">
-                Thêm đơn vị mới
-              </h2>
+              <h2 className="font-heading text-lg font-bold text-slate-900">Thêm đơn vị mới</h2>
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={() => setCreateParentId(null)}
                 className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
                 aria-label="Đóng"
               >
@@ -176,17 +281,13 @@ export default function AdminOrganizationsPage() {
                 minLength={3}
                 maxLength={120}
                 placeholder="VD: Chi nhánh Hà Đông"
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                className={inputClass}
               />
             </label>
 
             <label className="mt-3 block text-sm font-medium text-slate-700">
               Loại đơn vị
-              <select
-                name="type"
-                required
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-              >
+              <select name="type" required defaultValue="branch" className={inputClass}>
                 <option value="region">Cụm/Vùng</option>
                 <option value="campus">Cơ sở</option>
                 <option value="branch">Chi nhánh</option>
@@ -198,7 +299,8 @@ export default function AdminOrganizationsPage() {
               <select
                 name="parentId"
                 required
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                defaultValue={createParentId || undefined}
+                className={inputClass}
               >
                 {rows.map((org) => (
                   <option key={org.id} value={org.id}>
@@ -211,7 +313,7 @@ export default function AdminOrganizationsPage() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={() => setCreateParentId(null)}
                 className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
               >
                 Hủy
@@ -227,6 +329,85 @@ export default function AdminOrganizationsPage() {
                   <Plus className="h-4 w-4" aria-hidden="true" />
                 )}
                 Tạo đơn vị
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ===== Modal sửa đơn vị ===== */}
+      {editOrg && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <form
+            onSubmit={handleUpdate}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-start justify-between">
+              <h2 className="font-heading text-lg font-bold text-slate-900">
+                Sửa đơn vị
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditOrg(null)}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <input type="hidden" name="orgId" value={editOrg.id} />
+
+            <label className="mt-4 block text-sm font-medium text-slate-700">
+              Tên đơn vị
+              <input
+                name="name"
+                required
+                minLength={3}
+                maxLength={120}
+                defaultValue={editOrg.name}
+                className={inputClass}
+              />
+            </label>
+
+            {editOrg.type === 'hq' ? (
+              <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                Đây là <strong>Trụ sở chính</strong> — không thể đổi loại đơn vị.
+              </p>
+            ) : (
+              <label className="mt-3 block text-sm font-medium text-slate-700">
+                Loại đơn vị
+                <select name="type" defaultValue={editOrg.type} className={inputClass}>
+                  <option value="region">Cụm/Vùng</option>
+                  <option value="campus">Cơ sở</option>
+                  <option value="branch">Chi nhánh</option>
+                </select>
+              </label>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditOrg(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                )}
+                Lưu thay đổi
               </button>
             </div>
           </form>
