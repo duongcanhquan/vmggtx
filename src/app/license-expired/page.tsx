@@ -1,5 +1,9 @@
-import Link from 'next/link'
-import { CalendarClock, Mail, Phone } from 'lucide-react'
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { CalendarClock, Loader2, LogOut, Mail } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 // ============================================================
 // Trang chặn khi LICENSE cơ sở hết hạn / bị tạm ngưng (044).
@@ -7,6 +11,19 @@ import { CalendarClock, Mail, Phone } from 'lucide-react'
 // ============================================================
 
 export default function LicenseExpiredPage() {
+  const router = useRouter()
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    try {
+      await createClient().auth.signOut()
+    } catch {
+      /* phiên đã hỏng - vẫn đưa về login */
+    }
+    router.replace('/login')
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/50 to-amber-50/40 p-4">
       <div className="w-full max-w-lg rounded-3xl border border-white/60 bg-white/80 p-8 text-center shadow-xl backdrop-blur">
@@ -14,30 +31,31 @@ export default function LicenseExpiredPage() {
           <CalendarClock className="h-8 w-8 text-amber-600" aria-hidden="true" />
         </div>
         <h1 className="mt-5 font-heading text-2xl font-semibold text-slate-900">
-          Gói dịch vụ đã hết hạn hoặc tạm ngưng
+          Gói dịch vụ đã hết hạn
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
-          Cơ sở của bạn hiện không thể truy cập hệ thống vì gói dịch vụ đã hết hạn hoặc đang
-          tạm ngưng. <strong>Toàn bộ dữ liệu vẫn được lưu giữ an toàn</strong> - ngay khi gia
-          hạn, mọi thứ sẽ hoạt động trở lại như cũ.
+          Dữ liệu của cơ sở vẫn <strong>an toàn 100%</strong> - gia hạn là mọi thứ chạy lại
+          ngay lập tức.
         </p>
-        <div className="mt-5 space-y-2 rounded-2xl bg-slate-50 p-4 text-left text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">Để gia hạn, vui lòng liên hệ quản trị hệ thống:</p>
-          <p className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-indigo-500" aria-hidden="true" />
-            Gửi email cho bộ phận hỗ trợ của đơn vị cung cấp
-          </p>
-          <p className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-indigo-500" aria-hidden="true" />
-            Hoặc gọi hotline đã được cung cấp khi ký hợp đồng
-          </p>
+        <p className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 text-sm text-indigo-800">
+          <Mail className="h-4 w-4" aria-hidden="true" />
+          Liên hệ quản trị hệ thống để gia hạn
+        </p>
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            disabled={signingOut}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+          >
+            {signingOut ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+            )}
+            Đăng xuất
+          </button>
         </div>
-        <Link
-          href="/login"
-          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-        >
-          Về trang đăng nhập
-        </Link>
       </div>
     </main>
   )

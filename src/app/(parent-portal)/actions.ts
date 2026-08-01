@@ -9,16 +9,11 @@ import { phoneVNSchema, zodFail } from '@/lib/validation/schemas'
 // ============================================================
 // PARENT PORTAL - Sổ Liên Lạc Điện Tử cho Phụ huynh
 //
-// XÁC THỰC (demo-level OTP, cookie ĐÃ KÝ HMAC):
-//  - Phụ huynh nhập SĐT -> tra bảng profiles (role = 'student',
-//    cột phone) -> nhập OTP mock (6 số bất kỳ) -> cấp session.
-//  - [SECURITY AUDIT] Cookie `parent_session` = `studentId.HMAC`
-//    ký bằng SHA-256 với secret server-side -> KHÔNG THỂ giả mạo
-//    student_id (trước đây cookie chứa UUID thô, ai sửa cookie là
-//    đọc được dữ liệu học sinh bất kỳ qua Admin client).
-//  - Các getter dùng Admin Client (service role) nhưng LUÔN lọc
-//    cứng theo student_id đã VERIFY chữ ký -> đúng 1 học sinh.
-//  - PRODUCTION: nên thay OTP mock bằng Supabase Phone OTP (SMS).
+// XÁC THỰC (OTP demo cố định + cookie HMAC):
+//  - SĐT -> profiles(role=student) -> OTP = PARENT_MOCK_OTP (dev: 123456).
+//  - Cookie `parent_session` = studentId.HMAC(PARENT_SESSION_SECRET).
+//  - Production: bắt buộc PARENT_SESSION_SECRET + PARENT_MOCK_OTP.
+//  - Getter dùng Admin Client nhưng lọc cứng theo student_id đã verify.
 // ============================================================
 
 const PARENT_COOKIE = 'parent_session'
@@ -137,10 +132,20 @@ const MOCK_GRADE_REPORT: ParentGradeReport[] = [
 
 // ---------- Helpers ----------
 
-/** Secret ký cookie: ưu tiên PARENT_SESSION_SECRET, fallback service key */
+/**
+ * Secret ký cookie HMAC. PRODUCTION bắt buộc PARENT_SESSION_SECRET
+ * (không được fallback về service key / chuỗi cứng — kẻ đọc source sẽ forge cookie).
+ * Dev: cho phép service key, cuối cùng mới dùng secret local.
+ */
 function cookieSecret(): string {
+  const dedicated = process.env.PARENT_SESSION_SECRET
+  if (dedicated) return dedicated
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'Thiếu PARENT_SESSION_SECRET trên môi trường production. Hãy set biến này trên Vercel.'
+    )
+  }
   return (
-    process.env.PARENT_SESSION_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SECRET_KEY ||
     'gdtx-dev-secret'
@@ -193,7 +198,19 @@ export async function parentLogin(
   if (!otpParsed.success) return zodFail(otpParsed.error)
 
   const phone = phoneParsed.data
-  // OTP mock: chỉ cần đúng định dạng 6 số (theo yêu cầu demo).
+  const otp = otpParsed.data
+
+  // OTP demo: CHỈ chấp nhận đúng mã cấu hình (mặc định 123456) — không còn
+  // "6 số bất kỳ". Production bắt buộc set PARENT_MOCK_OTP (hoặc sau này SMS thật).
+  const expectedOtp = process.env.PARENT_MOCK_OTP || '123456'
+  if (process.env.NODE_ENV === 'production' && !process.env.PARENT_MOCK_OTP) {
+    return {
+      error: 'Cổng phụ huynh chưa cấu hình OTP (thiếu PARENT_MOCK_OTP). Liên hệ quản trị.',
+    }
+  }
+  if (otp !== expectedOtp) {
+    return { error: 'Mã OTP không đúng. Thử lại hoặc liên hệ nhà trường.' }
+  }
 
   try {
     const supabase = admin()
@@ -208,22 +225,23 @@ export async function parentLogin(
     if (error) throw error
 
     if (!student) {
-      return {
-        error: 'Số điện thoại chưa được đăng ký cho học sinh nào. Vui lòng liên hệ nhà trường.',
-      }
+      // Thông báo đồng nhất — tránh dò SĐT có/không trong hệ thống
+      return { error: 'Số điện thoại hoặc mã OTP không hợp lệ.' }
     }
 
     setParentCookie(student.id)
     return { studentName: student.full_name }
-  } catch {
-    // Demo mode: DB/service key chưa sẵn sàng -> chấp nhận SĐT demo
-    if (phone === '0901234567') {
+  } catch (error) {
+    // Dev: DB chưa sẵn sàng -> cho phép SĐT demo. Production: báo lỗi thật.
+    if (process.env.NODE_ENV !== 'production' && phone === '0901234567') {
       setParentCookie(DEMO_STUDENT_ID)
       return { studentName: MOCK_STUDENT.full_name }
     }
-    return {
-      error: 'Không kết nối được hệ thống. Dùng SĐT demo 0901234567 để trải nghiệm.',
-    }
+    const message =
+      error instanceof Error && /PARENT_SESSION_SECRET/.test(error.message)
+        ? error.message
+        : 'Không kết nối được hệ thống. Vui lòng thử lại sau.'
+    return { error: message }
   }
 }
 

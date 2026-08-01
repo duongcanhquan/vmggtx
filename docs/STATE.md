@@ -3,7 +3,7 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-01 - tầng LICENSE (migration 044, /admin/licenses)
+**Cập nhật lần cuối**: 2026-08-01 - audit tự chữa (overview `/`, parent OTP, copy ngắn)
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
@@ -36,11 +36,10 @@
 
 ## Tồn đọng / việc tiếp theo
 1. Migration 042/043/044 chờ user chạy tay (xem trên).
-2. Subdomain per cơ sở (cosoA.domain.vn) - đã tư vấn, làm sau khi license chạy thực tế.
-3. License: phụ huynh (cookie HMAC, không session) CHƯA bị chặn khi cơ sở hết hạn - chấp nhận
-   được (chỉ xem sổ liên lạc); muốn chặt hơn thì check license trong các trang parent.
-4. Backlog nhỏ: matrix phân quyền hiển thị cả key mà static ROUTE_RULES chặn (tick cũng không
-   có tác dụng với role thấp) - chỉ gây bối rối nhẹ, chưa cần sửa.
+2. Production Vercel: set `PARENT_SESSION_SECRET` + `PARENT_MOCK_OTP` (bắt buộc, không còn fallback).
+3. Subdomain per cơ sở - làm sau khi license chạy thực tế.
+4. Backlog: OTP phụ huynh thật (SMS); attendance/payroll/warnings auto-scan (xem WORKLOG audit).
+5. License: phụ huynh CHƯA bị chặn khi cơ sở hết hạn (chấp nhận được).
 
 ## Tầng LICENSE (mới - 2026-08-01)
 - Gói = tổ hợp module (MenuKey). 3 preset trong `src/lib/licensing/packages.ts`

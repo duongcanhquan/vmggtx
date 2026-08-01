@@ -293,9 +293,7 @@ export default function AdminPermissionsPage() {
 
       {!loading && data && (
         <p className="text-xs text-muted-foreground">
-          Lưu ý: vai trò chưa &quot;Đã tùy chỉnh&quot; dùng ma trận mặc định của hệ
-          thống. Quyền có hiệu lực trong vòng ~5 phút sau khi lưu (người dùng đang
-          đăng nhập cần chuyển trang để menu cập nhật).
+          Chưa tùy chỉnh = dùng mặc định. Có hiệu lực sau ~5 phút (chuyển trang để cập nhật).
         </p>
       )}
 

@@ -124,7 +124,17 @@ export async function createAnnouncement(
     if (auth.error !== undefined) return { error: auth.error }
 
     const supabase = createClient()
-    // RLS with check: chỉ cho phép org trong subtree của người soạn
+    // Double-check org thuộc phạm vi quản lý (không chỉ tin client + RLS)
+    const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+      p_user_id: auth.userId,
+      p_target_org_id: orgId,
+      p_required_role: 'academic_staff',
+    })
+    if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
+    if (authorized !== true) {
+      return { error: 'TỪ CHỐI: Cơ sở này nằm ngoài phạm vi quản lý của bạn.' }
+    }
+
     const { error } = await supabase.from('announcements').insert({
       org_id: orgId,
       title: trimmedTitle,

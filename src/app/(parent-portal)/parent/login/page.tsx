@@ -117,7 +117,8 @@ export default function ParentLoginPage() {
             Nhân sự / Giảng viên? Vào cổng quản lý
           </Link>
           <p className="text-xs text-white/90">
-            SĐT demo: <span className="font-bold">0901234567</span>
+            Demo: <span className="font-bold">0901234567</span> · OTP{' '}
+            <span className="font-bold">123456</span>
           </p>
         </div>
       }
@@ -183,7 +184,7 @@ export default function ParentLoginPage() {
                 {...register('otp')}
               />
               <FieldError message={errors.otp?.message} />
-              <p className="mt-1.5 text-xs text-slate-500">Demo: nhập 6 chữ số bất kỳ.</p>
+              <p className="mt-1.5 text-xs text-slate-500">Demo: nhập 123456</p>
             </div>
 
             <button

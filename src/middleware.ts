@@ -346,17 +346,21 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // ===== 2. / hoặc /login (login đã xử lý ở trên) — smart home =====
-  if (pathname === '/' || pathname === '/login') {
-    if (!session) {
-      return redirectTo(request, '/login')
-    }
+  // ===== 2. Trang Tổng quan "/" — KHÔNG redirect (trước đây đá sang /admin|/staff
+  // khiến DashboardShell "Tổng quan" và báo cáo biểu đồ thành trang mồ côi).
+  // Teacher/student/B2B vẫn về portal riêng; manager & staff ở lại xem overview.
+  if (pathname === '/') {
+    if (!session) return redirectTo(request, '/login')
     const role = await resolveRole()
-    if (role) {
+    if (!role) return redirectTo(request, '/login')
+    if (
+      role === 'teacher' ||
+      role === 'student' ||
+      role === 'enterprise_partner'
+    ) {
       return redirectTo(request, getHomePathForRole(role))
     }
-    // Session hỏng → về /login; nhánh public ở trên sẽ dọn cookie.
-    return redirectTo(request, '/login')
+    // license + menu matrix được kiểm ở cuối hàm (cùng flow catch-all)
   }
 
   // ---- MA TRẬN PHÂN QUYỀN ĐỘNG (menu_permissions - migration 043) ----

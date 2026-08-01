@@ -20,7 +20,8 @@
 | `N8N_WEBHOOK_URL` | Webhook n8n gửi SMS/Zalo thông báo vắng học & cảnh báo học vụ. Không có → hệ thống bỏ qua thông báo, KHÔNG lỗi |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Fallback khi org chọn provider `google` (Gemini) mà không nhập key riêng |
 | `ANTHROPIC_API_KEY` | Fallback khi org chọn provider `anthropic` (Claude) mà không nhập key riêng |
-| `PARENT_SESSION_SECRET` | Secret ký HMAC cookie Parent Portal (chuỗi ngẫu nhiên dài 32+ ký tự). Không đặt → fallback dùng `SUPABASE_SERVICE_ROLE_KEY` làm secret |
+| `PARENT_SESSION_SECRET` | **Bắt buộc trên Production** — secret ký HMAC cookie Parent Portal (chuỗi ngẫu nhiên 32+ ký tự). Thiếu → cổng phụ huynh lỗi |
+| `PARENT_MOCK_OTP` | **Bắt buộc trên Production** — mã OTP demo cố định (VD `123456`). Thiếu → từ chối đăng nhập phụ huynh. Dev mặc định `123456` |
 | `R2_ACCOUNT_ID` | Cloudflare Dashboard → góc phải → Account ID. Cần cho **lưu trữ file LMS** (bài giảng, bài nộp) |
 | `R2_ACCESS_KEY_ID` | Cloudflare → R2 → Manage R2 API Tokens → Create API Token (quyền Object Read & Write) |
 | `R2_SECRET_ACCESS_KEY` | Secret của API Token trên (chỉ hiện 1 lần khi tạo) |

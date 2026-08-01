@@ -294,8 +294,7 @@ export default function AdminLicensesPage() {
 
       {migrationMissing && !loading && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Chưa chạy <strong>migration 044_tenant_licenses.sql</strong> trên database - hãy chạy
-          trong Supabase SQL Editor để bật tầng license (hiện các cơ sở đều full quyền).
+          Chưa chạy migration <strong>044</strong> — mọi cơ sở đang full quyền. Chạy SQL Editor để bật.
         </p>
       )}
 
@@ -309,8 +308,7 @@ export default function AdminLicensesPage() {
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
           <Building2 className="mx-auto h-10 w-10 text-slate-300" aria-hidden="true" />
           <p className="mt-3 text-sm text-slate-500">
-            Chưa có cơ sở nào. Bấm &quot;Khởi tạo cơ sở mới&quot; để tạo cơ sở đầu tiên kèm gói
-            dịch vụ và tài khoản admin.
+            Chưa có cơ sở — bấm &quot;Khởi tạo cơ sở mới&quot; để bán gói đầu tiên.
           </p>
         </div>
       ) : (
@@ -534,8 +532,7 @@ export default function AdminLicensesPage() {
                 <input name="adminPassword" type="text" required minLength={8} className={inputClass} />
               </label>
               <p className="rounded-xl bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
-                Tài khoản này có vai trò <strong>Quản lý cơ sở</strong>, toàn quyền vận hành và
-                phân quyền cho nhân viên trong phạm vi các module đã mua.
+                Tài khoản <strong>Quản lý cơ sở</strong> — toàn quyền trong các module đã mua.
               </p>
             </div>
 

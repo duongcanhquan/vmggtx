@@ -227,12 +227,8 @@ export default function AdminOrganizationsPage() {
 
       {canManage && !loading && (
         <p className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
-          Di chuột vào từng dòng để <strong>thêm đơn vị con</strong> (dấu +),{' '}
-          <strong>sửa / đổi tên</strong> (bút chì) hoặc <strong>xóa</strong> (thùng rác).
-          Chỉ xóa được đơn vị không còn đơn vị con, học viên hay lớp học. Dưới một{' '}
-          <strong>Cơ sở</strong> tối đa 3 cấp (Cơ sở → Nhánh → Nhánh con). Muốn giao
-          quyền phụ trách nhánh con: tạo tài khoản <strong>Quản lý cơ sở</strong> ở
-          mục Tài khoản &amp; Nhân viên và gắn vào nhánh đó.
+          Rê chuột vào từng dòng: ➕ thêm nhánh · ✏️ đổi tên · 🗑️ xóa. Tối đa 3 cấp
+          dưới 1 Cơ sở.
         </p>
       )}
 
