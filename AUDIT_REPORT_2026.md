@@ -82,13 +82,15 @@ npm run build → EXIT 0
 
 ---
 
-## 5. Việc VẪN CẦN người vận hành làm (không tự động được)
+## 5. Việc vận hành — TRẠNG THÁI CẬP NHẬT (2026-08-01, đợt tổng rà soát)
 
-1. **Chạy SQL** `supabase/migrations/026_lms_hardening.sql` trên Supabase (vá constraint `admission_staff` + RLS bài nộp). `node scripts/check-db.mjs` hiện báo thiếu hạng mục này.
-2. **Seed dữ liệu**: `npx tsx scripts/seed.ts` (DB đang trống — 0 user).
-3. **Smoke RLS**: `node scripts/smoke-lms.mjs` sau khi seed.
-4. **Vercel env**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (hoặc ANON), `SUPABASE_SECRET_KEY` (hoặc SERVICE_ROLE); tùy chọn `OPENAI_API_KEY`, `R2_*`, `N8N_WEBHOOK_URL`, `PARENT_SESSION_SECRET`.
+1. ~~Chạy SQL `026_lms_hardening.sql`~~ → **ĐÃ XONG**: `node scripts/check-db.mjs` (đã mở rộng dò đủ 001 → 041 + 999) xác nhận **DATABASE ĐẦY ĐỦ, không thiếu migration nào**.
+2. ~~Seed dữ liệu~~ → **ĐÃ XONG**: DB có 69 profiles, 7 organizations, 5 classes, 50 enrollments, 40 invoices, 15 lms_lessons.
+3. ~~Smoke RLS~~ → **ĐÃ XONG**: `node scripts/smoke-lms.mjs` PASS 11/11 (học viên không đọc được đáp án, không tự chấm điểm, cách ly dữ liệu giữa cơ sở).
+4. **Vercel env** (còn lại, tự kiểm tra trên Vercel Dashboard): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (hoặc ANON), `SUPABASE_SECRET_KEY` (hoặc SERVICE_ROLE); tùy chọn `OPENAI_API_KEY` (local đang thiếu — AI fallback "bảo trì"), `R2_*`, `N8N_WEBHOOK_URL`, `PARENT_SESSION_SECRET`, `CRON_SECRET` (cron nhắc học phí).
 5. **R2 CORS** nếu bật upload file LMS (xem `VERCEL_DEPLOYMENT_CHECKLIST.md`).
+
+Bổ sung đợt này: cấu hình ESLint chính thức (`.eslintrc.json` + `eslint-config-next`) — `npm run lint` sạch 0 lỗi 0 cảnh báo.
 
 ---
 

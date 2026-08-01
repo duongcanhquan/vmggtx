@@ -185,6 +185,35 @@ console.log('\n-- Migration 034 (cá nhân hóa giao diện: user_preferences, l
 await checkTable('user_preferences', '034_user_preferences.sql')
 await checkTable('global_layout_templates', '034_user_preferences.sql')
 
+console.log('\n-- Migration 035 (hồ sơ đào tạo kép GDNN-GDTX) --')
+await checkColumn('profiles', 'MaSV', '035_dual_track_profiles.sql')
+await checkTable('vocational_records', '035_dual_track_profiles.sql')
+await checkTable('academic_records', '035_dual_track_profiles.sql')
+
+console.log('\n-- Migration 036 (khảo thí chuyên sâu: mã đề, thi lại/phúc khảo) --')
+await checkTable('exam_variants', '036_assessment_workflows.sql')
+await checkTable('re_examination_requests', '036_assessment_workflows.sql')
+
+console.log('\n-- Migration 037 (B2B Portal: doanh nghiệp liên kết, thực tập) --')
+await checkTable('enterprises', '037_b2b_portal.sql')
+await checkTable('internships', '037_b2b_portal.sql')
+await checkColumn('profiles', 'enterprise_id', '037_b2b_portal.sql')
+await checkColumn('vocational_records', 'practice_score', '037_b2b_portal.sql')
+await checkFunction('get_my_enterprise_id', {}, '037_b2b_portal.sql')
+
+console.log('\n-- Migration 038 (ghi nhận hành vi + cảnh báo tâm lý) --')
+await checkTable('behavior_logs', '038_behavioral_tracking.sql')
+
+console.log('\n-- Migration 039 (LMS: tiến độ học bài giảng) --')
+await checkTable('lms_lesson_progress', '039_lms_progress.sql')
+
+console.log('\n-- Migration 040 (thông báo cá nhân + nhắc học phí) --')
+await checkTable('user_notifications', '040_notifications.sql')
+
+console.log('\n-- Migration 041 (sổ tài sản & khấu hao) --')
+await checkTable('assets', '041_assets.sql')
+await checkTable('asset_logs', '041_assets.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

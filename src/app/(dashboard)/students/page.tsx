@@ -193,7 +193,7 @@ export default function StudentsPage() {
         ),
       },
     ],
-    [handleDelete]
+    [handleDelete, router]
   )
 
   return (
