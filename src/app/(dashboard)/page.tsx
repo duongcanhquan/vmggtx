@@ -7,15 +7,19 @@ import {
   Wallet,
   Building2,
   BarChart3,
+  CalendarCheck2,
   Check,
+  ClipboardCheck,
   Eye,
   EyeOff,
   FlaskConical,
   GripVertical,
   Loader2,
   Lock,
+  PieChart,
   Send,
   SlidersHorizontal,
+  UserX,
   X,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -24,11 +28,14 @@ import { findOrgNode, type OrgTreeNode } from '@/lib/utils/org-tree'
 import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { DEFAULT_ORG_CONFIG, type OrgConfig } from '@/lib/validation/schemas'
-import { getOrgSettings } from './settings/actions'
-import { getDashboardStats, type DashboardStats } from './actions'
+import {
+  getOverviewPageData,
+  type AttendanceWeekPoint,
+  type DashboardStats,
+  type OverviewReport,
+} from './actions'
 import {
   applyMainLayoutTemplate,
-  getMainDashboardLayout,
   saveMainDashboardLayout,
   type MainTemplateRoleTarget,
   type MainWidgetItem,
@@ -39,6 +46,20 @@ const StudentsByBranchChart = dynamic(
   () =>
     import('@/components/dashboard/StudentsByBranchChart').then(
       (mod) => mod.StudentsByBranchChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
+const WeeklyAttendanceChart = dynamic(
+  () =>
+    import('@/components/dashboard/WeeklyAttendanceChart').then(
+      (mod) => mod.WeeklyAttendanceChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
+const EnrollmentStatusChart = dynamic(
+  () =>
+    import('@/components/dashboard/EnrollmentStatusChart').then(
+      (mod) => mod.EnrollmentStatusChart
     ),
   { ssr: false, loading: () => <ChartSkeleton /> }
 )
@@ -67,6 +88,52 @@ function demoSubtreeStudents(node: OrgTreeNode): number {
   )
 }
 
+function buildDemoReport(node: OrgTreeNode): OverviewReport {
+  const seed = stableHash(node.id)
+  const week: AttendanceWeekPoint[] = []
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date()
+    date.setDate(date.getDate() - i)
+    week.push({
+      day: date.toISOString().slice(0, 10),
+      present: 60 + ((seed + i * 37) % 90),
+      absent: 3 + ((seed + i * 13) % 9),
+      excused: (seed + i * 7) % 5,
+    })
+  }
+  const today = week[week.length - 1]
+  return {
+    sessionsToday: {
+      scheduled: 4 + (seed % 5),
+      completed: 2 + (seed % 3),
+      cancelled: seed % 2,
+    },
+    attendanceToday: {
+      present: today.present,
+      absent: today.absent,
+      late: seed % 4,
+      excused: today.excused,
+    },
+    attendanceWeek: week,
+    enrollmentStatus: {
+      active: 120 + (seed % 200),
+      paused: 4 + (seed % 10),
+      dropped: 2 + (seed % 6),
+      completed: 30 + (seed % 40),
+    },
+    absentToday: [
+      { name: 'Nguyễn Văn An', className: 'Toán 12A', status: 'absent', note: null },
+      {
+        name: 'Trần Thị Bích',
+        className: 'Văn 11B',
+        status: 'excused',
+        note: 'Ốm - có đơn xin phép',
+      },
+      { name: 'Lê Minh Châu', className: 'Anh 10C', status: 'absent', note: null },
+    ],
+  }
+}
+
 function buildDemoStats(node: OrgTreeNode): DashboardStats {
   const totalStudents = demoSubtreeStudents(node)
   return {
@@ -80,6 +147,7 @@ function buildDemoStats(node: OrgTreeNode): DashboardStats {
         students: demoSubtreeStudents(child),
       }))
       .sort((a, b) => b.students - a.students),
+    report: buildDemoReport(node),
   }
 }
 // =================================================================================
@@ -108,8 +176,58 @@ const WIDGET_META: Record<WidgetId, { title: string; gridClass: string }> = {
   kpi_students: { title: 'Tổng học viên', gridClass: 'sm:col-span-2 lg:col-span-6' },
   kpi_revenue: { title: 'Doanh thu dự kiến', gridClass: 'lg:col-span-3' },
   kpi_classes: { title: 'Lớp đang mở', gridClass: 'lg:col-span-3' },
+  ops_today: { title: 'Vận hành hôm nay', gridClass: 'sm:col-span-2 lg:col-span-12' },
+  attendance_week: {
+    title: 'Điểm danh 7 ngày',
+    gridClass: 'sm:col-span-2 lg:col-span-8',
+  },
+  enrollment_status: {
+    title: 'Vòng đời ghi danh',
+    gridClass: 'sm:col-span-2 lg:col-span-4',
+  },
   branch_chart: { title: 'Biểu đồ chi nhánh', gridClass: 'sm:col-span-2 lg:col-span-8' },
   branch_ranking: { title: 'Xếp hạng chi nhánh', gridClass: 'sm:col-span-2 lg:col-span-4' },
+  absent_today: {
+    title: 'Học sinh vắng hôm nay',
+    gridClass: 'sm:col-span-2 lg:col-span-12',
+  },
+}
+
+/** Ô thống kê nhỏ trong widget "Vận hành hôm nay" */
+function StatTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number
+  tone: 'neutral' | 'green' | 'red' | 'amber' | 'indigo'
+}) {
+  const toneClass = {
+    neutral: 'bg-stone-50 text-stone-700 ring-stone-200',
+    green: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    red: 'bg-rose-50 text-rose-700 ring-rose-200',
+    amber: 'bg-amber-50 text-amber-700 ring-amber-200',
+    indigo: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  }[tone]
+  return (
+    <div className={`rounded-2xl p-4 ring-1 ${toneClass}`}>
+      <p className="font-heading text-2xl font-bold tabular-nums sm:text-3xl">
+        {value.toLocaleString('vi-VN')}
+      </p>
+      <p className="mt-0.5 text-xs font-semibold sm:text-sm">{label}</p>
+    </div>
+  )
+}
+
+/** Hộp nhắc khi DB thật chưa chạy migration 042 (report = null) */
+function ReportUnavailable() {
+  return (
+    <p className="flex h-40 items-center justify-center rounded-xl bg-stone-50 px-6 text-center text-sm text-muted-foreground">
+      Chưa có dữ liệu báo cáo vận hành — cần chạy migration
+      042_overview_report.sql trên Supabase.
+    </p>
+  )
 }
 
 /**
@@ -163,13 +281,10 @@ export default function OverviewPage() {
     }
     let cancelled = false
     setLoading(true)
-    // Số liệu + layout cá nhân hóa tải SONG SONG:
-    // user_preferences/template (theo user) + org_settings (fallback legacy)
-    Promise.all([
-      getDashboardStats(currentOrgId),
-      getOrgSettings(currentOrgId),
-      getMainDashboardLayout(),
-    ]).then(([result, settings, layoutResult]) => {
+    // TỐC ĐỘ: 1 server action DUY NHẤT gộp số liệu + báo cáo + settings
+    // + layout (Next chạy các action từ cùng client TUẦN TỰ, nên gọi
+    // 3 action riêng sẽ nối đuôi nhau chứ không song song).
+    getOverviewPageData(currentOrgId).then(({ stats: result, orgConfig, layout: layoutResult }) => {
       if (cancelled) return
       if (result.data) {
         setStats(result.data)
@@ -186,9 +301,7 @@ export default function OverviewPage() {
         layoutResult.error === undefined && layoutResult.layout
           ? layoutResult.layout
           : null
-      const chosen = normalizeLayout(
-        personal ?? settings.config.dashboard_widgets
-      )
+      const chosen = normalizeLayout(personal ?? orgConfig.dashboard_widgets)
       setLayout(chosen)
       setSavedLayout(chosen)
       if (layoutResult.error === undefined) {
@@ -307,6 +420,194 @@ export default function OverviewPage() {
             </p>
             <p className="mt-0.5 text-sm font-medium text-foreground">Lớp học đang mở</p>
             <p className="mt-1 text-xs text-muted-foreground">Cộng dồn đơn vị trực thuộc</p>
+          </div>
+        )
+      case 'ops_today': {
+        const report = stats.report
+        const att = report?.attendanceToday
+        const totalMarked = att
+          ? att.present + att.absent + att.late + att.excused
+          : 0
+        const presentRate =
+          att && totalMarked > 0
+            ? Math.round(((att.present + att.late) / totalMarked) * 100)
+            : null
+        return (
+          <div className="bento-card h-full p-5 sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <span className="bento-icon bg-stone-100 text-stone-700">
+                <CalendarCheck2 className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h2 className="font-heading text-lg font-bold">Vận hành hôm nay</h2>
+              {presentRate !== null && (
+                <span
+                  className={`ml-auto rounded-full px-3 py-1 text-xs font-bold ${
+                    presentRate >= 90
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : presentRate >= 75
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-rose-50 text-rose-700'
+                  }`}
+                >
+                  Tỷ lệ chuyên cần {presentRate}%
+                </span>
+              )}
+            </div>
+            {report ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+                <StatTile
+                  label="Buổi học xếp lịch"
+                  value={
+                    report.sessionsToday.scheduled +
+                    report.sessionsToday.completed +
+                    report.sessionsToday.cancelled
+                  }
+                  tone="indigo"
+                />
+                <StatTile
+                  label="Đã hoàn thành"
+                  value={report.sessionsToday.completed}
+                  tone="green"
+                />
+                <StatTile
+                  label="Buổi bị hủy"
+                  value={report.sessionsToday.cancelled}
+                  tone="neutral"
+                />
+                <StatTile
+                  label="Có mặt"
+                  value={report.attendanceToday.present}
+                  tone="green"
+                />
+                <StatTile label="Vắng" value={report.attendanceToday.absent} tone="red" />
+                <StatTile
+                  label="Đi muộn"
+                  value={report.attendanceToday.late}
+                  tone="amber"
+                />
+                <StatTile
+                  label="Có phép"
+                  value={report.attendanceToday.excused}
+                  tone="amber"
+                />
+              </div>
+            ) : (
+              <ReportUnavailable />
+            )}
+          </div>
+        )
+      }
+      case 'attendance_week':
+        return (
+          <div className="bento-card h-full p-5 sm:p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="bento-icon bg-emerald-50 text-emerald-700">
+                <ClipboardCheck className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h2 className="font-heading text-lg font-bold">
+                Điểm danh 7 ngày gần nhất
+              </h2>
+            </div>
+            {stats.report ? (
+              stats.report.attendanceWeek.length > 0 ? (
+                <WeeklyAttendanceChart data={stats.report.attendanceWeek} />
+              ) : (
+                <p className="flex h-64 items-center justify-center rounded-xl bg-stone-50 text-sm text-muted-foreground">
+                  Chưa có lượt điểm danh nào trong 7 ngày qua.
+                </p>
+              )
+            ) : (
+              <ReportUnavailable />
+            )}
+          </div>
+        )
+      case 'enrollment_status':
+        return (
+          <div className="bento-card h-full p-5 sm:p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="bento-icon bg-indigo-50 text-indigo-700">
+                <PieChart className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h2 className="font-heading text-lg font-bold">Vòng đời ghi danh</h2>
+            </div>
+            {stats.report ? (
+              <EnrollmentStatusChart data={stats.report.enrollmentStatus} />
+            ) : (
+              <ReportUnavailable />
+            )}
+          </div>
+        )
+      case 'absent_today':
+        return (
+          <div className="bento-card h-full p-5 sm:p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="bento-icon bg-rose-50 text-rose-700">
+                <UserX className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h2 className="font-heading text-lg font-bold">
+                Học sinh vắng hôm nay
+              </h2>
+              {stats.report && stats.report.absentToday.length > 0 && (
+                <span className="ml-auto rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700">
+                  {stats.report.absentToday.length} học sinh
+                </span>
+              )}
+            </div>
+            {stats.report ? (
+              stats.report.absentToday.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="px-3 py-2">#</th>
+                        <th className="px-3 py-2">Học sinh</th>
+                        <th className="px-3 py-2">Lớp</th>
+                        <th className="px-3 py-2">Trạng thái</th>
+                        <th className="px-3 py-2">Ghi chú</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.report.absentToday.map((row, index) => (
+                        <tr
+                          key={`${row.name}-${index}`}
+                          className="border-b border-border last:border-b-0 hover:bg-stone-50/70"
+                        >
+                          <td className="px-3 py-2.5 tabular-nums text-muted-foreground">
+                            {index + 1}
+                          </td>
+                          <td className="px-3 py-2.5 font-medium text-foreground">
+                            {row.name}
+                          </td>
+                          <td className="px-3 py-2.5 text-muted-foreground">
+                            {row.className}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                row.status === 'excused'
+                                  ? 'bg-amber-50 text-amber-700'
+                                  : 'bg-rose-50 text-rose-700'
+                              }`}
+                            >
+                              {row.status === 'excused' ? 'Có phép' : 'Vắng'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-muted-foreground">
+                            {row.note ?? '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="flex h-24 items-center justify-center rounded-xl bg-emerald-50 text-sm font-medium text-emerald-700">
+                  Tuyệt vời — hôm nay không có học sinh vắng.
+                </p>
+              )
+            ) : (
+              <ReportUnavailable />
+            )}
           </div>
         )
       case 'branch_chart':

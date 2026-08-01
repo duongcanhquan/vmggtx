@@ -2,6 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { getOrgSettings } from './settings/actions'
+import {
+  getMainDashboardLayout,
+  type MainDashboardLayoutResult,
+} from './layout-actions'
+import { DEFAULT_ORG_CONFIG, type OrgConfig } from '@/lib/validation/schemas'
 
 /** Học phí trung bình MOCK (chưa có bảng enrollments/invoices) */
 const MOCK_TUITION_PER_STUDENT = 1_500_000
@@ -12,6 +18,30 @@ export type ChildOrgStat = {
   students: number
 }
 
+// ===== Báo cáo vận hành (RPC get_overview_report - migration 042) =====
+
+export type AttendanceWeekPoint = {
+  day: string
+  present: number
+  absent: number
+  excused: number
+}
+
+export type AbsentStudentRow = {
+  name: string
+  className: string
+  status: string
+  note: string | null
+}
+
+export type OverviewReport = {
+  sessionsToday: { scheduled: number; completed: number; cancelled: number }
+  attendanceToday: { present: number; absent: number; late: number; excused: number }
+  attendanceWeek: AttendanceWeekPoint[]
+  enrollmentStatus: Record<string, number>
+  absentToday: AbsentStudentRow[]
+}
+
 export type DashboardStats = {
   activeClasses: number
   totalStudents: number
@@ -19,6 +49,65 @@ export type DashboardStats = {
   projectedRevenue: number
   /** So sánh học viên giữa các nhánh TRỰC THUỘC (mỗi nhánh đã cộng dồn subtree của nó) */
   childrenStats: ChildOrgStat[]
+  /** Báo cáo vận hành (null nếu migration 042 chưa chạy) */
+  report: OverviewReport | null
+}
+
+function toInt(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Parse jsonb trả về từ RPC get_overview_report một cách phòng thủ */
+function parseOverviewReport(raw: unknown): OverviewReport | null {
+  if (!raw || typeof raw !== 'object') return null
+  const data = raw as Record<string, unknown>
+  const sessions = (data.sessions_today ?? {}) as Record<string, unknown>
+  const att = (data.attendance_today ?? {}) as Record<string, unknown>
+
+  const week: AttendanceWeekPoint[] = Array.isArray(data.attendance_week)
+    ? (data.attendance_week as Record<string, unknown>[]).map((row) => ({
+        day: String(row.day ?? ''),
+        present: toInt(row.present),
+        absent: toInt(row.absent),
+        excused: toInt(row.excused),
+      }))
+    : []
+
+  const enrollment: Record<string, number> = {}
+  if (data.enrollment_status && typeof data.enrollment_status === 'object') {
+    for (const [key, value] of Object.entries(
+      data.enrollment_status as Record<string, unknown>
+    )) {
+      enrollment[key] = toInt(value)
+    }
+  }
+
+  const absent: AbsentStudentRow[] = Array.isArray(data.absent_today)
+    ? (data.absent_today as Record<string, unknown>[]).map((row) => ({
+        name: String(row.name ?? ''),
+        className: String(row.class ?? ''),
+        status: String(row.status ?? 'absent'),
+        note: row.note == null ? null : String(row.note),
+      }))
+    : []
+
+  return {
+    sessionsToday: {
+      scheduled: toInt(sessions.scheduled),
+      completed: toInt(sessions.completed),
+      cancelled: toInt(sessions.cancelled),
+    },
+    attendanceToday: {
+      present: toInt(att.present),
+      absent: toInt(att.absent),
+      late: toInt(att.late),
+      excused: toInt(att.excused),
+    },
+    attendanceWeek: week,
+    enrollmentStatus: enrollment,
+    absentToday: absent,
+  }
 }
 
 type OrgRow = { id: string; name: string; parent_id: string | null }
@@ -70,27 +159,31 @@ export async function getDashboardStats(
     }
     if (!ids.includes(orgId)) ids = [...ids, orgId]
 
-    // 2. Chạy song song: danh sách org (để dựng cây con), số lớp đang mở, học viên theo org
+    // 2. Chạy song song: danh sách org (để dựng cây con), số lớp đang mở,
+    //    học viên theo org, VÀ báo cáo vận hành (RPC 042 - 1 round-trip)
     const today = new Date().toISOString().slice(0, 10)
-    const [orgsResult, classesResult, studentsResult] = await Promise.all([
-      supabase
-        .from('organizations')
-        .select('id, name, parent_id')
-        .in('id', ids)
-        .is('deleted_at', null),
-      supabase
-        .from('classes')
-        .select('id', { count: 'exact', head: true })
-        .in('org_id', ids)
-        .is('deleted_at', null)
-        .or(`end_date.is.null,end_date.gte.${today}`),
-      supabase
-        .from('profiles')
-        .select('org_id')
-        .eq('role', 'student')
-        .in('org_id', ids)
-        .is('deleted_at', null),
-    ])
+    const [orgsResult, classesResult, studentsResult, reportResult] =
+      await Promise.all([
+        supabase
+          .from('organizations')
+          .select('id, name, parent_id')
+          .in('id', ids)
+          .is('deleted_at', null),
+        supabase
+          .from('classes')
+          .select('id', { count: 'exact', head: true })
+          .in('org_id', ids)
+          .is('deleted_at', null)
+          .or(`end_date.is.null,end_date.gte.${today}`),
+        supabase
+          .from('profiles')
+          .select('org_id')
+          .eq('role', 'student')
+          .in('org_id', ids)
+          .is('deleted_at', null),
+        // Migration 042 chưa chạy -> error, KHÔNG làm hỏng dashboard (report=null)
+        supabase.rpc('get_overview_report', { p_org_ids: ids }),
+      ])
 
     const firstError = orgsResult.error ?? classesResult.error ?? studentsResult.error
     if (firstError) {
@@ -139,10 +232,41 @@ export async function getDashboardStats(
         totalStudents,
         projectedRevenue: totalStudents * MOCK_TUITION_PER_STUDENT,
         childrenStats,
+        report: reportResult.error ? null : parseOverviewReport(reportResult.data),
       },
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Lỗi không xác định'
     return { data: null, error: `Không thể kết nối database: ${message}` }
+  }
+}
+
+// ============================================================
+// GỘP 3 LỜI GỌI TRANG TỔNG QUAN THÀNH 1 SERVER ACTION.
+// Lý do TỐC ĐỘ: Next.js xếp hàng các server action từ cùng 1
+// client chạy TUẦN TỰ (dù client Promise.all) -> gọi 3 action
+// riêng = 3 round-trip nối đuôi. Gộp lại: 1 round-trip, các
+// truy vấn bên trong chạy song song thật sự trên server.
+// ============================================================
+
+export type OverviewPageData = {
+  stats: { data: DashboardStats | null; error?: string }
+  /** Cấu hình org (fallback legacy cho layout widget) */
+  orgConfig: OrgConfig
+  layout: { error: string } | ({ error?: undefined } & MainDashboardLayoutResult)
+}
+
+export async function getOverviewPageData(
+  orgId: string | null
+): Promise<OverviewPageData> {
+  const [stats, settings, layout] = await Promise.all([
+    getDashboardStats(orgId),
+    orgId ? getOrgSettings(orgId) : Promise.resolve(null),
+    getMainDashboardLayout(),
+  ])
+  return {
+    stats,
+    orgConfig: settings?.config ?? DEFAULT_ORG_CONFIG,
+    layout,
   }
 }

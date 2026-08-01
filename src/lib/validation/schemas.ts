@@ -508,19 +508,27 @@ export const orgConfigSchema = z.object({
           'kpi_students',
           'kpi_revenue',
           'kpi_classes',
+          'ops_today',
+          'attendance_week',
+          'enrollment_status',
           'branch_chart',
           'branch_ranking',
+          'absent_today',
         ]),
         visible: z.boolean(),
       })
     )
-    .max(10)
+    .max(12)
     .default([
       { id: 'kpi_students', visible: true },
       { id: 'kpi_revenue', visible: true },
       { id: 'kpi_classes', visible: true },
+      { id: 'ops_today', visible: true },
+      { id: 'attendance_week', visible: true },
+      { id: 'enrollment_status', visible: true },
       { id: 'branch_chart', visible: true },
       { id: 'branch_ranking', visible: true },
+      { id: 'absent_today', visible: true },
     ]),
 })
 
@@ -538,8 +546,12 @@ export const DEFAULT_ORG_CONFIG: OrgConfig = {
     { id: 'kpi_students', visible: true },
     { id: 'kpi_revenue', visible: true },
     { id: 'kpi_classes', visible: true },
+    { id: 'ops_today', visible: true },
+    { id: 'attendance_week', visible: true },
+    { id: 'enrollment_status', visible: true },
     { id: 'branch_chart', visible: true },
     { id: 'branch_ranking', visible: true },
+    { id: 'absent_today', visible: true },
   ],
 }
 
