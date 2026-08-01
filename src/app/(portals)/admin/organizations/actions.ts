@@ -177,6 +177,13 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
       return { error: 'TỪ CHỐI: Đơn vị cha nằm ngoài phạm vi quản lý của bạn.' }
     }
 
+    // Campus admin chỉ tạo nhánh — không tự tạo thêm "Cơ sở" (tránh bypass 3 cấp)
+    if (auth.role === 'campus_admin' && parsed.data.type === 'campus') {
+      return {
+        error: 'Quản lý cơ sở chỉ được tạo Nhánh / Nhánh con. Cơ sở mới do Super Admin khởi tạo.',
+      }
+    }
+
     const admin = createAdminClient()
     const { data: parent } = await admin
       .from('organizations')
@@ -198,6 +205,7 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
           .from('organizations')
           .select('id, type, parent_id')
           .eq('id', cursorId)
+          .is('deleted_at', null)
           .maybeSingle()
         if (!ancestor) break
         if (ancestor.type === 'campus') {
@@ -207,6 +215,13 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
         cursorId = (ancestor.parent_id as string | null) ?? null
         steps++
       }
+    }
+    // Cấm campus lồng campus (parent đã thuộc cây một cơ sở, hoặc chính parent là campus)
+    if (parsed.data.type === 'campus' && (parent.type === 'campus' || parentTier > 0)) {
+      return { error: 'Không tạo Cơ sở lồng trong Cơ sở khác. Chỉ tạo Nhánh (branch).' }
+    }
+    if (parsed.data.type === 'campus' && parent.type !== 'hq' && parent.type !== 'region') {
+      return { error: 'Cơ sở mới chỉ được gắn dưới Trụ sở hoặc Cụm/Vùng.' }
     }
     if (parentTier >= 3) {
       return {

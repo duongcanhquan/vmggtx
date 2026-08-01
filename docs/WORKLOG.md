@@ -36,10 +36,17 @@
   hết hạn + /license-expired; capacity.ts chặn max_students.
 - Tồn: migration 044 chưa chạy DB thật; parent chưa bị chặn license (chấp nhận).
 
-## 2026-08-01 | (commit kế tiếp) | Audit tự chữa - overview, parent OTP, copy ngắn
-- Làm: middleware cho phép `/` (Tổng quan hết mồ côi); home super/campus → `/`;
-  Parent OTP chỉ nhận mã cố định (123456 / PARENT_MOCK_OTP), prod bắt buộc
-  PARENT_SESSION_SECRET; createAnnouncement + is_authorized; xóa ComingSoon +
-  test-connection.mjs; rút gọn copy (orgs, licenses, permissions, license-expired
-  có nút Đăng xuất thật).
+## 2026-08-01 | 71769a2 | Audit tự chữa - overview, parent OTP, copy ngắn
+- Làm: middleware cho phép `/`; home super/campus → `/`; Parent OTP cố định;
+  createAnnouncement + is_authorized; xóa ComingSoon; rút gọn copy.
 - Tồn: OTP SMS thật; migration 042-044 chờ chạy.
+
+## 2026-08-01 | f229439 | Rut gon 9 doan huong dan dai portal
+- Làm: budget, assessments, schedule-management, requests, grades, LmsManager.
+
+## 2026-08-01 | (commit kế tiếp) | Vá bug audit logic license/org
+- Làm: bỏ cache menu_hint (chống giả mạo); license_hint chỉ cache blocked;
+  redirect mang cookie; parent area exact /dashboard; đếm HV phân trang;
+  wizard validate từng bước; cấm campus lồng / campus_admin tạo campus;
+  badge hạn theo giờ VN; capacity lọc deleted_at.
+- BUG1 redirect loop `/` đã vá từ 71769a2 (subagent đọc code cũ).

@@ -79,14 +79,13 @@ export async function getLicenseAdminData(): Promise<LicenseAdminData> {
     if (auth.error !== undefined) return { error: auth.error }
 
     const admin = createAdminClient()
-    const [orgsRes, licensesRes, studentsRes] = await Promise.all([
+    const [orgsRes, licensesRes] = await Promise.all([
       admin
         .from('organizations')
         .select('id, name, type, parent_id')
         .is('deleted_at', null)
         .order('name'),
       admin.from('tenant_licenses').select('org_id, plan_name, module_keys, max_students, valid_until, status'),
-      admin.from('profiles').select('org_id').eq('role', 'student').is('deleted_at', null),
     ])
 
     if (orgsRes.error) return { error: `Không tải được cây tổ chức: ${orgsRes.error.message}` }
@@ -102,14 +101,34 @@ export async function getLicenseAdminData(): Promise<LicenseAdminData> {
       childrenOf.set(org.parent_id, list)
     }
 
-    // Đếm học viên theo org rồi cộng dồn theo SUBTREE của từng cơ sở
+    // Đếm HV phân trang (PostgREST mặc định cắt 1000 dòng) rồi cộng theo SUBTREE
     const directCount = new Map<string, number>()
-    for (const row of studentsRes.data ?? []) {
-      if (row.org_id) directCount.set(row.org_id, (directCount.get(row.org_id) ?? 0) + 1)
+    {
+      let from = 0
+      for (;;) {
+        const { data: page } = await admin
+          .from('profiles')
+          .select('org_id')
+          .eq('role', 'student')
+          .is('deleted_at', null)
+          .range(from, from + 999)
+        if (!page || page.length === 0) break
+        for (const row of page) {
+          if (row.org_id) {
+            directCount.set(row.org_id, (directCount.get(row.org_id) ?? 0) + 1)
+          }
+        }
+        if (page.length < 1000) break
+        from += 1000
+      }
     }
-    function subtreeCount(orgId: string): number {
+    function subtreeCount(orgId: string, visited = new Set<string>()): number {
+      if (visited.has(orgId)) return 0
+      visited.add(orgId)
       let total = directCount.get(orgId) ?? 0
-      for (const childId of childrenOf.get(orgId) ?? []) total += subtreeCount(childId)
+      for (const childId of childrenOf.get(orgId) ?? []) {
+        total += subtreeCount(childId, visited)
+      }
       return total
     }
 
@@ -253,6 +272,17 @@ export async function provisionCampus(formData: FormData): Promise<ActionResult>
         .maybeSingle()
       if (!root) return { error: 'Không tìm thấy đơn vị gốc của hệ thống.' }
       parentId = root.id
+    } else {
+      const { data: parent } = await admin
+        .from('organizations')
+        .select('id, type')
+        .eq('id', parentId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (!parent) return { error: 'Đơn vị cha không tồn tại hoặc đã xóa.' }
+      if (parent.type !== 'hq' && parent.type !== 'region') {
+        return { error: 'Cơ sở mới chỉ được gắn dưới Trụ sở hoặc Cụm/Vùng.' }
+      }
     }
 
     // BƯỚC 1: tạo cơ sở

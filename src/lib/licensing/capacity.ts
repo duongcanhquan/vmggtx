@@ -24,6 +24,7 @@ export async function findLicenseForOrg(
         .from('organizations')
         .select('parent_id')
         .eq('id', cursor)
+        .is('deleted_at', null)
         .maybeSingle()
       const parentId = (data?.parent_id as string | null) ?? null
       if (!parentId) break

@@ -211,11 +211,10 @@ const STUDENT_AREA_PREFIXES = [
   '/assistant',
 ]
 
-/** Khu vực Sổ Liên Lạc Phụ huynh (xác thực bằng cookie HMAC riêng) */
-const PARENT_AREA_PREFIXES = ['/parent', '/dashboard']
-
+/** Khu vực Sổ Liên Lạc Phụ huynh (xác thực bằng cookie HMAC riêng).
+ *  Chỉ exact `/dashboard` (trang chủ phụ huynh) — KHÔNG nuốt `/dashboard/hr`… */
 function isParentArea(pathname: string): boolean {
-  return PARENT_AREA_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
+  return matchesPrefix(pathname, '/parent') || pathname === '/dashboard'
 }
 
 function loginPathFor(pathname: string): string {
@@ -238,11 +237,22 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
 }
 
-function redirectTo(request: NextRequest, pathname: string) {
+function redirectTo(
+  request: NextRequest,
+  pathname: string,
+  /** Mang theo cookie đã set trên response hiện tại (role_hint/license_hint…) */
+  carry?: NextResponse
+) {
   const url = request.nextUrl.clone()
   url.pathname = pathname
   url.search = ''
-  return NextResponse.redirect(url)
+  const redirect = NextResponse.redirect(url)
+  if (carry) {
+    for (const cookie of carry.cookies.getAll()) {
+      redirect.cookies.set(cookie.name, cookie.value)
+    }
+  }
+  return redirect
 }
 
 export async function middleware(request: NextRequest) {
@@ -364,14 +374,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // ---- MA TRẬN PHÂN QUYỀN ĐỘNG (menu_permissions - migration 043) ----
-  // Ghi đè do super_admin/campus_admin cấu hình ở /admin/permissions.
-  // Cache cookie `menu_hint` 5 phút (giá trị "userId:*" = không có ghi đè,
-  // "userId:key1,key2" = chỉ được các key này). FAIL-OPEN: lỗi RPC /
-  // migration chưa chạy -> cho qua, đã có ROUTE_RULES theo role chặn nền.
-  const MENU_HINT_COOKIE = 'menu_hint'
-
+  // LUÔN gọi RPC (không cache "được phép" bằng cookie — cookie Client có thể
+  // giả mạo qua header Cookie). FAIL-OPEN khi RPC lỗi / migration chưa chạy.
   async function enforceMenuMatrix(role: Role): Promise<boolean> {
-    // super_admin luôn full quyền; student/parent/enterprise không có ghi đè
     if (
       role === 'super_admin' ||
       role === 'student' ||
@@ -381,43 +386,20 @@ export async function middleware(request: NextRequest) {
     }
     const menuKey = menuKeyForPath(pathname)
     if (!menuKey) return true
-
-    let keysValue: string | null = null
-    const hint = request.cookies.get(MENU_HINT_COOKIE)?.value
-    if (hint && session) {
-      const separator = hint.indexOf(':')
-      if (separator > 0 && hint.slice(0, separator) === session.user.id) {
-        keysValue = hint.slice(separator + 1)
-      }
+    try {
+      const { data, error } = await supabase.rpc('get_my_menu_keys')
+      if (error) return true
+      // null = không có ghi đè -> ma trận mặc định (ROUTE_RULES + leaf.roles chặn nền)
+      if (!Array.isArray(data)) return true
+      return data.includes(menuKey)
+    } catch {
+      return true
     }
-
-    if (keysValue === null) {
-      try {
-        const { data, error } = await supabase.rpc('get_my_menu_keys')
-        if (error) return true // fail-open (043 chưa chạy / lỗi tạm)
-        keysValue = Array.isArray(data) ? data.join(',') : '*'
-        if (session) {
-          response.cookies.set(
-            MENU_HINT_COOKIE,
-            `${session.user.id}:${keysValue}`,
-            { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 300 }
-          )
-        }
-      } catch {
-        return true
-      }
-    }
-
-    if (keysValue === '*') return true // không có ghi đè -> ma trận mặc định
-    const allowed = keysValue.split(',').filter(Boolean)
-    return allowed.includes(menuKey)
   }
 
   // ---- TẦNG LICENSE (tenant_licenses - migration 044) ----
-  // Cơ sở hết hạn / bị tạm ngưng -> mọi user của cơ sở (trừ super_admin)
-  // bị đưa về /license-expired. Cache cookie `license_hint` 10 phút
-  // ("userId:ok" hoặc "userId:blocked"). FAIL-OPEN khi RPC lỗi /
-  // migration chưa chạy / cơ sở không có license (hệ thống nội bộ).
+  // Chỉ cache verdict "blocked" (forge blocked chỉ tự hại). Verdict "ok"
+  // LUÔN verify lại bằng RPC — chống giả mạo cookie license_hint=ok.
   const LICENSE_HINT_COOKIE = 'license_hint'
 
   async function enforceLicense(role: Role): Promise<boolean> {
@@ -426,7 +408,7 @@ export async function middleware(request: NextRequest) {
     const hint = request.cookies.get(LICENSE_HINT_COOKIE)?.value
     if (hint) {
       const [hintUserId, verdict] = hint.split(':')
-      if (hintUserId === session.user.id) return verdict !== 'blocked'
+      if (hintUserId === session.user.id && verdict === 'blocked') return false
     }
 
     let allowed = true
@@ -436,7 +418,6 @@ export async function middleware(request: NextRequest) {
         const license = data as { status?: string; valid_until?: string | null }
         if (license.status === 'suspended') allowed = false
         if (allowed && license.valid_until) {
-          // "Hôm nay" theo giờ Việt Nam (định dạng YYYY-MM-DD để so chuỗi)
           const today = new Date().toLocaleDateString('en-CA', {
             timeZone: 'Asia/Ho_Chi_Minh',
           })
@@ -447,11 +428,14 @@ export async function middleware(request: NextRequest) {
       /* fail-open */
     }
 
-    response.cookies.set(
-      LICENSE_HINT_COOKIE,
-      `${session.user.id}:${allowed ? 'ok' : 'blocked'}`,
-      { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 600 }
-    )
+    if (!allowed) {
+      response.cookies.set(LICENSE_HINT_COOKIE, `${session.user.id}:blocked`, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 600,
+      })
+    }
     return allowed
   }
 
@@ -467,10 +451,10 @@ export async function middleware(request: NextRequest) {
       return redirectTo(request, '/unauthorized')
     }
     if (!(await enforceLicense(role))) {
-      return redirectTo(request, '/license-expired')
+      return redirectTo(request, '/license-expired', response)
     }
     if (!(await enforceMenuMatrix(role))) {
-      return redirectTo(request, '/unauthorized')
+      return redirectTo(request, '/unauthorized', response)
     }
     return response
   }
@@ -486,21 +470,21 @@ export async function middleware(request: NextRequest) {
       if (request.cookies.get('parent_session')?.value) {
         return response
       }
-      return redirectTo(request, '/parent/login')
+      return redirectTo(request, '/parent/login', response)
     }
-    return redirectTo(request, loginPathFor(pathname))
+    return redirectTo(request, loginPathFor(pathname), response)
   }
 
   // Đối tác doanh nghiệp chỉ được ở trong không gian /b2b
   const role = await resolveRole()
   if (role === 'enterprise_partner') {
-    return redirectTo(request, '/b2b')
+    return redirectTo(request, '/b2b', response)
   }
   if (role && !(await enforceLicense(role))) {
-    return redirectTo(request, '/license-expired')
+    return redirectTo(request, '/license-expired', response)
   }
   if (role && !(await enforceMenuMatrix(role))) {
-    return redirectTo(request, '/unauthorized')
+    return redirectTo(request, '/unauthorized', response)
   }
 
   return response

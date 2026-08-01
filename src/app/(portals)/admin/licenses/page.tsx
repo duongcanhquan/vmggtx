@@ -166,6 +166,10 @@ export default function AdminLicensesPage() {
     new Set(LICENSE_PLANS[1].moduleKeys)
   )
   const [wizPlan, setWizPlan] = useState<string>(LICENSE_PLANS[1].key)
+  const [wizCampusName, setWizCampusName] = useState('')
+  const [wizAdminName, setWizAdminName] = useState('')
+  const [wizAdminEmail, setWizAdminEmail] = useState('')
+  const [wizAdminPassword, setWizAdminPassword] = useState('')
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -185,7 +189,10 @@ export default function AdminLicensesPage() {
     void loadData()
   }, [loadData])
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  const today = useMemo(
+    () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
+    []
+  )
 
   function openEdit(row: CampusLicenseRow) {
     setEditRow(row)
@@ -227,8 +234,47 @@ export default function AdminLicensesPage() {
     void loadData()
   }
 
+  function validateWizardStep(step: number): string | null {
+    if (step === 0 && wizCampusName.trim().length < 2) {
+      return 'Nhập tên cơ sở (tối thiểu 2 ký tự).'
+    }
+    if (step === 1 && wizSelected.size === 0) {
+      return 'Chọn ít nhất 1 module cho gói dịch vụ.'
+    }
+    if (step === 2) {
+      if (wizAdminName.trim().length < 2) return 'Nhập họ tên admin cơ sở.'
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(wizAdminEmail.trim())) {
+        return 'Email admin không hợp lệ.'
+      }
+      if (wizAdminPassword.length < 8) return 'Mật khẩu tối thiểu 8 ký tự.'
+    }
+    return null
+  }
+
+  function goWizardStep(next: number) {
+    if (next > wizardStep) {
+      for (let step = wizardStep; step < next; step++) {
+        const error = validateWizardStep(step)
+        if (error) {
+          setToast({ type: 'error', message: error })
+          setWizardStep(step)
+          return
+        }
+      }
+    }
+    setWizardStep(next)
+  }
+
   async function handleProvision(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    for (let step = 0; step <= 2; step++) {
+      const error = validateWizardStep(step)
+      if (error) {
+        setToast({ type: 'error', message: error })
+        setWizardStep(step)
+        return
+      }
+    }
     setSaving(true)
     const result = await provisionCampus(new FormData(event.currentTarget))
     setSaving(false)
@@ -239,6 +285,10 @@ export default function AdminLicensesPage() {
     setToast({ type: 'success', message: 'Đã khởi tạo cơ sở + license + tài khoản admin.' })
     setWizardOpen(false)
     setWizardStep(0)
+    setWizCampusName('')
+    setWizAdminName('')
+    setWizAdminEmail('')
+    setWizAdminPassword('')
     void loadData()
   }
 
@@ -470,7 +520,7 @@ export default function AdminLicensesPage() {
                 <button
                   key={label}
                   type="button"
-                  onClick={() => setWizardStep(index)}
+                  onClick={() => goWizardStep(index)}
                   className={`flex-1 cursor-pointer rounded-xl px-3 py-2 text-xs font-semibold transition ${
                     wizardStep === index
                       ? 'bg-indigo-600 text-white'
@@ -482,13 +532,15 @@ export default function AdminLicensesPage() {
               ))}
             </div>
 
-            {/* Bước 1: thông tin cơ sở (giữ mounted để FormData thu đủ) */}
+            {/* Bước 1: thông tin cơ sở (giữ mounted để FormData thu đủ; không dùng HTML required
+                trên field ẩn — validate thủ công để tránh submit câm) */}
             <div className={wizardStep === 0 ? 'mt-4 space-y-3' : 'hidden'}>
               <label className="block text-sm font-medium text-slate-700">
                 Tên cơ sở mới
                 <input
                   name="campusName"
-                  required
+                  value={wizCampusName}
+                  onChange={(event) => setWizCampusName(event.target.value)}
                   placeholder="VD: Trung tâm GDTX Quận 1"
                   className={inputClass}
                 />
@@ -521,15 +573,32 @@ export default function AdminLicensesPage() {
             <div className={wizardStep === 2 ? 'mt-4 space-y-3' : 'hidden'}>
               <label className="block text-sm font-medium text-slate-700">
                 Họ tên admin cơ sở
-                <input name="adminFullName" required className={inputClass} />
+                <input
+                  name="adminFullName"
+                  value={wizAdminName}
+                  onChange={(event) => setWizAdminName(event.target.value)}
+                  className={inputClass}
+                />
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 Email đăng nhập
-                <input name="adminEmail" type="email" required className={inputClass} />
+                <input
+                  name="adminEmail"
+                  type="email"
+                  value={wizAdminEmail}
+                  onChange={(event) => setWizAdminEmail(event.target.value)}
+                  className={inputClass}
+                />
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 Mật khẩu khởi tạo (tối thiểu 8 ký tự)
-                <input name="adminPassword" type="text" required minLength={8} className={inputClass} />
+                <input
+                  name="adminPassword"
+                  type="text"
+                  value={wizAdminPassword}
+                  onChange={(event) => setWizAdminPassword(event.target.value)}
+                  className={inputClass}
+                />
               </label>
               <p className="rounded-xl bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
                 Tài khoản <strong>Quản lý cơ sở</strong> — toàn quyền trong các module đã mua.
@@ -548,7 +617,7 @@ export default function AdminLicensesPage() {
               {wizardStep < 2 ? (
                 <button
                   type="button"
-                  onClick={() => setWizardStep((step) => Math.min(2, step + 1))}
+                  onClick={() => goWizardStep(Math.min(2, wizardStep + 1))}
                   className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
                 >
                   Tiếp tục
