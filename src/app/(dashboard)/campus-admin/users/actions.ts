@@ -576,15 +576,13 @@ export async function getUserGrants(
       .maybeSingle(),
   ])
 
-  // Trần ủy quyền: campus_admin chỉ gán được quyền CHÍNH MÌNH đang có
+  // Trần ủy quyền: campus_admin TOÀN QUYỀN vận hành trong subtree
+  // -> gán được mọi hạng mục cơ sở (trừ key riêng của super_admin).
   let capKeys: MenuKey[] | null = null
   if (me?.role === 'campus_admin') {
-    const { data: myKeys } = await supabase.rpc('get_my_menu_keys')
-    capKeys = (
-      Array.isArray(myKeys)
-        ? (myKeys as unknown[]).filter(isMenuKey)
-        : defaultKeysForRole('campus_admin')
-    ).filter((key) => !UNGRANTABLE_KEYS.includes(key))
+    capKeys = defaultKeysForRole('campus_admin').filter(
+      (key) => !UNGRANTABLE_KEYS.includes(key)
+    )
   }
 
   return {
@@ -614,29 +612,33 @@ export async function saveUserGrants(
     .filter(isMenuKey)
     .filter((key) => !UNGRANTABLE_KEYS.includes(key))
 
-  // Trần ủy quyền của campus_admin: không gán được quyền mình không có
+  // Trần ủy quyền: campus_admin gán được mọi hạng mục vận hành cơ sở
+  // (trừ key riêng của super_admin - đã lọc bởi UNGRANTABLE_KEYS).
   const { data: me } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', gate.currentUserId)
     .maybeSingle()
   if (me?.role === 'campus_admin') {
-    const { data: myKeys } = await supabase.rpc('get_my_menu_keys')
-    const cap: MenuKey[] = Array.isArray(myKeys)
-      ? (myKeys as unknown[]).filter(isMenuKey)
-      : defaultKeysForRole('campus_admin')
+    const cap = defaultKeysForRole('campus_admin')
     const outOfCap = cleanKeys.filter((key) => !cap.includes(key))
     if (outOfCap.length > 0) {
-      return { error: `Bạn không thể gán quyền mình không có: ${outOfCap.join(', ')}` }
+      return { error: `Hạng mục ngoài phạm vi cơ sở: ${outOfCap.join(', ')}` }
     }
   }
+
+  // Báo lỗi DỄ HIỂU khi DB chưa có bảng 049 (phải chạy migration tay)
+  const friendly = (message: string) =>
+    /user_menu_permissions|does not exist|schema cache/i.test(message)
+      ? 'Database chưa có bảng gán quyền. Vào Supabase SQL Editor chạy file supabase/migrations/049_user_grants.sql rồi thử lại.'
+      : message
 
   if (cleanKeys.length === 0) {
     const { error } = await supabase
       .from('user_menu_permissions')
       .delete()
       .eq('user_id', targetUserId)
-    if (error) return { error: `Không gỡ được quyền: ${error.message}` }
+    if (error) return { error: `Không gỡ được quyền: ${friendly(error.message)}` }
   } else {
     const { error } = await supabase.from('user_menu_permissions').upsert(
       {
@@ -647,7 +649,7 @@ export async function saveUserGrants(
       },
       { onConflict: 'user_id' }
     )
-    if (error) return { error: `Không lưu được quyền: ${error.message}` }
+    if (error) return { error: `Không lưu được quyền: ${friendly(error.message)}` }
   }
 
   revalidatePath('/campus-admin/users')

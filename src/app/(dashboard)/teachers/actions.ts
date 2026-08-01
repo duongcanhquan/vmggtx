@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 
@@ -166,6 +167,52 @@ export async function getAssignableClasses(): Promise<
       }
     }),
   }
+}
+
+/**
+ * SỬA hồ sơ giảng viên: họ tên / SĐT / email liên hệ.
+ * Gác cổng bằng requireTeacherManager + kiểm tra subtree, sau đó ghi bằng
+ * admin client (RLS cũ chỉ cho campus_admin update -> giáo vụ sẽ bị chặn
+ * im lặng nếu ghi bằng user client).
+ */
+export async function updateTeacherProfile(
+  teacherId: string,
+  input: { fullName: string; phone: string; email: string }
+): Promise<{ error?: string }> {
+  if (!teacherId) return { error: 'Thiếu ID giảng viên.' }
+  const fullName = input.fullName.trim()
+  if (fullName.length < 2) return { error: 'Họ tên phải có ít nhất 2 ký tự.' }
+
+  const gate = await requireTeacherManager()
+  if (gate.error !== undefined) return { error: gate.error }
+
+  const supabase = createClient()
+  const { data: teacher } = await supabase
+    .from('profiles')
+    .select('id, role, org_id')
+    .eq('id', teacherId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!teacher || teacher.role !== 'teacher') {
+    return { error: 'Giảng viên không tồn tại hoặc ngoài phạm vi của bạn.' }
+  }
+  if (gate.scope && (!teacher.org_id || !gate.scope.includes(teacher.org_id))) {
+    return { error: 'Giảng viên này không thuộc phạm vi quản lý của bạn.' }
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('profiles')
+    .update({
+      full_name: fullName,
+      phone: input.phone.trim() || null,
+      email: input.email.trim() || null,
+    })
+    .eq('id', teacherId)
+  if (error) return { error: `Lỗi cập nhật hồ sơ: ${error.message}` }
+
+  revalidatePath('/teachers')
+  return {}
 }
 
 /**

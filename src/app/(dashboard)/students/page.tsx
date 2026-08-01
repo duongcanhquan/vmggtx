@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Eye, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
+import { BookOpen, Eye, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import {
@@ -23,6 +23,11 @@ import {
   updateStudent,
   type StudentRow,
 } from './actions'
+import {
+  enrollStudentToClass,
+  getEnrollmentPanel,
+  type EnrollmentPanel,
+} from './[id]/enrollment-actions'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
@@ -46,6 +51,7 @@ export default function StudentsPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<StudentRow | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [enrollFor, setEnrollFor] = useState<StudentRow | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
 
   const loadData = useCallback(async () => {
@@ -184,6 +190,11 @@ export default function StudentsPage() {
                 onClick: () => openEdit(row.original),
               },
               {
+                label: 'Gán lớp (ghi danh)',
+                icon: BookOpen,
+                onClick: () => setEnrollFor(row.original),
+              },
+              {
                 label: 'Xóa (xóa mềm)',
                 icon: Trash2,
                 variant: 'destructive',
@@ -302,7 +313,194 @@ export default function StudentsPage() {
         </div>
       )}
 
+      {/* ===== Modal Gán lớp nhanh (ghi danh) ===== */}
+      {enrollFor && (
+        <QuickEnrollModal
+          student={enrollFor}
+          onClose={() => setEnrollFor(null)}
+          onSaved={(message) => {
+            setToast({ type: 'success', message })
+            setEnrollFor(null)
+          }}
+          onError={(message) => setToast({ type: 'error', message })}
+        />
+      )}
+
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
+    </div>
+  )
+}
+
+// ---------- Modal Gán lớp nhanh ngay từ danh sách học sinh ----------
+function QuickEnrollModal({
+  student,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  student: StudentRow
+  onClose: () => void
+  onSaved: (message: string) => void
+  onError: (message: string) => void
+}) {
+  const [panel, setPanel] = useState<EnrollmentPanel | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [selectedClassId, setSelectedClassId] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    getEnrollmentPanel(student.id).then((result) => {
+      if (cancelled) return
+      if (result.error !== undefined) {
+        onError(result.error)
+        onClose()
+        return
+      }
+      setPanel(result.panel)
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student.id])
+
+  const activeClassIds = useMemo(
+    () =>
+      new Set(
+        (panel?.enrollments ?? [])
+          .filter((e) => e.status === 'active')
+          .map((e) => e.classId)
+      ),
+    [panel]
+  )
+
+  async function submit() {
+    if (!selectedClassId) {
+      onError('Vui lòng chọn lớp để ghi danh.')
+      return
+    }
+    setSaving(true)
+    const result = await enrollStudentToClass(student.id, selectedClassId)
+    setSaving(false)
+    if (result.error !== undefined) {
+      onError(result.error)
+      return
+    }
+    const className =
+      panel?.classes.find((c) => c.id === selectedClassId)?.name ?? 'lớp đã chọn'
+    onSaved(`Đã ghi danh ${student.full_name} vào ${className}.`)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="quick-enroll-title"
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={onClose}
+        className="absolute inset-0 cursor-pointer bg-black/50"
+      />
+      <div className="relative flex max-h-[85dvh] w-full max-w-md flex-col rounded-t-3xl bg-surface p-6 shadow-xl sm:rounded-3xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="quick-enroll-title" className="font-heading text-xl font-bold">
+              Gán lớp (ghi danh)
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{student.full_name}</span>
+              {' — '}
+              {student.org_name}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        {loading ? (
+          <FunLoader label="Đang tải danh sách lớp…" />
+        ) : (
+          <>
+            <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+              {(panel?.classes ?? []).length === 0 && (
+                <li className="py-8 text-center text-sm text-muted-foreground">
+                  Cơ sở này chưa có lớp nào.
+                </li>
+              )}
+              {(panel?.classes ?? []).map((cls) => {
+                const already = activeClassIds.has(cls.id)
+                const full =
+                  cls.maxStudents !== null && cls.activeCount >= cls.maxStudents
+                return (
+                  <li key={cls.id}>
+                    <label
+                      className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm ${
+                        already || full
+                          ? 'cursor-not-allowed opacity-55'
+                          : 'cursor-pointer hover:bg-indigo-50/50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="quick-enroll-class"
+                        checked={selectedClassId === cls.id}
+                        disabled={already || full}
+                        onChange={() => setSelectedClassId(cls.id)}
+                        className="h-[18px] w-[18px] shrink-0 cursor-pointer accent-indigo-600"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-foreground">
+                          {cls.name}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {cls.activeCount}
+                          {cls.maxStudents !== null && `/${cls.maxStudents}`} học viên
+                          {already && ' · ĐANG HỌC lớp này'}
+                          {!already && full && ' · lớp đã đầy'}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+
+            <div className="mt-4 flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-border px-5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void submit()}
+                disabled={saving || !selectedClassId}
+                className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <BookOpen className="h-4 w-4" aria-hidden="true" />
+                )}
+                {saving ? 'Đang ghi danh…' : 'Ghi danh vào lớp'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

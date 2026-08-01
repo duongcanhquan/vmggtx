@@ -176,9 +176,10 @@ export const MENU_SECTIONS: MenuSection[] = [
   },
 ]
 
-/** Các role mà ma trận có thể cấu hình (student/enterprise dùng portal riêng) */
+/** Các role mà ma trận có thể cấu hình (student/enterprise dùng portal riêng).
+ *  KHÔNG có campus_admin: Quản lý cơ sở TOÀN QUYỀN trong subtree — ma trận
+ *  chỉ dùng để giới hạn/mở quyền cho đội ngũ CẤP DƯỚI. */
 export const CONFIGURABLE_ROLES = [
-  'campus_admin',
   'academic_staff',
   'admission_staff',
   'accountant',
@@ -188,7 +189,6 @@ export const CONFIGURABLE_ROLES = [
 export type ConfigurableRole = (typeof CONFIGURABLE_ROLES)[number]
 
 export const CONFIGURABLE_ROLE_LABELS: Record<ConfigurableRole, string> = {
-  campus_admin: 'Quản lý cơ sở',
   academic_staff: 'Giáo vụ',
   admission_staff: 'Tuyển sinh',
   accountant: 'Kế toán',

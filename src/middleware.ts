@@ -545,7 +545,13 @@ export async function middleware(request: NextRequest) {
   async function enforceAccess(role: Role): Promise<'ok' | 'license' | 'denied'> {
     if (role === 'super_admin' || !session) return 'ok'
 
-    const skipMenuMatrix = role === 'student' || role === 'enterprise_partner'
+    // campus_admin = TOÀN QUYỀN trong subtree: bỏ qua ma trận menu
+    // (ma trận chỉ ràng buộc role cấp dưới). Tránh việc bản ghi override
+    // cũ trong DB che mất menu MỚI thêm khỏi chính Quản lý cơ sở.
+    const skipMenuMatrix =
+      role === 'campus_admin' ||
+      role === 'student' ||
+      role === 'enterprise_partner'
     const menuKey = menuKeyForPath(pathname)
     const featureRoute = FEATURE_ROUTES.find((f) =>
       matchesPrefix(pathname, f.routePrefix)

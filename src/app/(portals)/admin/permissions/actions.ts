@@ -13,11 +13,10 @@ import type { ActionResult } from '@/lib/validation/schemas'
 
 // ============================================================
 // MA TRẬN PHÂN QUYỀN MENU (/admin/permissions)
-// - super_admin: chọn cơ sở bất kỳ, cấp quyền cho CẢ campus_admin
-//   lẫn các role dưới.
-// - campus_admin: cấp quyền cho giáo vụ/tuyển sinh/kế toán/giáo viên
-//   trong cơ sở mình, KHÔNG vượt quá quyền bản thân được cấp
-//   (delegation cap) và không tự sửa quyền campus_admin.
+// - campus_admin có TOÀN QUYỀN trong subtree (không bị ma trận ràng);
+//   ma trận chỉ cấu hình cho đội ngũ CẤP DƯỚI: giáo vụ/tuyển sinh/
+//   kế toán/giáo viên.
+// - super_admin: chọn cơ sở bất kỳ; campus_admin: cố định cơ sở mình.
 // - Ghi đè lưu menu_permissions (043); kế thừa xuống toàn subtree.
 // ============================================================
 
@@ -125,24 +124,17 @@ export async function getPermissionMatrix(
       : []
   }
 
-  // Trần ủy quyền của campus_admin = quyền hiệu lực của CHÍNH họ
-  let capKeys: MenuKey[] | null = null
-  if (auth.role === 'campus_admin') {
-    const { data: myKeys } = await supabase.rpc('get_my_menu_keys')
-    capKeys = Array.isArray(myKeys)
-      ? (myKeys as unknown[]).filter(isMenuKey)
-      : defaultKeysForRole('campus_admin')
-  }
+  // campus_admin TOÀN QUYỀN trong subtree -> trần ủy quyền = toàn bộ key
+  // mặc định của campus_admin (mọi key vận hành, trừ key riêng super_admin).
+  const capKeys: MenuKey[] | null =
+    auth.role === 'campus_admin' ? defaultKeysForRole('campus_admin') : null
 
   return {
     viewerRole: auth.role,
     orgId,
     orgName: (orgRow?.name as string | undefined) ?? 'Cơ sở',
     orgOptions,
-    editableRoles:
-      auth.role === 'super_admin'
-        ? [...CONFIGURABLE_ROLES]
-        : CONFIGURABLE_ROLES.filter((role) => role !== 'campus_admin'),
+    editableRoles: [...CONFIGURABLE_ROLES],
     overrides,
     capKeys,
   }
@@ -164,9 +156,6 @@ export async function saveMenuPermissions(
   const supabase = createClient()
 
   if (auth.role === 'campus_admin') {
-    if (role === 'campus_admin') {
-      return { error: 'Quyền của Quản lý cơ sở do Quản trị hệ thống cấp.' }
-    }
     // Org đích phải thuộc subtree của mình
     const { data: inSubtree } = await supabase.rpc('is_org_in_my_subtree', {
       p_target_org_id: orgId,
@@ -186,16 +175,14 @@ export async function saveMenuPermissions(
   } else {
     const cleanKeys = keys.filter(isMenuKey)
 
-    // Delegation cap: campus_admin không cấp được key mình không có
+    // Delegation cap: không cấp cho cấp dưới key vượt ngoài phạm vi
+    // vận hành của campus_admin (vd settings_global của super_admin).
     if (auth.role === 'campus_admin') {
-      const { data: myKeys } = await supabase.rpc('get_my_menu_keys')
-      const cap: MenuKey[] = Array.isArray(myKeys)
-        ? (myKeys as unknown[]).filter(isMenuKey)
-        : defaultKeysForRole('campus_admin')
+      const cap = defaultKeysForRole('campus_admin')
       const outOfCap = cleanKeys.filter((key) => !cap.includes(key))
       if (outOfCap.length > 0) {
         return {
-          error: `Bạn không thể cấp quyền mình không có: ${outOfCap.join(', ')}`,
+          error: `Hạng mục ngoài phạm vi cơ sở: ${outOfCap.join(', ')}`,
         }
       }
     }

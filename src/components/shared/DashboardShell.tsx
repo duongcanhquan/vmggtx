@@ -271,14 +271,18 @@ function canSee(role: Role | null | undefined, roles?: Role[]): boolean {
   return roles.includes(role)
 }
 
-/** Tầng 2: ma trận phân quyền động (menu_permissions). super_admin bỏ qua. */
+/** Tầng 2: ma trận phân quyền động (menu_permissions).
+ *  super_admin VÀ campus_admin bỏ qua — Quản lý cơ sở có TOÀN QUYỀN
+ *  trong subtree của mình, ma trận chỉ ràng buộc các role cấp dưới
+ *  (giáo vụ/tuyển sinh/kế toán/giáo viên). Nhờ vậy menu MỚI thêm
+ *  không bao giờ bị bản ghi override cũ trong DB che mất. */
 function grantedByMatrix(
   role: Role | null | undefined,
   menuKeys: MenuKey[] | null | undefined,
   leafKey?: MenuKey
 ): boolean {
   if (!leafKey) return true
-  if (role === 'super_admin') return true
+  if (role === 'super_admin' || role === 'campus_admin') return true
   // Đang tải hoặc không có ghi đè -> theo ma trận mặc định (đã lọc bằng roles)
   if (menuKeys === undefined || menuKeys === null) return true
   return menuKeys.includes(leafKey)

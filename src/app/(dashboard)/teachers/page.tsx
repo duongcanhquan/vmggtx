@@ -6,6 +6,7 @@ import {
   GraduationCap,
   Loader2,
   Mail,
+  Pencil,
   Phone,
   Search,
   Users,
@@ -17,6 +18,7 @@ import {
   assignClassesToTeacher,
   getAssignableClasses,
   getTeacherDirectory,
+  updateTeacherProfile,
   type AssignableClass,
   type TeacherRow,
 } from './actions'
@@ -34,6 +36,7 @@ export default function TeachersPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [assignFor, setAssignFor] = useState<TeacherRow | null>(null)
+  const [editFor, setEditFor] = useState<TeacherRow | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
 
   const load = useCallback(async () => {
@@ -159,14 +162,25 @@ export default function TeachersPage() {
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setAssignFor(teacher)}
-                className="mt-4 inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 text-sm font-semibold text-primary transition-colors duration-150 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                Gán lớp
-              </button>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignFor(teacher)}
+                  className="inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 text-sm font-semibold text-primary transition-colors duration-150 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <BookOpen className="h-4 w-4" aria-hidden="true" />
+                  Gán lớp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditFor(teacher)}
+                  aria-label={`Sửa hồ sơ ${teacher.full_name}`}
+                  className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border px-3.5 text-sm font-semibold text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                  Sửa
+                </button>
+              </div>
             </article>
           ))}
         </div>
@@ -185,7 +199,144 @@ export default function TeachersPage() {
         />
       )}
 
+      {editFor && (
+        <EditTeacherModal
+          teacher={editFor}
+          onClose={() => setEditFor(null)}
+          onSaved={(message) => {
+            setToast({ type: 'success', message })
+            setEditFor(null)
+            void load()
+          }}
+          onError={(message) => setToast({ type: 'error', message })}
+        />
+      )}
+
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
+    </div>
+  )
+}
+
+// ---------- Modal Sửa hồ sơ giảng viên ----------
+function EditTeacherModal({
+  teacher,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  teacher: TeacherRow
+  onClose: () => void
+  onSaved: (message: string) => void
+  onError: (message: string) => void
+}) {
+  const [fullName, setFullName] = useState(teacher.full_name)
+  const [phone, setPhone] = useState(teacher.phone ?? '')
+  const [email, setEmail] = useState(teacher.email ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    const result = await updateTeacherProfile(teacher.id, { fullName, phone, email })
+    setSaving(false)
+    if (result.error) {
+      onError(result.error)
+      return
+    }
+    onSaved(`Đã cập nhật hồ sơ của ${fullName.trim()}.`)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-teacher-title"
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={onClose}
+        className="absolute inset-0 cursor-pointer bg-black/50"
+      />
+      <form
+        onSubmit={submit}
+        className="relative w-full max-w-md rounded-t-3xl bg-surface p-6 shadow-xl sm:rounded-3xl"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="edit-teacher-title" className="font-heading text-xl font-bold">
+              Sửa hồ sơ giảng viên
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">{teacher.org_name}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-foreground">Họ và tên *</span>
+            <input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              minLength={2}
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-foreground">Số điện thoại</span>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              inputMode="tel"
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-foreground">Email liên hệ</span>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <span className="mt-1 block text-xs text-muted-foreground">
+              Chỉ đổi email hiển thị/liên hệ. Email ĐĂNG NHẬP đổi ở &quot;Tài khoản &amp; Nhân
+              viên&quot;.
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-border px-5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+            )}
+            {saving ? 'Đang lưu…' : 'Lưu hồ sơ'}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
