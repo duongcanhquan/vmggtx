@@ -1,7 +1,6 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
 import { isRole, type Role } from '@/lib/auth/roles'
 import { z } from 'zod'
 import { zodFail, type ActionResult } from '@/lib/validation/schemas'
@@ -29,7 +28,7 @@ export async function resolveLoginEmail(identifier: string): Promise<ResolveLogi
 
   const value = parsed.data
 
-  // Đã là email → dùng luôn
+  // Đã là email → dùng luôn (KHÔNG cần Admin / cookie)
   if (value.includes('@')) {
     const emailOk = z.string().email('Email không hợp lệ.').safeParse(value)
     if (!emailOk.success) return zodFail(emailOk.error)
@@ -61,7 +60,12 @@ export async function resolveLoginEmail(identifier: string): Promise<ResolveLogi
     return { email: userData.user.email }
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Không xác định được tài khoản.',
+      error:
+        error instanceof Error && /SERVICE_ROLE|SECRET_KEY/i.test(error.message)
+          ? 'Máy chủ thiếu SUPABASE_SERVICE_ROLE_KEY — đăng nhập bằng SĐT tạm thời không dùng được. Hãy dùng email.'
+          : error instanceof Error
+            ? error.message
+            : 'Không xác định được tài khoản.',
     }
   }
 }
@@ -70,37 +74,55 @@ export async function resolveLoginEmail(identifier: string): Promise<ResolveLogi
 export type LoginActionResult = ActionResult
 
 /**
- * Đọc role sau khi client vừa signIn — ưu tiên JWT, fallback profiles
- * qua Admin (tránh kẹt khi RLS/JWT hook chưa sẵn sàng).
+ * Đọc role theo userId qua Admin — KHÔNG phụ thuộc cookie session.
+ * Tránh race: client vừa signIn xong, cookie chưa kịp gửi kèm server action
+ * → getUser() thất bại → cũ signOut() xóa phiên vừa tạo.
  */
-export async function resolveRoleServerSide(): Promise<
-  { error: string } | { error?: undefined; role: Role }
-> {
-  try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+export async function resolveRoleByUserId(
+  userId: string
+): Promise<{ error: string } | { error?: undefined; role: Role }> {
+  const idOk = z.string().uuid().safeParse(userId)
+  if (!idOk.success) return { error: 'User không hợp lệ.' }
 
+  try {
     const admin = createAdminClient()
     const { data: profile, error } = await admin
       .from('profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', idOk.data)
       .is('deleted_at', null)
       .maybeSingle()
     if (error) return { error: `Không đọc được hồ sơ: ${error.message}` }
-    if (!isRole(profile?.role)) {
+    if (!profile) {
       return {
         error:
-          'Tài khoản chưa có vai trò hợp lệ trong hồ sơ. Liên hệ Super Admin để gán role.',
+          'Tài khoản Auth tồn tại nhưng chưa có hồ sơ (profiles). Chạy seed hoặc tạo profile.',
+      }
+    }
+    if (!isRole(profile.role)) {
+      return {
+        error: `Vai trò "${String(profile.role)}" không hợp lệ. Liên hệ Super Admin gán lại role.`,
       }
     }
     return { role: profile.role }
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Không xác định được vai trò.',
+      error:
+        error instanceof Error && /SERVICE_ROLE|SECRET_KEY/i.test(error.message)
+          ? 'Thiếu SUPABASE_SERVICE_ROLE_KEY trên Vercel — không đọc được vai trò.'
+          : error instanceof Error
+            ? error.message
+            : 'Không xác định được vai trò.',
     }
+  }
+}
+
+/** @deprecated Dùng resolveRoleByUserId — tránh phụ thuộc cookie ngay sau signIn */
+export async function resolveRoleServerSide(): Promise<
+  { error: string } | { error?: undefined; role: Role }
+> {
+  return {
+    error:
+      'API cũ đã thay bằng resolveRoleByUserId. Tải lại trang và thử đăng nhập lại.',
   }
 }

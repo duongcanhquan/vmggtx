@@ -1,60 +1,67 @@
-# TÀI KHOẢN DEMO — GDTX ERP
+# TÀI KHOẢN DEMO — EDU SYSTEM
 
-> Sinh bởi `npm run seed`. **Mật khẩu chung cho TẤT CẢ tài khoản: `Demo@123456`**
+> Sinh bởi `npm run seed`. **Mật khẩu chung: `Demo@123456`**
+>
+> Cần đã chạy migration **045_org_slugs.sql** để có cổng `/coso/{slug}`.
 
-## Cây tổ chức demo
+## Cách đăng nhập (quan trọng)
 
-```
-Tổng Công ty GDTX (Demo)                 <- superadmin
-├── Cụm Miền Bắc (Demo)
-│   ├── Cơ sở Hà Nội - Cầu Giấy   (cs1)
-│   └── Cơ sở Hà Nội - Hà Đông    (cs2)
-└── Cụm Miền Nam (Demo)
-    ├── Cơ sở TP.HCM - Quận 1     (cs3)
-    └── Cơ sở TP.HCM - Thủ Đức    (cs4)
-```
-
-## Danh sách đăng nhập (69 tài khoản)
-
-Đăng nhập tại `/login`. Sau khi đăng nhập, hệ thống tự đẩy về đúng cổng theo vai trò.
-
-| Vai trò | Email | Số lượng | Vào cổng |
-|---|---|---|---|
-| Super Admin (toàn hệ thống) | `superadmin@gdtx-demo.edu.vn` | 1 | `/admin` |
-| Quản lý Cơ sở | `admin.cs1@gdtx-demo.edu.vn` → `admin.cs4@...` | 4 | `/admin` |
-| Giáo vụ / Khảo thí | `staff1.cs1@...`, `staff2.cs1@...` (mỗi cơ sở 2) | 8 | `/staff` |
-| Tư vấn Tuyển sinh | `tuyensinh.cs1@...` → `tuyensinh.cs4@...` | 4 | `/crm/leads` |
-| Giáo viên | `teacher1.cs1@...` → `teacher3.cs4@...` (mỗi cơ sở 3) | 12 | `/teacher` |
-| Học sinh | `student01.cs1@...` → `student10.cs4@...` (mỗi cơ sở 10) | 40 | `/student` |
-
-Ví dụ cụ thể hay dùng nhất:
-
-- `superadmin@gdtx-demo.edu.vn` — thấy TOÀN BỘ 4 cơ sở, quản lý cây tổ chức, doanh thu tổng.
-- `admin.cs1@gdtx-demo.edu.vn` — chỉ thấy Cơ sở Cầu Giấy: nhân sự, hợp đồng, bảng lương, cài đặt.
-- `staff1.cs1@gdtx-demo.edu.vn` — giáo vụ Cầu Giấy: lớp, TKB, kỳ thi, bảng điểm tổng, xét duyệt, ngân hàng đề.
-- `teacher1.cs1@gdtx-demo.edu.vn` — giáo viên biên chế: lịch dạy, điểm danh, chấm điểm, trợ lý AI.
-- `student01.cs1@gdtx-demo.edu.vn` — học sinh: lịch học, sổ điểm, học phí, gia sư AI.
-
-## Dữ liệu nghiệp vụ đi kèm
-
-| Dữ liệu | Chi tiết |
+| Ai | URL |
 |---|---|
-| Lớp học | 5 lớp (Toán/Văn/Anh/Lý/Hóa 12A1-5), mỗi lớp 2 buổi/tuần, ±30 ngày quanh hôm nay |
-| Điểm danh | Buổi quá khứ đã điểm danh (~90% có mặt) và đánh dấu `completed` (chạy được bảng lương) |
-| Điểm số | 3 bài/lớp (miệng 20% - giữa kỳ 30% - cuối kỳ 50%), thang 0-10 |
-| Khóa sổ | Lớp cuối cùng ĐÃ CHỐT SỔ (thử sửa điểm sẽ bị chặn); lớp áp chót QUÁ HẠN nhập điểm (hiện màu vàng ở `/staff/exams`, duyệt ở `/staff/results-approval`) |
-| Hợp đồng GV | Mỗi cơ sở: GV1 biên chế (12tr + BHXH), GV2 thỉnh giảng (250k/giờ), GV3 khoán giờ (200k/giờ) — bấm "Chạy Bảng Lương Tháng" tại `/finance/payroll` là ra số |
-| Học phí | Mỗi HS 1 hóa đơn 2.000.000đ: ~50% đã đóng đủ, ~25% một phần, ~25% chưa đóng (một nửa QUÁ HẠN → cảnh báo đỏ ở cổng học sinh) + phiếu thu tương ứng → `/admin/revenue` có số liệu |
-| CRM | 6 leads/cơ sở đủ trạng thái (mới, đã liên hệ, hẹn test, mất) — lead "mới" đầu tiên CHƯA có người phụ trách để demo nhận lead |
-| Ngân hàng đề | 3 đề/cơ sở (cần đã chạy migration 024, thiếu thì seed tự bỏ qua) |
+| **Super Admin** (toàn hệ thống) | `/login` |
+| **Quản lý / GV / nhân sự từng cơ sở** | `/coso` → chọn cơ sở → Đăng nhập |
+| **Học viên** | `/coso/{slug}/student/login` |
+| **Phụ huynh** | `/coso/{slug}/parent/login` |
+
+Ví dụ domain `edusystem.com`:
+
+- Super Admin: `https://edusystem.com/login`
+- Cơ sở Cầu Giấy: `https://edusystem.com/coso/cau-giay` (có 3 nút login)
+
+## Cây tổ chức demo + slug
+
+```
+Tổng Công ty GDTX (Demo)                 <- superadmin  → /login
+├── Cụm Miền Bắc (Demo)
+│   ├── Cơ sở Hà Nội - Cầu Giấy   (slug: cau-giay)  → /coso/cau-giay
+│   └── Cơ sở Hà Nội - Hà Đông    (slug: ha-dong)   → /coso/ha-dong
+└── Cụm Miền Nam (Demo)
+    ├── Cơ sở TP.HCM - Quận 1     (slug: quan-1)    → /coso/quan-1
+    └── Cơ sở TP.HCM - Thủ Đức    (slug: thu-duc)   → /coso/thu-duc
+```
+
+## Email hay dùng
+
+| Vai trò | Email | Cổng |
+|---|---|---|
+| Super Admin | `superadmin@gdtx-demo.edu.vn` | `/login` |
+| Admin Cầu Giấy | `admin.cs1@gdtx-demo.edu.vn` | `/coso/cau-giay/login` |
+| Admin Hà Đông | `admin.cs2@gdtx-demo.edu.vn` | `/coso/ha-dong/login` |
+| Admin Q.1 | `admin.cs3@gdtx-demo.edu.vn` | `/coso/quan-1/login` |
+| Admin Thủ Đức | `admin.cs4@gdtx-demo.edu.vn` | `/coso/thu-duc/login` |
+| Giáo vụ Cầu Giấy | `staff1.cs1@gdtx-demo.edu.vn` | `/coso/cau-giay/login` |
+| Giáo viên | `teacher1.cs1@gdtx-demo.edu.vn` | `/coso/cau-giay/login` |
+| Học sinh | `student01.cs1@gdtx-demo.edu.vn` | `/coso/cau-giay/student/login` |
+
+Tổng 69 tài khoản (pattern `*.cs1` … `*.cs4` theo cơ sở). Chi tiết số lượng xem lịch sử seed.
+
+## Nếu không đăng nhập được
+
+1. **Sai mật khẩu / không có user** → DB chưa seed. Chạy:
+   ```bash
+   # .env có NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY thật
+   npm run seed
+   ```
+2. **/coso trống hoặc 404 slug** → chạy `045_org_slugs.sql` trong Supabase SQL Editor, rồi seed lại (hoặc sửa slug tay trong Quản lý Cơ sở).
+3. **Vercel thiếu `SUPABASE_SERVICE_ROLE_KEY`** → đăng nhập email vẫn được, nhưng một số bước (SĐT, đọc role) lỗi. Thêm key trên Vercel Dashboard.
+4. **JWT hook 006 chưa bật** → vẫn login được (code đã fallback đọc `profiles`); nên bật hook để nhanh hơn.
 
 ## Cách chạy seed
 
 ```bash
-# 1. .env phải có giá trị THẬT (không phải placeholder):
-#    NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
-# 2. Đã chạy đủ migrations 001 -> 024 + 2 file 999 (kiểm tra: node scripts/check-db.mjs)
+# 1. .env thật (không placeholder)
+# 2. Migrations 001→045 + 999 đã chạy
 npm run seed
 ```
 
-Script **idempotent**: chạy lại bao nhiêu lần cũng được — nó tự xóa sạch dữ liệu demo cũ (nhận diện qua email đuôi `@gdtx-demo.edu.vn` và cây org demo) trước khi nạp mới. Dữ liệu thật KHÔNG bị đụng tới.
+Script **idempotent**: chạy lại sẽ xóa dữ liệu demo cũ (`@gdtx-demo.edu.vn`) rồi nạp mới. Dữ liệu thật không bị đụng.

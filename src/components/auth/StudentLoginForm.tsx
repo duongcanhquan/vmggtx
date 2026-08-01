@@ -10,7 +10,7 @@ import { BookOpenCheck, Loader2, Lock, Mail, Rocket } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
-import { resolveLoginEmail, resolveRoleServerSide } from '@/app/login/actions'
+import { resolveLoginEmail, resolveRoleByUserId } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
@@ -101,17 +101,17 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
       data.session?.access_token,
       data.user?.id
     )
-    if (!role) {
-      const serverRole = await resolveRoleServerSide()
-      if (serverRole.error !== undefined || !serverRole.role) {
-        await supabase.auth.signOut()
-        setServerError(
-          serverRole.error ??
-            'Không xác định được vai trò tài khoản. Liên hệ nhà trường.'
-        )
-        return
+    if (!role && data.user?.id) {
+      const serverRole = await resolveRoleByUserId(data.user.id)
+      if (serverRole.error === undefined && serverRole.role) {
+        role = serverRole.role
       }
-      role = serverRole.role
+    }
+    if (!role) {
+      // Không signOut — giữ phiên; thử vào portal
+      router.replace('/portal')
+      router.refresh()
+      return
     }
     if (role !== 'student' && role !== 'super_admin') {
       await supabase.auth.signOut()
@@ -123,9 +123,11 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
     }
 
     if (campus && role === 'student') {
-      const gate = await assertUserInCampus(campus.id)
+      const gate = await assertUserInCampus(campus.id, data.user?.id)
       if (gate.error !== undefined) {
         setServerError(gate.error)
+        router.replace('/portal')
+        router.refresh()
         return
       }
       if (gate.campusId) setCurrentOrgId(gate.campusId)

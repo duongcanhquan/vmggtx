@@ -10,10 +10,11 @@ import { GraduationCap, Loader2, Lock, LogIn, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
-import { resolveLoginEmail, resolveRoleServerSide } from '@/app/login/actions'
+import { resolveLoginEmail, resolveRoleByUserId } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
+import { LoginGuide } from '@/components/auth/LoginGuide'
 
 const loginFormSchema = z.object({
   identifier: z
@@ -107,18 +108,16 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
       data.user?.id
     )
 
-    // Client không đọc được role → hỏi server (Admin client, bỏ qua RLS)
-    if (!role) {
-      const serverRole = await resolveRoleServerSide()
-      if (serverRole.error !== undefined || !serverRole.role) {
-        await supabase.auth.signOut()
-        setServerError(
-          serverRole.error ??
-            'Đăng nhập được nhưng không xác định được vai trò. Kiểm tra hồ sơ hoặc bật JWT hook (migration 006).'
-        )
-        return
+    // Client không đọc được role → Admin theo userId (KHÔNG đọc cookie —
+    // tránh race vừa signIn xong cookie chưa kịp → signOut xóa phiên).
+    if (!role && data.user?.id) {
+      const serverRole = await resolveRoleByUserId(data.user.id)
+      if (serverRole.error === undefined && serverRole.role) {
+        role = serverRole.role
+      } else if (serverRole.error) {
+        // KHÔNG signOut — phiên Auth vẫn còn; vào trang chủ để middleware thử lại
+        console.error('[login] resolveRoleByUserId:', serverRole.error)
       }
-      role = serverRole.role
     }
 
     if (role === 'student') {
@@ -132,17 +131,19 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
       return
     }
 
-    // Cổng gốc: ưu tiên Super Admin. Nhân sự cơ sở VẪN được vào (fallback
-    // khi /coso chưa có slug / chưa chạy 045) — không đá ra nữa.
     if (campus) {
-      const gate = await assertUserInCampus(campus.id)
+      const gate = await assertUserInCampus(campus.id, data.user?.id)
       if (gate.error !== undefined) {
+        // Sai cổng cơ sở nhưng Auth OK → đưa về trang chủ đúng role (không xóa phiên)
         setServerError(gate.error)
+        router.replace(getHomePathForRole(role))
+        router.refresh()
         return
       }
       if (gate.campusId) setCurrentOrgId(gate.campusId)
     }
 
+    // role null: vẫn vào / — middleware đọc profiles khi cookie đã ổn
     router.replace(getHomePathForRole(role))
     router.refresh()
   }
@@ -280,6 +281,7 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
           {isSubmitting ? 'Đang đăng nhập…' : 'Đăng nhập'}
         </button>
       </form>
+      {!campus && <LoginGuide />}
     </AuthShell>
   )
 }

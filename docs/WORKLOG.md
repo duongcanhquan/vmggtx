@@ -86,3 +86,9 @@
 - Nguyen nhan: ban preview chan cung chi super_admin → campus_admin bi da ra;
   role null (JWT hook tat) cung bi chan.
 - Fix: bo chan cung; fallback resolveRoleServerSide; nhan su van login /login.
+
+## 2026-08-01 | (commit ke tiep) | Fix login race + huong dan TK demo
+- Nguyen nhan chinh: sau signIn goi server action doc cookie → chua kip →
+  signOut xoa phien (Super Admin cung die).
+- Fix: resolveRoleByUserId / assertUserInCampus(userId) qua Admin; khong signOut
+  khi loi role; LoginGuide tren /login+/coso; seed gan slug cau-giay…

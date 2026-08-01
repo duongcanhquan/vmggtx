@@ -73,28 +73,34 @@ export async function getPublicCampusBySlug(
 
 /**
  * Sau khi đăng nhập: xác nhận user thuộc cây cơ sở (super_admin luôn được).
- * Trả về campusId để client set currentOrgId.
+ * Truyền `userId` từ client (sau signIn) để KHÔNG phụ thuộc cookie session
+ * (tránh race cookie chưa kịp → "Bạn chưa đăng nhập").
  */
-export async function assertUserInCampus(campusId: string): Promise<
-  ActionResult & { campusId?: string; campusName?: string }
-> {
+export async function assertUserInCampus(
+  campusId: string,
+  userId?: string
+): Promise<ActionResult & { campusId?: string; campusName?: string }> {
   if (!campusId || campusId.length < 30) {
     return { error: 'Cơ sở không hợp lệ.' }
   }
 
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+    let uid = userId && userId.length > 30 ? userId : null
+    if (!uid) {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      uid = user?.id ?? null
+    }
+    if (!uid) return { error: 'Bạn chưa đăng nhập.' }
 
     const admin = createAdminClient()
     const [{ data: profile }, { data: campus }] = await Promise.all([
       admin
         .from('profiles')
         .select('role, org_id')
-        .eq('id', user.id)
+        .eq('id', uid)
         .is('deleted_at', null)
         .maybeSingle(),
       admin
@@ -117,9 +123,8 @@ export async function assertUserInCampus(campusId: string): Promise<
 
     const subtree = await getDescendantOrgIds(admin, campus.id)
     if (!subtree.includes(profile.org_id)) {
-      await supabase.auth.signOut()
       return {
-        error: `Tài khoản không thuộc cơ sở "${campus.name}". Vui lòng đăng nhập đúng cổng cơ sở của bạn.`,
+        error: `Tài khoản không thuộc cơ sở "${campus.name}". Vào đúng /coso/… của bạn hoặc dùng /login.`,
       }
     }
 

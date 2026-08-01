@@ -232,9 +232,16 @@ async function seedOrganizations(): Promise<{ hq: Org; campuses: Org[] }> {
 
   const campuses: Org[] = []
   const regionNames = ['Cụm Miền Bắc (Demo)', 'Cụm Miền Nam (Demo)']
-  const campusNames = [
-    ['Cơ sở Hà Nội - Cầu Giấy', 'Cơ sở Hà Nội - Hà Đông'],
-    ['Cơ sở TP.HCM - Quận 1', 'Cơ sở TP.HCM - Thủ Đức'],
+  /** Tên + slug cố định → khớp /coso/cau-giay … trên UI hướng dẫn đăng nhập */
+  const campusDefs = [
+    [
+      { name: 'Cơ sở Hà Nội - Cầu Giấy', slug: 'cau-giay' },
+      { name: 'Cơ sở Hà Nội - Hà Đông', slug: 'ha-dong' },
+    ],
+    [
+      { name: 'Cơ sở TP.HCM - Quận 1', slug: 'quan-1' },
+      { name: 'Cơ sở TP.HCM - Thủ Đức', slug: 'thu-duc' },
+    ],
   ]
 
   for (let r = 0; r < 2; r++) {
@@ -246,12 +253,34 @@ async function seedOrganizations(): Promise<{ hq: Org; campuses: Org[] }> {
     assertOk('tạo region', regionError)
 
     for (let c = 0; c < 2; c++) {
-      const { data: campus, error: campusError } = await supabase
+      const def = campusDefs[r][c]
+      // Có cột slug (045) thì gắn luôn; chưa có migration → insert không slug
+      let campus: Org | null = null
+      const withSlug = await supabase
         .from('organizations')
-        .insert({ name: campusNames[r][c], type: 'campus', parent_id: region!.id })
+        .insert({
+          name: def.name,
+          type: 'campus',
+          parent_id: region!.id,
+          slug: def.slug,
+        })
         .select('id, name')
         .single()
-      assertOk('tạo campus', campusError)
+      if (
+        withSlug.error &&
+        /slug|42703|PGRST204|does not exist|schema cache/i.test(withSlug.error.message)
+      ) {
+        const fallback = await supabase
+          .from('organizations')
+          .insert({ name: def.name, type: 'campus', parent_id: region!.id })
+          .select('id, name')
+          .single()
+        assertOk('tạo campus', fallback.error)
+        campus = fallback.data
+      } else {
+        assertOk('tạo campus', withSlug.error)
+        campus = withSlug.data
+      }
       campuses.push(campus!)
     }
   }

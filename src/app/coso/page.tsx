@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowRight, Building2, SearchX, Shield } from 'lucide-react'
 import { listPublicCampuses } from './actions'
 import { campusPortalPath } from '@/lib/utils/orgSlug'
+import { CampusLoginHelp } from './CampusLoginHelp'
 
 export const dynamic = 'force-dynamic'
 
@@ -96,6 +97,8 @@ export default async function CampusDirectoryPage() {
             Đi tới /login
           </Link>
         </div>
+
+        <CampusLoginHelp />
       </div>
     </main>
   )
