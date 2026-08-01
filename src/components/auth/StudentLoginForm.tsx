@@ -53,8 +53,17 @@ async function resolveRoleAfterLogin(
   return isRole(profile?.role) ? profile.role : null
 }
 
-/** Form đăng nhập Học viên — /student/login và /coso/[slug]/student/login */
-export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
+/**
+ * Form đăng nhập Học viên — /student/login và tab "Gia đình" của cổng cơ sở.
+ * `embedded` = chỉ render FORM (không AuthShell) để nhúng vào cổng tab chung.
+ */
+export function StudentLoginForm({
+  campus,
+  embedded = false,
+}: {
+  campus?: CampusContext
+  embedded?: boolean
+}) {
   const router = useRouter()
   const setCurrentOrgId = useOrgStore((s) => s.setCurrentOrgId)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -130,7 +139,9 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
         router.refresh()
         return
       }
-      if (gate.campusId) setCurrentOrgId(gate.campusId)
+      // Nhận diện NGAY đơn vị trực tiếp của học viên (trung tâm/chi nhánh)
+      const contextOrgId = gate.userOrgId ?? gate.campusId
+      if (contextOrgId) setCurrentOrgId(contextOrgId)
     }
 
     router.replace(role === 'super_admin' ? getHomePathForRole(role) : '/portal')
@@ -138,70 +149,9 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
   }
 
   const staffHref = campus ? campusLoginPath(campus.slug, 'management') : '/coso'
-  const parentHref = campus
-    ? campusLoginPath(campus.slug, 'parent')
-    : '/coso'
 
-  return (
-    <AuthShell
-      theme="student"
-      badge={campus ? campus.name : 'Cổng Học viên (toàn hệ thống)'}
-      title={
-        <>
-          EDU <span className="text-yellow-200">SYSTEM</span>
-        </>
-      }
-      subtitle={
-        campus
-          ? `Học viên · ${campus.name}`
-          : 'Nên đăng nhập tại /coso/ten-co-so — cổng đúng cơ sở của bạn'
-      }
-      footer={
-        <>
-          {!campus ? (
-            <p>
-              Thuộc một cơ sở cụ thể?{' '}
-              <Link
-                href="/coso"
-                className="font-bold text-white underline-offset-2 hover:underline"
-              >
-                Chọn cơ sở tại /coso
-              </Link>
-            </p>
-          ) : (
-            <>
-              <p>
-                Nhân sự / Giảng viên?{' '}
-                <Link
-                  href={staffHref}
-                  className="font-bold text-white underline-offset-2 hover:underline"
-                >
-                  Vào cổng quản lý
-                </Link>
-              </p>
-              <p>
-                Phụ huynh?{' '}
-                <Link
-                  href={parentHref}
-                  className="font-bold text-white underline-offset-2 hover:underline"
-                >
-                  Vào Sổ Liên Lạc Điện Tử
-                </Link>
-              </p>
-              <p>
-                <Link
-                  href={`/coso/${campus.slug}`}
-                  className="font-bold text-white/80 underline-offset-2 hover:underline"
-                >
-                  ← Về trang cơ sở
-                </Link>
-              </p>
-            </>
-          )}
-        </>
-      }
-    >
-      <form onSubmit={handleSubmit(onValid)} noValidate>
+  const formEl = (
+    <form onSubmit={handleSubmit(onValid)} noValidate>
         <AuthField
           id="student-identifier"
           label="Email hoặc số điện thoại"
@@ -266,6 +216,48 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
           {isSubmitting ? 'Đang đăng nhập…' : 'Vào lớp học'}
         </button>
       </form>
+  )
+
+  if (embedded) return formEl
+
+  return (
+    <AuthShell
+      theme="student"
+      badge={campus ? campus.name : 'Cổng Học viên (toàn hệ thống)'}
+      title={
+        <>
+          EDU <span className="text-yellow-200">SYSTEM</span>
+        </>
+      }
+      subtitle={
+        campus
+          ? `Học viên · ${campus.name}`
+          : 'Nên đăng nhập tại /coso/ten-co-so — cổng đúng cơ sở của bạn'
+      }
+      footer={
+        !campus ? (
+          <p>
+            Thuộc một cơ sở cụ thể?{' '}
+            <Link
+              href="/coso"
+              className="font-bold text-white underline-offset-2 hover:underline"
+            >
+              Chọn cơ sở tại /coso
+            </Link>
+          </p>
+        ) : (
+          <p>
+            <Link
+              href={`/coso/${campus.slug}`}
+              className="font-bold text-white/80 underline-offset-2 hover:underline"
+            >
+              ← Về trang cơ sở
+            </Link>
+          </p>
+        )
+      }
+    >
+      {formEl}
     </AuthShell>
   )
 }

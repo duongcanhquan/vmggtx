@@ -57,10 +57,21 @@ export type CampusContext = {
   id: string
   name: string
   slug: string
+  /** Tên các đơn vị cấp trên (gần nhất trước) — hiển thị "thuộc Trường A" */
+  parentNames?: string[]
 }
 
-/** Form đăng nhập Nhà trường & Giảng viên — dùng cho /login và /coso/[slug]/login */
-export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
+/**
+ * Form đăng nhập Nhà trường & Giảng viên — dùng cho /login và /coso/[slug]/login.
+ * `embedded` = chỉ render FORM (không AuthShell) để nhúng vào cổng tab chung.
+ */
+export function StaffLoginForm({
+  campus,
+  embedded = false,
+}: {
+  campus?: CampusContext
+  embedded?: boolean
+}) {
   const router = useRouter()
   const setCurrentOrgId = useOrgStore((s) => s.setCurrentOrgId)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -140,7 +151,9 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
         router.refresh()
         return
       }
-      if (gate.campusId) setCurrentOrgId(gate.campusId)
+      // Nhận diện NGAY đơn vị trực tiếp của user (trung tâm/chi nhánh dưới cơ sở)
+      const contextOrgId = gate.userOrgId ?? gate.campusId
+      if (contextOrgId) setCurrentOrgId(contextOrgId)
     }
 
     // role null: vẫn vào / — middleware đọc profiles khi cookie đã ổn
@@ -151,54 +164,9 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
   const studentHref = campus
     ? campusLoginPath(campus.slug, 'student')
     : '/coso'
-  const parentHref = campus
-    ? campusLoginPath(campus.slug, 'parent')
-    : '/coso'
 
-  return (
-    <AuthShell
-      theme="management"
-      badge={campus ? campus.name : undefined}
-      title={
-        <>
-          EDU <span className="text-amber-300">SYSTEM</span>
-        </>
-      }
-      subtitle={campus ? `Cổng quản trị cơ sở · ${campus.name}` : undefined}
-      footer={
-        campus ? (
-          <>
-            <p>
-              Bạn là Học viên?{' '}
-              <Link
-                href={studentHref}
-                className="font-bold text-white underline-offset-2 hover:underline"
-              >
-                Vào Cổng Học viên
-              </Link>
-            </p>
-            <p>
-              Phụ huynh?{' '}
-              <Link
-                href={parentHref}
-                className="font-bold text-white underline-offset-2 hover:underline"
-              >
-                Vào Sổ Liên Lạc Điện Tử
-              </Link>
-            </p>
-            <p>
-              <Link
-                href={`/coso/${campus.slug}`}
-                className="font-bold text-white/80 underline-offset-2 hover:underline"
-              >
-                ← Về trang cơ sở
-              </Link>
-            </p>
-          </>
-        ) : undefined
-      }
-    >
-      <form onSubmit={handleSubmit(onValid)} noValidate>
+  const formEl = (
+    <form onSubmit={handleSubmit(onValid)} noValidate>
         <AuthField
           id="identifier"
           label="Email hoặc số điện thoại"
@@ -263,6 +231,34 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
           {isSubmitting ? 'Đang đăng nhập…' : 'Đăng nhập'}
         </button>
       </form>
+  )
+
+  if (embedded) return formEl
+
+  return (
+    <AuthShell
+      theme="management"
+      badge={campus ? campus.name : undefined}
+      title={
+        <>
+          EDU <span className="text-amber-300">SYSTEM</span>
+        </>
+      }
+      subtitle={campus ? `Cổng quản trị cơ sở · ${campus.name}` : undefined}
+      footer={
+        campus ? (
+          <p>
+            <Link
+              href={`/coso/${campus.slug}`}
+              className="font-bold text-white/80 underline-offset-2 hover:underline"
+            >
+              ← Về trang cơ sở
+            </Link>
+          </p>
+        ) : undefined
+      }
+    >
+      {formEl}
       {!campus && <LoginGuide />}
     </AuthShell>
   )

@@ -233,11 +233,12 @@ function campusSlugFromPath(pathname: string): string | null {
 function loginPathFor(pathname: string): string {
   const slug = campusSlugFromPath(pathname)
   if (slug) {
+    // 1 cổng login duy nhất/cơ sở — tab Gia đình cho khu vực HV/PH
     if (matchesPrefix(pathname, `/coso/${slug}/parent`)) {
-      return `/coso/${slug}/parent/login`
+      return `/coso/${slug}/login?tab=family&who=parent`
     }
     if (matchesPrefix(pathname, `/coso/${slug}/student`)) {
-      return `/coso/${slug}/student/login`
+      return `/coso/${slug}/login?tab=family`
     }
     return `/coso/${slug}/login`
   }

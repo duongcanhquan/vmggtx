@@ -1,12 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import {
-  ArrowRight,
-  Building2,
-  GraduationCap,
-  HeartHandshake,
-  Users,
-} from 'lucide-react'
+import { ArrowRight, Building2, HeartHandshake, Users } from 'lucide-react'
 import { getPublicCampusBySlug } from './actions'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
 
@@ -33,30 +27,23 @@ export default async function CampusPortalPage({ params }: Props) {
   }
   if (!campus) notFound()
 
+  // 1 CỔNG LOGIN DUY NHẤT, chia 2 phần: Nhà trường | Gia đình
   const portals = [
     {
       href: campusLoginPath(campus.slug, 'management'),
       title: 'Nhà trường & Giảng viên',
-      desc: 'Quản trị, giáo vụ, lịch dạy, điểm danh',
+      desc: 'Quản trị, giáo vụ, kế toán, lịch dạy, điểm danh',
       icon: Building2,
       tint: 'bg-indigo-50 text-indigo-700 ring-indigo-100',
       iconBg: 'bg-indigo-100 text-indigo-600',
     },
     {
       href: campusLoginPath(campus.slug, 'student'),
-      title: 'Cổng Học viên',
-      desc: 'Bài giảng, bài tập, điểm số, gia sư AI',
-      icon: GraduationCap,
+      title: 'Gia đình · Học viên & Phụ huynh',
+      desc: 'Bài giảng, bài tập, điểm số, sổ liên lạc điện tử',
+      icon: HeartHandshake,
       tint: 'bg-emerald-50 text-emerald-800 ring-emerald-100',
       iconBg: 'bg-emerald-100 text-emerald-600',
-    },
-    {
-      href: campusLoginPath(campus.slug, 'parent'),
-      title: 'Sổ Liên Lạc Phụ huynh',
-      desc: 'Theo dõi học tập và nhận xét từ thầy cô',
-      icon: HeartHandshake,
-      tint: 'bg-amber-50 text-amber-900 ring-amber-100',
-      iconBg: 'bg-amber-100 text-amber-700',
     },
   ] as const
 
@@ -82,8 +69,13 @@ export default async function CampusPortalPage({ params }: Props) {
           <h1 className="mt-2 font-heading text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
             {campus.name}
           </h1>
+          {campus.parentNames && campus.parentNames.length > 0 && (
+            <p className="mt-1.5 text-sm font-medium text-indigo-700">
+              Trực thuộc: {campus.parentNames.join(' · ')}
+            </p>
+          )}
           <p className="mt-2 text-sm text-slate-500">
-            Chọn cổng đăng nhập phù hợp với bạn
+            Một cổng đăng nhập duy nhất — chọn đúng nhóm của bạn
           </p>
           <p className="mt-1 font-mono text-xs text-slate-400">
             /coso/{campus.slug}

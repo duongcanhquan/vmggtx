@@ -10,6 +10,34 @@ export type PublicCampus = {
   id: string
   name: string
   slug: string
+  /** Tên các đơn vị CẤP TRÊN (gần nhất trước): ["Trường A"] — để hiển thị "thuộc Trường A" */
+  parentNames?: string[]
+}
+
+/** Đi ngược cây tổ chức lấy tên các cấp trên (gần nhất trước, tối đa 4 cấp) */
+async function getAncestorNames(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string
+): Promise<string[]> {
+  const names: string[] = []
+  const { data: self } = await admin
+    .from('organizations')
+    .select('parent_id')
+    .eq('id', orgId)
+    .maybeSingle()
+  let nextId: string | null = self?.parent_id ?? null
+  for (let i = 0; i < 4 && nextId; i++) {
+    const { data: parent } = await admin
+      .from('organizations')
+      .select('name, parent_id')
+      .eq('id', nextId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!parent) break
+    names.push(parent.name)
+    nextId = parent.parent_id ?? null
+  }
+  return names
 }
 
 /**
@@ -33,7 +61,8 @@ export async function getPublicCampusBySlug(
     )
     if (!rpcError && Array.isArray(rpcRows) && rpcRows[0]) {
       const row = rpcRows[0] as PublicCampus
-      return { campus: { id: row.id, name: row.name, slug: row.slug } }
+      const parentNames = await getAncestorNames(admin, row.id)
+      return { campus: { id: row.id, name: row.name, slug: row.slug, parentNames } }
     }
 
     // Fallback khi chưa chạy migration 045 / RPC thiếu
@@ -60,8 +89,9 @@ export async function getPublicCampusBySlug(
       return { campus: null, error: `Không tra cứu được cơ sở: ${error.message}` }
     }
     if (!data?.slug) return { campus: null }
+    const parentNames = await getAncestorNames(admin, data.id)
     return {
-      campus: { id: data.id, name: data.name, slug: data.slug },
+      campus: { id: data.id, name: data.name, slug: data.slug, parentNames },
     }
   } catch (error) {
     return {
@@ -75,11 +105,24 @@ export async function getPublicCampusBySlug(
  * Sau khi đăng nhập: xác nhận user thuộc cây cơ sở (super_admin luôn được).
  * Truyền `userId` từ client (sau signIn) để KHÔNG phụ thuộc cookie session
  * (tránh race cookie chưa kịp → "Bạn chưa đăng nhập").
+ *
+ * Trả về thêm ĐƠN VỊ TRỰC TIẾP của user (userOrgId/userOrgName + chuỗi
+ * cấp trên) để hệ thống nhận diện ngay "ở đơn vị nào, thuộc cơ sở nào".
  */
 export async function assertUserInCampus(
   campusId: string,
   userId?: string
-): Promise<ActionResult & { campusId?: string; campusName?: string }> {
+): Promise<
+  ActionResult & {
+    campusId?: string
+    campusName?: string
+    /** Đơn vị TRỰC TIẾP của user (có thể là trung tâm/chi nhánh dưới cơ sở) */
+    userOrgId?: string
+    userOrgName?: string
+    /** Chuỗi trực thuộc từ đơn vị của user lên trên: ["Cơ sở A1", "Trường A"] */
+    orgChainNames?: string[]
+  }
+> {
   if (!campusId || campusId.length < 30) {
     return { error: 'Cơ sở không hợp lệ.' }
   }
@@ -128,7 +171,21 @@ export async function assertUserInCampus(
       }
     }
 
-    return { campusId: campus.id, campusName: campus.name }
+    // Đơn vị trực tiếp + chuỗi trực thuộc để hiển thị ngay sau đăng nhập
+    const { data: userOrg } = await admin
+      .from('organizations')
+      .select('id, name')
+      .eq('id', profile.org_id)
+      .maybeSingle()
+    const orgChainNames = await getAncestorNames(admin, profile.org_id)
+
+    return {
+      campusId: campus.id,
+      campusName: campus.name,
+      userOrgId: userOrg?.id ?? profile.org_id,
+      userOrgName: userOrg?.name,
+      orgChainNames,
+    }
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Lỗi không xác định.',

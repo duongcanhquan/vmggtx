@@ -10,7 +10,6 @@ import { KeyRound, Loader2, Phone, ShieldCheck } from 'lucide-react'
 import { phoneVNSchema } from '@/lib/validation/schemas'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
 import { parentLogin } from '@/app/(parent-portal)/actions'
-import { campusLoginPath } from '@/lib/utils/orgSlug'
 import type { CampusContext } from '@/components/auth/StaffLoginForm'
 
 const loginSchema = z.object({
@@ -23,8 +22,17 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>
 
-/** Form đăng nhập Phụ huynh — /parent/login và /coso/[slug]/parent/login */
-export function ParentLoginForm({ campus }: { campus?: CampusContext }) {
+/**
+ * Form đăng nhập Phụ huynh — /parent/login và tab "Gia đình" của cổng cơ sở.
+ * `embedded` = chỉ render FORM (không AuthShell) để nhúng vào cổng tab chung.
+ */
+export function ParentLoginForm({
+  campus,
+  embedded = false,
+}: {
+  campus?: CampusContext
+  embedded?: boolean
+}) {
   const router = useRouter()
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [submitting, setSubmitting] = useState(false)
@@ -69,71 +77,8 @@ export function ParentLoginForm({ campus }: { campus?: CampusContext }) {
     router.refresh()
   }
 
-  const studentHref = campus
-    ? campusLoginPath(campus.slug, 'student')
-    : '/coso'
-  const staffHref = campus ? campusLoginPath(campus.slug, 'management') : '/coso'
-
-  return (
-    <AuthShell
-      theme="parent"
-      badge={campus ? campus.name : 'Dành cho Phụ huynh'}
-      title="Sổ Liên Lạc Điện Tử"
-      subtitle={
-        campus
-          ? `Phụ huynh · ${campus.name}`
-          : 'Nên vào /coso/ten-co-so — cổng đúng cơ sở của con bạn'
-      }
-      footer={
-        <>
-          {!campus ? (
-            <p>
-              Chọn cơ sở trước khi đăng nhập:{' '}
-              <Link
-                href="/coso"
-                className="font-bold text-white underline-offset-2 hover:underline"
-              >
-                /coso
-              </Link>
-            </p>
-          ) : (
-            <>
-              <p>
-                Học viên?{' '}
-                <Link
-                  href={studentHref}
-                  className="font-bold text-white underline-offset-2 hover:underline"
-                >
-                  Vào Cổng Học viên
-                </Link>
-              </p>
-              <p>
-                Nhân sự / Giảng viên?{' '}
-                <Link
-                  href={staffHref}
-                  className="font-bold text-white underline-offset-2 hover:underline"
-                >
-                  Vào cổng quản lý
-                </Link>
-              </p>
-              <p>
-                <Link
-                  href={`/coso/${campus.slug}`}
-                  className="font-bold text-white/80 underline-offset-2 hover:underline"
-                >
-                  ← Về trang cơ sở
-                </Link>
-              </p>
-            </>
-          )}
-          <p className="text-xs text-white/80">
-            Demo: <span className="font-bold text-white">0901234567</span> · OTP{' '}
-            <span className="font-bold text-white">123456</span>
-          </p>
-        </>
-      }
-    >
-      <form onSubmit={handleSubmit(onValid)} noValidate>
+  const formEl = (
+    <form onSubmit={handleSubmit(onValid)} noValidate>
         <AuthField
           id="parent-phone"
           label="Số điện thoại đã đăng ký với nhà trường"
@@ -195,7 +140,50 @@ export function ParentLoginForm({ campus }: { campus?: CampusContext }) {
             {serverError}
           </p>
         )}
+
+        <p className="mt-4 text-center text-xs text-white/80">
+          Demo: <span className="font-bold text-white">0901234567</span> · OTP{' '}
+          <span className="font-bold text-white">123456</span>
+        </p>
       </form>
+  )
+
+  if (embedded) return formEl
+
+  return (
+    <AuthShell
+      theme="parent"
+      badge={campus ? campus.name : 'Dành cho Phụ huynh'}
+      title="Sổ Liên Lạc Điện Tử"
+      subtitle={
+        campus
+          ? `Phụ huynh · ${campus.name}`
+          : 'Nên vào /coso/ten-co-so — cổng đúng cơ sở của con bạn'
+      }
+      footer={
+        !campus ? (
+          <p>
+            Chọn cơ sở trước khi đăng nhập:{' '}
+            <Link
+              href="/coso"
+              className="font-bold text-white underline-offset-2 hover:underline"
+            >
+              /coso
+            </Link>
+          </p>
+        ) : (
+          <p>
+            <Link
+              href={`/coso/${campus.slug}`}
+              className="font-bold text-white/80 underline-offset-2 hover:underline"
+            >
+              ← Về trang cơ sở
+            </Link>
+          </p>
+        )
+      }
+    >
+      {formEl}
     </AuthShell>
   )
 }

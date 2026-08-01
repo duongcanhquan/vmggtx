@@ -1,13 +1,8 @@
-import { notFound } from 'next/navigation'
-import { StudentLoginForm } from '@/components/auth/StudentLoginForm'
-import { getPublicCampusBySlug } from '../../actions'
-
-export const dynamic = 'force-dynamic'
+import { redirect } from 'next/navigation'
 
 type Props = { params: { slug: string } }
 
-export default async function CampusStudentLoginPage({ params }: Props) {
-  const { campus } = await getPublicCampusBySlug(params.slug)
-  if (!campus) notFound()
-  return <StudentLoginForm campus={campus} />
+/** URL cũ — mỗi cơ sở giờ chỉ có 1 cổng login duy nhất (tab Gia đình) */
+export default function CampusStudentLoginRedirect({ params }: Props) {
+  redirect(`/coso/${params.slug}/login?tab=family`)
 }

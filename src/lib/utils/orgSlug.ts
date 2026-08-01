@@ -103,11 +103,16 @@ export function campusPortalPath(slug: string): string {
   return `/coso/${slug}`
 }
 
+/**
+ * MỖI CƠ SỞ CHỈ CÓ 1 CỔNG LOGIN: /coso/[slug]/login — chia 2 phần
+ * (Nhà trường · Giảng viên | Gia đình · Học viên/Phụ huynh) bằng tab.
+ * URL cũ /student/login, /parent/login của cơ sở redirect về đây.
+ */
 export function campusLoginPath(
   slug: string,
   portal: 'management' | 'student' | 'parent' = 'management'
 ): string {
-  if (portal === 'student') return `/coso/${slug}/student/login`
-  if (portal === 'parent') return `/coso/${slug}/parent/login`
+  if (portal === 'student') return `/coso/${slug}/login?tab=family`
+  if (portal === 'parent') return `/coso/${slug}/login?tab=family&who=parent`
   return `/coso/${slug}/login`
 }
