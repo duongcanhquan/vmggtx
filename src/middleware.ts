@@ -134,7 +134,7 @@ const PUBLIC_EXACT = new Set([
   '/unauthorized',
   '/parent/login',
 ])
-const PUBLIC_PREFIXES = ['/evaluations']
+const PUBLIC_PREFIXES = ['/evaluations', '/hdsd']
 
 /**
  * TÁCH CỔNG ĐĂNG NHẬP (mỗi cổng sẵn sàng chạy tên miền riêng):
