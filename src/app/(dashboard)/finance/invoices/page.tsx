@@ -713,6 +713,7 @@ export default function InvoicesPage() {
           searchKey="student_name"
           searchPlaceholder="Tìm theo tên học viên…"
           emptyMessage="Chưa có hóa đơn nào trong phạm vi này."
+          viewKey="invoices_page_view"
           rowClassName={(invoice) =>
             isOverdue(invoice) ? 'bg-rose-50/60 hover:bg-rose-50' : ''
           }

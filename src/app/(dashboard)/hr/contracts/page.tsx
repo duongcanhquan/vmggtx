@@ -706,6 +706,7 @@ export default function HrContractsPage() {
             searchKey="teacher_name"
             searchPlaceholder="Tìm giáo viên…"
             emptyMessage="Không có giáo viên nào trong cơ sở này."
+            viewKey="hr_contracts_page_view"
           />
         )}
       </section>

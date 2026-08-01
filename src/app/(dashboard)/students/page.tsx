@@ -221,6 +221,7 @@ export default function StudentsPage() {
           searchKey="full_name"
           searchPlaceholder="Tìm theo họ tên…"
           emptyMessage="Chưa có học viên nào trong phạm vi này."
+          viewKey="students_page_view"
         />
       )}
 
