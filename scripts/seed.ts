@@ -14,10 +14,15 @@
  *    -> Enrollments -> Class Sessions -> Attendance
  *    -> Assessments -> Grades -> Class Results
  *
- * Cấu trúc dữ liệu sinh ra:
- *  - 1 HQ -> 2 Cụm (region) -> mỗi cụm 2 Cơ sở (campus) = 4 campus
- *  - Mỗi campus: 1 campus_admin + 2 staff + 1 tư vấn tuyển sinh
- *    + 3 teacher + 10 student. 1 super_admin ở HQ. Tổng 69 tài khoản.
+ * Cấu trúc dữ liệu sinh ra (MÔ HÌNH MỚI - docs/ORG_MODEL.md):
+ *  - Gốc "Hệ thống" (hq) -> 2 KHÁCH HÀNG (Đơn vị cấp 1, type 'campus',
+ *    có slug + license) -> mỗi khách hàng 2 Cơ sở nhánh (type 'branch').
+ *  - Khách hàng 1 "Trường Cao đẳng Việt Mỹ": license FULL module.
+ *  - Khách hàng 2 "Trung tâm GDTX Thăng Long": license gói CƠ BẢN.
+ *  - Mỗi khách hàng: 1 Admin Đơn vị (org_id = Đơn vị).
+ *  - Mỗi nhánh: 1 admin nhánh + 2 giáo vụ + 1 tuyển sinh + 1 kế toán
+ *    + 3 teacher + 10 student (có MaSV). 1 super_admin ở gốc.
+ *    Tổng 75 tài khoản.
  *  - 5 lớp học phân bổ vào các campus, mỗi lớp 2 buổi/tuần
  *    trong khoảng [hôm nay - 30 ngày, hôm nay + 30 ngày]
  *  - Điểm danh cho buổi ĐÃ DIỄN RA: ~90% có mặt, ~10% vắng
@@ -32,8 +37,8 @@
  *  - CRM: ~6 leads/campus đủ các trạng thái + nhật ký chăm sóc
  *  - Ngân hàng đề: 3 đề/campus (bỏ qua nếu chưa chạy migration 024)
  *
- * Script IDEMPOTENT: chạy lại sẽ tự xóa sạch dữ liệu seed cũ
- * (nhận diện qua email đuôi @gdtx-demo.edu.vn và cây org demo).
+ * Script RESET TOÀN BỘ: xóa sạch MỌI dữ liệu cũ (tất cả org,
+ * profile, auth user, license...) rồi nạp lại từ đầu theo mô hình mới.
  * ============================================================
  */
 
@@ -45,7 +50,20 @@ import { fakerVI as faker } from '@faker-js/faker'
 
 const SEED_EMAIL_DOMAIN = 'gdtx-demo.edu.vn'
 const SEED_PASSWORD = 'Demo@123456' // mật khẩu chung cho MỌI tài khoản demo
-const HQ_NAME = 'Tổng Công ty GDTX (Demo)'
+const ROOT_NAME = 'Hệ thống'
+
+/** 18 module key theo src/lib/licensing/moduleCatalog.ts */
+const ALL_MODULE_KEYS = [
+  'students', 'crm', 'announcements',
+  'classes', 'attendance', 'staff_ops', 'academic_warnings',
+  'teacher_schedule', 'teacher_requests', 'evaluations', 'staff_users',
+  'payroll_contracts', 'finance_invoices', 'assets',
+  'ai_kb', 'settings_org', 'organizations', 'permissions',
+]
+/** Gói CƠ BẢN cho khách hàng 2 (không AI, không tài sản, không đánh giá GV) */
+const BASIC_MODULE_KEYS = ALL_MODULE_KEYS.filter(
+  (k) => !['ai_kb', 'assets', 'evaluations', 'academic_warnings'].includes(k)
+)
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 // Nhận cả hệ key cũ (service_role) lẫn hệ key mới (sb_secret_...)
@@ -89,26 +107,19 @@ function randomScore(): number {
   return Math.round((4 + Math.random() * 6) / 0.25) * 0.25
 }
 
-// ---------- BƯỚC 0: dọn dữ liệu seed cũ (idempotent) ----------
+// ---------- BƯỚC 0: RESET TOÀN BỘ dữ liệu cũ ----------
 
 async function cleanupPreviousSeed() {
-  console.log('0) Dọn dữ liệu seed cũ (nếu có)...')
+  console.log('0) RESET: xóa TOÀN BỘ dữ liệu cũ (mọi org, mọi tài khoản)...')
 
-  // 0.1 Tìm cây org demo cũ
-  const { data: hq } = await supabase
+  // 0.1 Lấy TẤT CẢ org hiện có (không phân biệt demo hay không)
+  const { data: allOrgs, error: orgListError } = await supabase
     .from('organizations')
-    .select('id')
-    .eq('name', HQ_NAME)
-    .maybeSingle()
+    .select('id, path')
+  assertOk('liệt kê organizations cũ', orgListError)
 
-  if (hq) {
-    const { data: orgIds, error } = await supabase.rpc('get_descendant_org_ids', {
-      p_org_id: hq.id,
-    })
-    assertOk('lấy danh sách org demo cũ', error)
-    const ids: string[] = (orgIds ?? []).map((row: { id?: string } | string) =>
-      typeof row === 'string' ? row : (row.id as string)
-    )
+  {
+    const ids: string[] = (allOrgs ?? []).map((o) => o.id)
 
     if (ids.length > 0) {
       // Xóa theo THỨ TỰ NGƯỢC khóa ngoại
@@ -133,21 +144,41 @@ async function cleanupPreviousSeed() {
         }
       }
 
-      // Bảng TÙY CHỌN (module mở rộng): thiếu bảng thì chỉ cảnh báo
+      // Bảng TÙY CHỌN (module mở rộng): XÓA TOÀN BỘ theo id (reset sạch),
+      // thứ tự con -> cha để không vướng khóa ngoại; thiếu bảng thì cảnh báo.
       for (const table of [
+        'lms_lesson_progress',
         'lms_quiz_attempts',
         'lms_quiz_questions',
         'lms_quizzes',
         'lms_submissions',
         'lms_assignments',
         'lms_lessons',
+        'exam_variants',
+        'exam_proctors',
+        'exam_schedules',
         'exam_bank',
+        're_examination_requests',
         'student_ai_chats',
         'evaluation_results',
         'evaluation_campaigns',
         'lead_activities',
         'leads',
         'student_warnings',
+        'behavior_logs',
+        'ticket_approvals',
+        'tickets',
+        'ticket_categories',
+        'asset_logs',
+        'assets',
+        'announcements',
+        'teacher_requests',
+        'facility_bookings',
+        'facilities',
+        'internships',
+        'enterprises',
+        'vocational_records',
+        'academic_records',
         'payrolls',
         'teacher_contracts',
         'rate_modifiers',
@@ -155,8 +186,16 @@ async function cleanupPreviousSeed() {
         'org_custom_fields',
         'org_settings',
         'lesson_materials',
+        'assessment_types',
+        'menu_permissions',
+        'module_flags',
+        'tenant_licenses',
+        'global_layout_templates',
+        'user_preferences',
+        'user_notifications',
+        'user_settings',
       ]) {
-        const { error: delError } = await supabase.from(table).delete().in('org_id', ids)
+        const { error: delError } = await supabase.from(table).delete().not('id', 'is', null)
         if (delError) console.warn(`   (bỏ qua ${table}: ${delError.message})`)
       }
 
@@ -179,11 +218,7 @@ async function cleanupPreviousSeed() {
       }
 
       // Xóa org: con trước, cha sau (sắp theo độ sâu path giảm dần)
-      const { data: orgRows } = await supabase
-        .from('organizations')
-        .select('id, path')
-        .in('id', ids)
-      const sorted = (orgRows ?? []).sort(
+      const sorted = (allOrgs ?? []).sort(
         (a, b) => String(b.path).split('.').length - String(a.path).split('.').length
       )
       for (const org of sorted) {
@@ -193,99 +228,111 @@ async function cleanupPreviousSeed() {
           .eq('id', org.id)
         assertOk('xóa organization cũ', delOrgError)
       }
+      console.log(`   Đã xóa ${ids.length} organization cũ.`)
     }
   }
 
-  // 0.2 Xóa auth users demo cũ (email đuôi @gdtx-demo.edu.vn)
-  let page = 1
+  // 0.2 Xóa TOÀN BỘ auth users cũ (reset sạch)
   const toDelete: string[] = []
   for (;;) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 })
+    // Luôn đọc trang 1: danh sách co lại sau mỗi lượt xóa
+    const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 })
     assertOk('liệt kê auth users', error)
+    if (data.users.length === 0) break
     for (const user of data.users) {
-      if (user.email?.endsWith(`@${SEED_EMAIL_DOMAIN}`)) toDelete.push(user.id)
+      // profiles.id có ON DELETE CASCADE theo auth.users -> profile tự xóa
+      const { error: delErr } = await supabase.auth.admin.deleteUser(user.id)
+      assertOk(`xóa auth user cũ ${user.email ?? user.id}`, delErr)
+      toDelete.push(user.id)
     }
     if (data.users.length < 200) break
-    page += 1
   }
-  for (const id of toDelete) {
-    // profiles.id có ON DELETE CASCADE theo auth.users -> profile tự xóa
-    const { error } = await supabase.auth.admin.deleteUser(id)
-    assertOk('xóa auth user demo cũ', error)
-  }
-  if (toDelete.length > 0) console.log(`   Đã xóa ${toDelete.length} tài khoản demo cũ.`)
+  if (toDelete.length > 0) console.log(`   Đã xóa ${toDelete.length} tài khoản cũ.`)
 }
 
-// ---------- BƯỚC 1: Organizations (HQ -> Region -> Campus) ----------
+// ---------- BƯỚC 1: Organizations (Hệ thống -> 2 Khách hàng -> 4 Nhánh) ----------
 
 type Org = { id: string; name: string }
 
-async function seedOrganizations(): Promise<{ hq: Org; campuses: Org[] }> {
-  console.log('1) Tạo cây tổ chức: 1 HQ -> 2 Cụm -> 4 Cơ sở...')
+/** Định nghĩa 2 khách hàng demo + các cơ sở nhánh của họ */
+const CUSTOMER_DEFS = [
+  {
+    name: 'Trường Cao đẳng Việt Mỹ',
+    slug: 'viet-my',
+    adminTag: 'vietmy',
+    moduleKeys: ALL_MODULE_KEYS,
+    planName: 'full',
+    maxStudents: 500,
+    branches: [
+      { name: 'Việt Mỹ - Hà Nội', slug: 'ha-noi', tag: 'vmhn' },
+      { name: 'Việt Mỹ - TP.HCM', slug: 'tp-hcm', tag: 'vmhcm' },
+    ],
+  },
+  {
+    name: 'Trung tâm GDTX Thăng Long',
+    slug: 'thang-long',
+    adminTag: 'thanglong',
+    moduleKeys: BASIC_MODULE_KEYS,
+    planName: 'basic',
+    maxStudents: 200,
+    branches: [
+      { name: 'Thăng Long - Cầu Giấy', slug: 'cau-giay', tag: 'tlcg' },
+      { name: 'Thăng Long - Hà Đông', slug: 'ha-dong', tag: 'tlhd' },
+    ],
+  },
+]
 
-  const { data: hq, error: hqError } = await supabase
+async function seedOrganizations(): Promise<{
+  root: Org
+  customers: Org[]
+  branches: Org[] // phẳng 4 nhánh theo thứ tự CUSTOMER_DEFS
+}> {
+  console.log('1) Tạo cây tổ chức: Hệ thống -> 2 Khách hàng -> 4 Cơ sở nhánh...')
+
+  const { data: root, error: rootError } = await supabase
     .from('organizations')
-    .insert({ name: HQ_NAME, type: 'hq', parent_id: null })
+    .insert({ name: ROOT_NAME, type: 'hq', parent_id: null })
     .select('id, name')
     .single()
-  assertOk('tạo HQ', hqError)
+  assertOk('tạo gốc Hệ thống', rootError)
 
-  const campuses: Org[] = []
-  const regionNames = ['Cụm Miền Bắc (Demo)', 'Cụm Miền Nam (Demo)']
-  /** Tên + slug cố định → khớp /coso/cau-giay … trên UI hướng dẫn đăng nhập */
-  const campusDefs = [
-    [
-      { name: 'Cơ sở Hà Nội - Cầu Giấy', slug: 'cau-giay' },
-      { name: 'Cơ sở Hà Nội - Hà Đông', slug: 'ha-dong' },
-    ],
-    [
-      { name: 'Cơ sở TP.HCM - Quận 1', slug: 'quan-1' },
-      { name: 'Cơ sở TP.HCM - Thủ Đức', slug: 'thu-duc' },
-    ],
-  ]
+  const customers: Org[] = []
+  const branches: Org[] = []
 
-  for (let r = 0; r < 2; r++) {
-    const { data: region, error: regionError } = await supabase
+  for (const def of CUSTOMER_DEFS) {
+    const { data: customer, error: customerError } = await supabase
       .from('organizations')
-      .insert({ name: regionNames[r], type: 'region', parent_id: hq!.id })
+      .insert({ name: def.name, type: 'campus', parent_id: root!.id, slug: def.slug })
       .select('id, name')
       .single()
-    assertOk('tạo region', regionError)
+    assertOk(`tạo Đơn vị khách hàng ${def.name}`, customerError)
+    customers.push(customer!)
 
-    for (let c = 0; c < 2; c++) {
-      const def = campusDefs[r][c]
-      // Có cột slug (045) thì gắn luôn; chưa có migration → insert không slug
-      let campus: Org | null = null
-      const withSlug = await supabase
+    for (const b of def.branches) {
+      const { data: branch, error: branchError } = await supabase
         .from('organizations')
-        .insert({
-          name: def.name,
-          type: 'campus',
-          parent_id: region!.id,
-          slug: def.slug,
-        })
+        .insert({ name: b.name, type: 'branch', parent_id: customer!.id, slug: b.slug })
         .select('id, name')
         .single()
-      if (
-        withSlug.error &&
-        /slug|42703|PGRST204|does not exist|schema cache/i.test(withSlug.error.message)
-      ) {
-        const fallback = await supabase
-          .from('organizations')
-          .insert({ name: def.name, type: 'campus', parent_id: region!.id })
-          .select('id, name')
-          .single()
-        assertOk('tạo campus', fallback.error)
-        campus = fallback.data
-      } else {
-        assertOk('tạo campus', withSlug.error)
-        campus = withSlug.data
-      }
-      campuses.push(campus!)
+      assertOk(`tạo nhánh ${b.name}`, branchError)
+      branches.push(branch!)
+    }
+
+    // License cấp ĐƠN VỊ (044): gói module + giới hạn HV + hạn 1 năm
+    const { error: licenseError } = await supabase.from('tenant_licenses').insert({
+      org_id: customer!.id,
+      plan_name: def.planName,
+      module_keys: def.moduleKeys,
+      max_students: def.maxStudents,
+      valid_until: new Date(Date.now() + 365 * 86400_000).toISOString().slice(0, 10),
+      status: 'active',
+    })
+    if (licenseError) {
+      console.warn(`   (bỏ qua license ${def.name} - hãy chạy migration 044: ${licenseError.message})`)
     }
   }
 
-  return { hq: hq!, campuses }
+  return { root: root!, customers, branches }
 }
 
 // ---------- BƯỚC 2: Auth Users + Profiles ----------
@@ -296,7 +343,8 @@ async function createAccount(
   email: string,
   fullName: string,
   role: string,
-  orgId: string
+  orgId: string,
+  masv?: string
 ): Promise<Person> {
   const { data, error } = await supabase.auth.admin.createUser({
     email,
@@ -306,7 +354,7 @@ async function createAccount(
   })
   assertOk(`tạo auth user ${email}`, error)
 
-  const { error: profileError } = await supabase.from('profiles').insert({
+  const profileRow: Record<string, unknown> = {
     id: data.user!.id,
     full_name: fullName,
     email,
@@ -314,39 +362,66 @@ async function createAccount(
     org_id: orgId,
     phone: vnPhone(),
     address: faker.location.streetAddress(),
-  })
+  }
+  if (masv) profileRow.MaSV = masv // mã học viên (migration 035, cột "MaSV")
+
+  let { error: profileError } = await supabase.from('profiles').insert(profileRow)
+  if (profileError && masv && /MaSV|42703|schema cache/i.test(profileError.message)) {
+    // Chưa chạy migration 035 -> bỏ MaSV, vẫn tạo được hồ sơ
+    delete profileRow.MaSV
+    ;({ error: profileError } = await supabase.from('profiles').insert(profileRow))
+  }
   assertOk(`tạo profile ${email}`, profileError)
 
   return { id: data.user!.id, fullName, email, role, orgId }
 }
 
-async function seedPeople(hq: Org, campuses: Org[]) {
+async function seedPeople(root: Org, customers: Org[], branches: Org[]) {
   console.log(
-    '2) Tạo tài khoản + hồ sơ (1 super admin, 4 campus admin, 8 staff, 4 tuyển sinh, 12 GV, 40 HS)...'
+    '2) Tạo tài khoản: 1 super admin, 2 Admin Đơn vị, mỗi nhánh (admin + 2 giáo vụ + tuyển sinh + kế toán + 3 GV + 10 HS)...'
   )
 
   const superAdmin = await createAccount(
     `superadmin@${SEED_EMAIL_DOMAIN}`,
     'Quản Trị Hệ Thống',
     'super_admin',
-    hq.id
+    root.id
+  )
+
+  // Admin ĐƠN VỊ (khách hàng): quản toàn bộ cây con của Đơn vị
+  const unitAdmins: Person[] = []
+  for (let c = 0; c < customers.length; c++) {
+    unitAdmins.push(
+      await createAccount(
+        `admin.${CUSTOMER_DEFS[c].adminTag}@${SEED_EMAIL_DOMAIN}`,
+        faker.person.fullName(),
+        'campus_admin',
+        customers[c].id
+      )
+    )
+  }
+
+  // Prefix MaSV theo khách hàng: VM (Việt Mỹ), TL (Thăng Long)
+  const branchDefs = CUSTOMER_DEFS.flatMap((def, ci) =>
+    def.branches.map((b) => ({ ...b, masvPrefix: ci === 0 ? 'VM' : 'TL' }))
   )
 
   const teachersByCampus: Person[][] = []
   const studentsByCampus: Person[][] = []
   const campusAdmins: Person[] = []
   const admissionStaffByCampus: Person[] = []
+  let masvSeq = 0
 
-  for (let i = 0; i < campuses.length; i++) {
-    const campus = campuses[i]
-    const tag = `cs${i + 1}`
+  for (let i = 0; i < branches.length; i++) {
+    const branch = branches[i]
+    const { tag, masvPrefix } = branchDefs[i]
 
     campusAdmins.push(
       await createAccount(
         `admin.${tag}@${SEED_EMAIL_DOMAIN}`,
         faker.person.fullName(),
         'campus_admin',
-        campus.id
+        branch.id
       )
     )
 
@@ -355,7 +430,7 @@ async function seedPeople(hq: Org, campuses: Org[]) {
         `staff${s}.${tag}@${SEED_EMAIL_DOMAIN}`,
         faker.person.fullName(),
         'academic_staff',
-        campus.id
+        branch.id
       )
     }
 
@@ -365,8 +440,16 @@ async function seedPeople(hq: Org, campuses: Org[]) {
         `tuyensinh.${tag}@${SEED_EMAIL_DOMAIN}`,
         faker.person.fullName(),
         'admission_staff',
-        campus.id
+        branch.id
       )
+    )
+
+    // Kế toán (module Tài chính)
+    await createAccount(
+      `ketoan.${tag}@${SEED_EMAIL_DOMAIN}`,
+      faker.person.fullName(),
+      'accountant',
+      branch.id
     )
 
     const teachers: Person[] = []
@@ -376,7 +459,7 @@ async function seedPeople(hq: Org, campuses: Org[]) {
           `teacher${t}.${tag}@${SEED_EMAIL_DOMAIN}`,
           faker.person.fullName(),
           'teacher',
-          campus.id
+          branch.id
         )
       )
     }
@@ -384,20 +467,29 @@ async function seedPeople(hq: Org, campuses: Org[]) {
 
     const students: Person[] = []
     for (let st = 1; st <= 10; st++) {
+      masvSeq += 1
       students.push(
         await createAccount(
           `student${String(st).padStart(2, '0')}.${tag}@${SEED_EMAIL_DOMAIN}`,
           faker.person.fullName(),
           'student',
-          campus.id
+          branch.id,
+          `${masvPrefix}24-${String(masvSeq).padStart(4, '0')}` // VD: VM24-0001
         )
       )
     }
     studentsByCampus.push(students)
-    console.log(`   ${campus.name}: xong 17 tài khoản.`)
+    console.log(`   ${branch.name}: xong 18 tài khoản.`)
   }
 
-  return { superAdmin, campusAdmins, admissionStaffByCampus, teachersByCampus, studentsByCampus }
+  return {
+    superAdmin,
+    unitAdmins,
+    campusAdmins,
+    admissionStaffByCampus,
+    teachersByCampus,
+    studentsByCampus,
+  }
 }
 
 // ---------- BƯỚC 3-9: Nghiệp vụ ----------
@@ -845,12 +937,31 @@ async function main() {
   console.log(`Seed GDTX ERP -> ${url}\n`)
 
   await cleanupPreviousSeed()
-  const { hq, campuses } = await seedOrganizations()
-  const { campusAdmins, admissionStaffByCampus, teachersByCampus, studentsByCampus } =
-    await seedPeople(hq, campuses)
+  const { root, customers, branches } = await seedOrganizations()
+  const { unitAdmins, campusAdmins, admissionStaffByCampus, teachersByCampus, studentsByCampus } =
+    await seedPeople(root, customers, branches)
+
+  // Người liên hệ của mỗi Đơn vị (hiện ở Hồ sơ Đơn vị của Super Admin)
+  for (let c = 0; c < customers.length; c++) {
+    const { error: contactError } = await supabase.from('org_settings').upsert(
+      {
+        org_id: customers[c].id,
+        config: {
+          unit_contact: {
+            name: unitAdmins[c].fullName,
+            email: unitAdmins[c].email,
+            phone: vnPhone(),
+          },
+        },
+      },
+      { onConflict: 'org_id' }
+    )
+    if (contactError) console.warn(`   (bỏ qua unit_contact: ${contactError.message})`)
+  }
+
   const stats = await seedBusinessData(
-    hq,
-    campuses,
+    root,
+    branches,
     campusAdmins,
     admissionStaffByCampus,
     teachersByCampus,
@@ -858,22 +969,26 @@ async function main() {
   )
 
   console.log('\n================= SEED HOÀN TẤT =================')
-  console.log(`Tổ chức    : 1 HQ, 2 cụm, ${campuses.length} cơ sở`)
-  console.log(`Tài khoản  : 69 (1 super admin, 4 campus admin, 8 giáo vụ, 4 tuyển sinh, 12 GV, 40 HS)`)
+  console.log(`Tổ chức    : 1 gốc Hệ thống, ${customers.length} Khách hàng (Đơn vị cấp 1), ${branches.length} cơ sở nhánh`)
+  console.log(`Tài khoản  : 75 (1 super admin, 2 Admin Đơn vị, 4 admin nhánh, 8 giáo vụ, 4 tuyển sinh, 4 kế toán, 12 GV, 40 HS có MaSV)`)
+  console.log(`License    : Việt Mỹ = gói FULL (${ALL_MODULE_KEYS.length} module) | Thăng Long = gói BASIC (${BASIC_MODULE_KEYS.length} module)`)
   console.log(`Lớp học    : ${stats.classCount} (đã chốt sổ: ${stats.lockedClassName} | quá hạn nhập điểm: ${stats.overdueClassName})`)
   console.log(`Buổi học   : ${stats.sessionCount} | Điểm danh: ${stats.attendanceCount} | Điểm số: ${stats.gradeCount}`)
   console.log(`Hợp đồng GV: ${stats.contractCount} | Hóa đơn: ${stats.invoiceCount} | Leads CRM: ${stats.leadCount}`)
   console.log('\n=========== TÀI KHOẢN ĐĂNG NHẬP TEST ===========')
   console.log(`MẬT KHẨU CHUNG cho TẤT CẢ tài khoản: ${SEED_PASSWORD}`)
   console.log('')
-  console.log(`  Tổng quản trị  : superadmin@${SEED_EMAIL_DOMAIN}            -> /admin`)
-  console.log(`  QL Cơ sở 1..4  : admin.cs1@${SEED_EMAIL_DOMAIN} ... admin.cs4@...  -> /admin`)
-  console.log(`  Giáo vụ        : staff1.cs1@${SEED_EMAIL_DOMAIN}, staff2.cs1@... (mỗi cơ sở 2) -> /staff`)
-  console.log(`  Tuyển sinh     : tuyensinh.cs1@${SEED_EMAIL_DOMAIN} ... (mỗi cơ sở 1) -> /crm/leads`)
-  console.log(`  Giáo viên      : teacher1.cs1@${SEED_EMAIL_DOMAIN} ... teacher3.cs4@... -> /teacher`)
-  console.log(`  Học sinh       : student01.cs1@${SEED_EMAIL_DOMAIN} ... student10.cs4@... -> /student`)
+  console.log(`  Super Admin      : superadmin@${SEED_EMAIL_DOMAIN}         -> /login`)
+  console.log(`  Admin Việt Mỹ    : admin.vietmy@${SEED_EMAIL_DOMAIN}       -> /coso/viet-my`)
+  console.log(`  Admin Thăng Long : admin.thanglong@${SEED_EMAIL_DOMAIN}    -> /coso/thang-long`)
+  console.log(`  Admin nhánh      : admin.vmhn@ / admin.vmhcm@ / admin.tlcg@ / admin.tlhd@`)
+  console.log(`  Giáo vụ          : staff1.vmhn@ ... (mỗi nhánh 2)          -> /staff`)
+  console.log(`  Tuyển sinh       : tuyensinh.vmhn@ ... (mỗi nhánh 1)       -> /crm/leads`)
+  console.log(`  Kế toán          : ketoan.vmhn@ ... (mỗi nhánh 1)          -> /finance/invoices`)
+  console.log(`  Giáo viên        : teacher1.vmhn@ ... teacher3.tlhd@       -> /teacher`)
+  console.log(`  Học sinh         : student01.vmhn@ ... student10.tlhd@     -> /student (MaSV: VM24-xxxx / TL24-xxxx)`)
   console.log('')
-  console.log('  (cs1=HN Cầu Giấy, cs2=HN Hà Đông, cs3=HCM Quận 1, cs4=HCM Thủ Đức)')
+  console.log('  (vmhn=Việt Mỹ Hà Nội, vmhcm=Việt Mỹ TP.HCM, tlcg=Thăng Long Cầu Giấy, tlhd=Thăng Long Hà Đông)')
   console.log('  Chi tiết đầy đủ: docs/demo-accounts.md')
 }
 
