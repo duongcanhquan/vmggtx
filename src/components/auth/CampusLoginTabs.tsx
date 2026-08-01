@@ -2,35 +2,29 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Building2, GraduationCap, HeartHandshake, Home } from 'lucide-react'
+import { Building2, HeartHandshake, Home } from 'lucide-react'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { StaffLoginForm, type CampusContext } from '@/components/auth/StaffLoginForm'
-import { StudentLoginForm } from '@/components/auth/StudentLoginForm'
-import { ParentLoginForm } from '@/components/auth/ParentLoginForm'
+import { FamilyLoginForm } from '@/components/auth/FamilyLoginForm'
 
 // ============================================================
 // CỔNG ĐĂNG NHẬP DUY NHẤT CỦA CƠ SỞ - /coso/[slug]/login
 // Chia đúng 2 phần:
-//   1. Nhà trường · Giảng viên (quản lý, giáo vụ, kế toán, GV)
-//   2. Gia đình (Học viên đăng nhập email/mật khẩu · Phụ huynh SĐT+OTP)
-// Badge hiển thị rõ chuỗi trực thuộc: "Cơ sở A1 · thuộc Trường A"
-// để ai đăng nhập cũng biết mình đang ở đơn vị nào, thuộc đâu.
+//   1. Nhà trường (quản lý, giáo vụ, kế toán, giáo viên)
+//   2. Gia đình — 1 form chung, tự nhận diện qua ô nhập:
+//      email = Học viên (mật khẩu) · SĐT = Phụ huynh (OTP)
 // ============================================================
 
 export type CampusLoginTab = 'staff' | 'family'
-export type FamilyWho = 'student' | 'parent'
 
 export function CampusLoginTabs({
   campus,
   initialTab = 'staff',
-  initialWho = 'student',
 }: {
   campus: CampusContext
   initialTab?: CampusLoginTab
-  initialWho?: FamilyWho
 }) {
   const [tab, setTab] = useState<CampusLoginTab>(initialTab)
-  const [who, setWho] = useState<FamilyWho>(initialWho)
 
   const belongsTo =
     campus.parentNames && campus.parentNames.length > 0
@@ -77,7 +71,7 @@ export function CampusLoginTabs({
           }`}
         >
           <Building2 className="h-4 w-4" aria-hidden="true" />
-          Nhà trường · GV
+          Nhà trường
         </button>
         <button
           type="button"
@@ -98,40 +92,7 @@ export function CampusLoginTabs({
       {tab === 'staff' ? (
         <StaffLoginForm campus={campus} embedded />
       ) : (
-        <>
-          {/* Gia đình: chọn Học viên / Phụ huynh */}
-          <div className="mb-1 mt-3 flex justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setWho('student')}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
-                who === 'student'
-                  ? 'border-white bg-white text-[#162938]'
-                  : 'border-white/40 text-white/85 hover:bg-white/10'
-              }`}
-            >
-              <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" />
-              Học viên
-            </button>
-            <button
-              type="button"
-              onClick={() => setWho('parent')}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
-                who === 'parent'
-                  ? 'border-white bg-white text-[#162938]'
-                  : 'border-white/40 text-white/85 hover:bg-white/10'
-              }`}
-            >
-              <HeartHandshake className="h-3.5 w-3.5" aria-hidden="true" />
-              Phụ huynh
-            </button>
-          </div>
-          {who === 'student' ? (
-            <StudentLoginForm campus={campus} embedded />
-          ) : (
-            <ParentLoginForm campus={campus} embedded />
-          )}
-        </>
+        <FamilyLoginForm campus={campus} />
       )}
     </AuthShell>
   )
