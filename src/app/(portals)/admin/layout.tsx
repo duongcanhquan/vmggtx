@@ -4,6 +4,7 @@ import {
   BarChart3,
   Building2,
   LayoutDashboard,
+  PiggyBank,
   Settings,
   TicketCheck,
   Users,
@@ -26,6 +27,7 @@ const ADMIN_NAV: PortalNavGroup[] = [
       { label: 'Cổng dịch vụ', href: '/admin/requests', icon: TicketCheck },
       { label: 'Cài đặt Hệ thống', href: '/settings', icon: Settings },
       { label: 'Báo cáo Doanh thu', href: '/admin/revenue', icon: BarChart3 },
+      { label: 'Dự báo Ngân sách', href: '/admin/budget', icon: PiggyBank },
     ],
   },
 ]

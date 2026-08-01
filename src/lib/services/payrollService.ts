@@ -162,13 +162,18 @@ function computePayroll(
  *   1. Toàn bộ hợp đồng active của danh sách GV (1 query .in())
  *   2. Toàn bộ buổi dạy completed trong tháng của danh sách GV (1 query)
  * Thay cho việc gọi calculateTeacherPayroll lặp (2-3 query/giáo viên).
+ *
+ * options.sessionStatus:
+ *   'completed' (mặc định) = lương THẬT theo tiết đã chốt điểm danh
+ *   'scheduled'            = DỰ BÁO ngân sách theo tiết ĐÃ XẾP LỊCH tương lai
  */
 export async function calculateTeacherPayrollBatch(
   teacherIds: string[],
   orgId: string,
   month: number,
   year: number,
-  precomputedOrgIds?: string[]
+  precomputedOrgIds?: string[],
+  options?: { sessionStatus?: 'completed' | 'scheduled' }
 ): Promise<Map<string, PayrollCalcResult>> {
   const results = new Map<string, PayrollCalcResult>()
   if (teacherIds.length === 0) return results
@@ -214,7 +219,7 @@ export async function calculateTeacherPayrollBatch(
       .select('teacher_id')
       .in('teacher_id', teacherIds)
       .in('org_id', orgIds)
-      .eq('status', 'completed')
+      .eq('status', options?.sessionStatus ?? 'completed')
       .gte('start_time', monthStart)
       .lt('start_time', monthEnd)
       .is('deleted_at', null),
