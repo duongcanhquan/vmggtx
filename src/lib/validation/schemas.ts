@@ -268,6 +268,19 @@ export const importStudentSchema = z.object({
     .default(''),
 })
 
+// ====== Import đào tạo kép (migration 035): dòng import BẮT BUỘC có MaSV ======
+
+export const maSVSchema = z
+  .string()
+  .trim()
+  .min(2, 'MaSV tối thiểu 2 ký tự.')
+  .max(50, 'MaSV tối đa 50 ký tự.')
+  .regex(/^[A-Za-z0-9._-]+$/, 'MaSV chỉ gồm chữ, số, dấu chấm, gạch ngang, gạch dưới.')
+
+export const importStudentRowSchema = importStudentSchema.extend({
+  maSV: maSVSchema,
+})
+
 // ====== Khảo sát Giáo viên ẩn danh (migration 022) ======
 
 const ratingSchema = (label: string) =>

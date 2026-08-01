@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  importStudentRowSchema,
   importStudentSchema,
   requiredId,
   studentCreateSchema,
@@ -19,6 +20,7 @@ import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { generateStudentCode } from '@/lib/utils/studentCode'
 
 export type ImportRowInput = {
+  maSV: string
   fullName: string
   email: string
   phone: string
@@ -510,8 +512,9 @@ export async function createStudent(
 
 const MAX_IMPORT_ROWS = 200
 
+// Đào tạo kép (035): mỗi dòng BẮT BUỘC có MaSV - khóa upsert cốt lõi
 const bulkImportSchema = z
-  .array(importStudentSchema)
+  .array(importStudentRowSchema)
   .min(1, 'File không có dòng dữ liệu nào.')
   .max(MAX_IMPORT_ROWS, `Mỗi lần import tối đa ${MAX_IMPORT_ROWS} dòng.`)
 
@@ -568,33 +571,80 @@ export async function bulkImportStudents(
     const scopeOrgIds = new Set<string>((subtree as string[] | null) ?? [orgParsed.data])
     scopeOrgIds.add(orgParsed.data)
 
-    // Tra trước TOÀN BỘ hồ sơ trùng SĐT trong 1 query (upsert theo phone)
+    // MaSV trùng lặp NGAY trong file -> chặn toàn bộ (khóa upsert phải duy nhất)
+    const codes = rows.map((row) => row.maSV.trim())
+    const duplicateCodes = [...new Set(codes.filter((code, i) => codes.indexOf(code) !== i))]
+    if (duplicateCodes.length > 0) {
+      return {
+        error: `MaSV bị trùng lặp trong file: ${duplicateCodes.slice(0, 5).join(', ')}${
+          duplicateCodes.length > 5 ? '…' : ''
+        }`,
+      }
+    }
+
+    // ===== Tra trước hồ sơ theo MaSV (KHÓA UPSERT CHÍNH - migration 035) =====
+    // DB chưa chạy 035 (thiếu cột) -> masvSupported=false, fallback SĐT như cũ.
+    type ExistingProfile = {
+      id: string
+      phone: string | null
+      org_id: string | null
+      role: string
+      MaSV?: string | null
+    }
+    let masvSupported = true
+    const existingByMasv = new Map<string, ExistingProfile>()
+    {
+      const { data, error } = await admin
+        .from('profiles')
+        .select('id, phone, org_id, role, MaSV')
+        .in('MaSV', codes)
+        .is('deleted_at', null)
+      if (error) {
+        if (/MaSV|does not exist/i.test(error.message)) {
+          masvSupported = false
+        } else {
+          return { error: `Lỗi tra cứu MaSV: ${error.message}` }
+        }
+      } else {
+        for (const profile of (data ?? []) as ExistingProfile[]) {
+          if (profile.MaSV) existingByMasv.set(profile.MaSV, profile)
+        }
+      }
+    }
+
+    // Tra hồ sơ trùng SĐT (fallback khi MaSV chưa tồn tại trong hệ thống)
     const phones = rows.map((row) => normalizePhone(row.phone))
     const { data: existingProfiles } = await admin
       .from('profiles')
-      .select('id, phone, org_id, role')
+      .select(masvSupported ? 'id, phone, org_id, role, MaSV' : 'id, phone, org_id, role')
       .in('phone', phones)
       .is('deleted_at', null)
     const existingByPhone = new Map(
-      (existingProfiles ?? []).map((profile) => [profile.phone as string, profile])
+      ((existingProfiles ?? []) as unknown as ExistingProfile[]).map((profile) => [
+        profile.phone as string,
+        profile,
+      ])
     )
 
     const outcomes: BulkImportRowOutcome[] = []
 
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index]
+      const code = row.maSV.trim()
       const phone = normalizePhone(row.phone)
-      const existing = existingByPhone.get(phone)
+      const byMasv = masvSupported ? existingByMasv.get(code) : undefined
+      const byPhone = existingByPhone.get(phone)
+      const existing = byMasv ?? byPhone
 
       try {
         if (existing) {
-          // ===== UPDATE: trùng SĐT -> cập nhật hồ sơ =====
+          // ===== UPDATE: trùng MaSV (ưu tiên) hoặc trùng SĐT =====
           if (existing.role !== 'student') {
             outcomes.push({
               rowIndex: index,
               fullName: row.fullName,
               outcome: 'failed',
-              message: 'SĐT này đang thuộc một tài khoản KHÔNG phải học sinh.',
+              message: `${byMasv ? 'MaSV' : 'SĐT'} này đang thuộc một tài khoản KHÔNG phải học sinh.`,
             })
             continue
           }
@@ -603,18 +653,32 @@ export async function bulkImportStudents(
               rowIndex: index,
               fullName: row.fullName,
               outcome: 'failed',
-              message:
-                'Học sinh trùng SĐT đang thuộc cơ sở NGOÀI phạm vi của bạn — không được ghi đè.',
+              message: `Học sinh trùng ${byMasv ? 'MaSV' : 'SĐT'} đang thuộc cơ sở NGOÀI phạm vi của bạn — không được ghi đè.`,
+            })
+            continue
+          }
+          // Khớp theo SĐT nhưng hồ sơ đó đã mang MaSV KHÁC -> xung đột định danh
+          if (!byMasv && masvSupported && byPhone?.MaSV && byPhone.MaSV !== code) {
+            outcomes.push({
+              rowIndex: index,
+              fullName: row.fullName,
+              outcome: 'failed',
+              message: `SĐT này thuộc học sinh mang MaSV "${byPhone.MaSV}" (khác "${code}") — kiểm tra lại file.`,
             })
             continue
           }
 
+          const updatePayload: Record<string, unknown> = {
+            full_name: row.fullName,
+            address: row.address || null,
+            phone,
+          }
+          // Map MaSV vào profiles khi upsert (gán mã cho hồ sơ khớp SĐT chưa có mã)
+          if (masvSupported) updatePayload.MaSV = code
+
           const { error: updateError } = await admin
             .from('profiles')
-            .update({
-              full_name: row.fullName,
-              address: row.address || null,
-            })
+            .update(updatePayload)
             .eq('id', existing.id)
           if (updateError) throw new Error(updateError.message)
 
@@ -622,7 +686,9 @@ export async function bulkImportStudents(
             rowIndex: index,
             fullName: row.fullName,
             outcome: 'updated',
-            message: 'Trùng SĐT — đã cập nhật hồ sơ hiện có.',
+            message: byMasv
+              ? 'Trùng MaSV — đã cập nhật hồ sơ hiện có.'
+              : 'Trùng SĐT — đã cập nhật hồ sơ và gán MaSV.',
           })
         } else {
           // ===== INSERT: học sinh mới (auth user + profile) =====
@@ -646,6 +712,7 @@ export async function bulkImportStudents(
             // [BẢO MẬT] Ép cứng org đích - không nhận từ file
             org_id: orgParsed.data,
           }
+          if (masvSupported) importProfile.MaSV = code
           const importCode = await generateStudentCode(admin, orgParsed.data)
           const importProfileWithCode = importCode
             ? { ...importProfile, student_code: importCode }
@@ -659,6 +726,9 @@ export async function bulkImportStudents(
           }
           if (profileError) {
             await admin.auth.admin.deleteUser(created.user.id)
+            if (/uq_profiles_masv|MaSV/i.test(profileError.message)) {
+              throw new Error(`MaSV "${code}" đã tồn tại trong hệ thống — không thể tạo trùng.`)
+            }
             throw new Error(profileError.message)
           }
 

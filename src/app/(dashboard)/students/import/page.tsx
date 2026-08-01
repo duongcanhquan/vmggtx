@@ -17,22 +17,26 @@ import {
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { SmartTable, sortableHeader } from '@/components/shared/SmartTable'
 import { Toast, type ToastData } from '@/components/shared/Toast'
-import { importStudentSchema } from '@/lib/validation/schemas'
+import { importStudentRowSchema } from '@/lib/validation/schemas'
 import { bulkImportStudents, type BulkImportRowOutcome } from '../actions'
 
 // ============================================================
-// MASS IMPORT Học sinh (/students/import)
+// MASS IMPORT Học sinh (/students/import) - ĐÀO TẠO KÉP (035)
 //
 // Luồng: Tải file mẫu -> Kéo/thả Excel/CSV -> parse NGAY TRÊN
 // TRÌNH DUYỆT (papaparse/xlsx) -> preview SmartTable "Bản nháp"
 // -> validate Zod từng dòng (dòng lỗi tô ĐỎ) -> chỉ khi sạch 100%
-// mới hiện nút "Tiến hành Import" -> Server Action upsert theo SĐT.
+// mới hiện nút "Tiến hành Import" -> Server Action upsert theo MaSV.
+//
+// [ĐIỀU KIỆN BẮT BUỘC] File PHẢI có cột tiêu đề chính xác `MaSV`
+// (phân biệt hoa thường). Thiếu -> CHẶN NGAY, báo đỏ, không preview.
 //
 // org_id KHÔNG có trong file: server ép org_id = cơ sở đang chọn.
 // ============================================================
 
 type PreviewRow = {
   index: number
+  maSV: string
   fullName: string
   email: string
   phone: string
@@ -40,10 +44,14 @@ type PreviewRow = {
   errors: string[]
 }
 
-const TEMPLATE_HEADERS = ['Họ tên', 'Email', 'Số điện thoại', 'Địa chỉ']
+const MASV_HEADER = 'MaSV'
+const MASV_HEADER_ERROR =
+  'File import không hợp lệ. Cột định danh bắt buộc phải có tiêu đề là MaSV'
+
+const TEMPLATE_HEADERS = [MASV_HEADER, 'Họ tên', 'Email', 'Số điện thoại', 'Địa chỉ']
 const TEMPLATE_SAMPLE_ROWS = [
-  ['Nguyễn Văn An', 'an.nguyen@example.com', '0912345678', 'Hà Nội'],
-  ['Trần Thị Bình', 'binh.tran@example.com', '0987654321', 'TP. Hồ Chí Minh'],
+  ['HS2026001', 'Nguyễn Văn An', 'an.nguyen@example.com', '0912345678', 'Hà Nội'],
+  ['HS2026002', 'Trần Thị Bình', 'binh.tran@example.com', '0987654321', 'TP. Hồ Chí Minh'],
 ]
 
 /** Bỏ dấu tiếng Việt + lowercase để so khớp tên cột linh hoạt */
@@ -57,6 +65,8 @@ function normalizeHeader(header: string): string {
 }
 
 const HEADER_FIELD_MAP: Record<string, keyof Omit<PreviewRow, 'index' | 'errors'>> = {
+  masv: 'maSV',
+  'ma sv': 'maSV',
   'ho ten': 'fullName',
   'ho va ten': 'fullName',
   ten: 'fullName',
@@ -78,14 +88,14 @@ function normalizePhone(raw: string): string {
 
 /** Map 1 dòng raw từ file -> PreviewRow + validate Zod ngay trên UI */
 function toPreviewRow(raw: Record<string, unknown>, index: number): PreviewRow {
-  const mapped = { fullName: '', email: '', phone: '', address: '' }
+  const mapped = { maSV: '', fullName: '', email: '', phone: '', address: '' }
   for (const [header, value] of Object.entries(raw)) {
     const field = HEADER_FIELD_MAP[normalizeHeader(header)]
     if (field) mapped[field] = String(value ?? '').trim()
   }
   mapped.phone = normalizePhone(mapped.phone)
 
-  const parsed = importStudentSchema.safeParse(mapped)
+  const parsed = importStudentRowSchema.safeParse(mapped)
   return {
     index,
     ...mapped,
@@ -93,10 +103,24 @@ function toPreviewRow(raw: Record<string, unknown>, index: number): PreviewRow {
   }
 }
 
+/** Đánh dấu lỗi các dòng có MaSV trùng nhau NGAY trong file */
+function markDuplicateMaSV(rows: PreviewRow[]): PreviewRow[] {
+  const countByCode = new Map<string, number>()
+  for (const row of rows) {
+    if (row.maSV) countByCode.set(row.maSV, (countByCode.get(row.maSV) ?? 0) + 1)
+  }
+  return rows.map((row) =>
+    row.maSV && (countByCode.get(row.maSV) ?? 0) > 1
+      ? { ...row, errors: [...row.errors, `MaSV "${row.maSV}" bị trùng lặp trong file.`] }
+      : row
+  )
+}
+
 export default function StudentImportPage() {
   const currentOrgId = useOrgStore((state) => state.currentOrgId)
 
   const [rows, setRows] = useState<PreviewRow[]>([])
+  const [headerError, setHeaderError] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [parsing, setParsing] = useState(false)
@@ -119,7 +143,7 @@ export default function StudentImportPage() {
   async function downloadTemplateXlsx() {
     const XLSX = await import('xlsx')
     const sheet = XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS, ...TEMPLATE_SAMPLE_ROWS])
-    sheet['!cols'] = [{ wch: 24 }, { wch: 28 }, { wch: 16 }, { wch: 24 }]
+    sheet['!cols'] = [{ wch: 14 }, { wch: 24 }, { wch: 28 }, { wch: 16 }, { wch: 24 }]
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, sheet, 'HocSinh')
     XLSX.writeFile(workbook, 'mau-import-hoc-sinh.xlsx')
@@ -142,9 +166,11 @@ export default function StudentImportPage() {
   const handleFile = useCallback(async (file: File) => {
     setParsing(true)
     setImportResult(null)
+    setHeaderError(null)
     try {
       const extension = file.name.toLowerCase().split('.').pop() ?? ''
       let rawRows: Record<string, unknown>[] = []
+      let rawHeaders: string[] = []
 
       if (extension === 'csv') {
         const Papa = (await import('papaparse')).default
@@ -152,7 +178,10 @@ export default function StudentImportPage() {
           Papa.parse<Record<string, unknown>>(file, {
             header: true,
             skipEmptyLines: 'greedy',
-            complete: (result) => resolve(result.data),
+            complete: (result) => {
+              rawHeaders = (result.meta.fields ?? []).map((h) => String(h).trim())
+              resolve(result.data)
+            },
             error: (error) => reject(error),
           })
         })
@@ -160,6 +189,11 @@ export default function StudentImportPage() {
         const XLSX = await import('xlsx')
         const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+        // Dòng 1 = tiêu đề cột (giữ nguyên hoa/thường để kiểm tra MaSV)
+        const headerRow = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
+          header: 1,
+        })[0]
+        rawHeaders = (headerRow ?? []).map((cell) => String(cell ?? '').trim())
         rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
           defval: '',
         })
@@ -168,6 +202,16 @@ export default function StudentImportPage() {
           type: 'error',
           message: 'Chỉ hỗ trợ file .csv, .xlsx, .xls — hãy dùng file mẫu.',
         })
+        return
+      }
+
+      // [ĐIỀU KIỆN BẮT BUỘC] Header phải có cột đúng chính xác `MaSV`
+      // (phân biệt hoa thường). Sai/thiếu -> CHẶN NGAY, không preview.
+      if (!rawHeaders.includes(MASV_HEADER)) {
+        setRows([])
+        setFileName(file.name)
+        setHeaderError(MASV_HEADER_ERROR)
+        setToast({ type: 'error', message: MASV_HEADER_ERROR })
         return
       }
 
@@ -183,7 +227,7 @@ export default function StudentImportPage() {
         return
       }
 
-      setRows(rawRows.map(toPreviewRow))
+      setRows(markDuplicateMaSV(rawRows.map(toPreviewRow)))
       setFileName(file.name)
     } catch (error) {
       setToast({
@@ -199,6 +243,7 @@ export default function StudentImportPage() {
     setRows([])
     setFileName(null)
     setImportResult(null)
+    setHeaderError(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -210,6 +255,7 @@ export default function StudentImportPage() {
     }
     setImporting(true)
     const payload = rows.map((row) => ({
+      maSV: row.maSV,
       fullName: row.fullName,
       email: row.email,
       phone: row.phone,
@@ -239,6 +285,16 @@ export default function StudentImportPage() {
         cell: ({ row }) => (
           <span className="font-mono text-xs text-muted-foreground">
             {row.original.index + 1}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'maSV',
+        meta: { label: 'MaSV' },
+        header: sortableHeader<PreviewRow>('MaSV'),
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-semibold text-indigo-700">
+            {row.original.maSV || <em className="text-rose-500">(thiếu MaSV)</em>}
           </span>
         ),
       },
@@ -347,7 +403,8 @@ export default function StudentImportPage() {
             File mẫu CSV
           </button>
           <p className="text-xs text-muted-foreground">
-            Cột bắt buộc: Họ tên, Email, Số điện thoại. Địa chỉ tùy chọn.
+            Cột bắt buộc: <strong className="text-foreground">MaSV</strong> (đúng chính
+            xác hoa/thường), Họ tên, Email, Số điện thoại. Địa chỉ tùy chọn.
           </p>
         </div>
 
@@ -410,6 +467,24 @@ export default function StudentImportPage() {
           />
         </div>
       </div>
+
+      {/* ===== Báo đỏ: file thiếu cột định danh MaSV ===== */}
+      {headerError && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-2xl border-2 border-rose-300 bg-rose-50 p-4"
+        >
+          <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" aria-hidden="true" />
+          <div>
+            <p className="font-heading text-sm font-bold text-rose-700">{headerError}</p>
+            <p className="mt-1 text-xs text-rose-600">
+              Mở file{fileName ? ` "${fileName}"` : ''}, đổi tiêu đề cột mã định danh thành
+              đúng chính xác <strong>MaSV</strong> (phân biệt hoa thường) rồi upload lại —
+              hoặc tải file mẫu ở Bước 1.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ===== Bước 3: Preview "Bản nháp" ===== */}
       {rows.length > 0 && (
