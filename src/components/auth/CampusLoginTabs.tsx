@@ -40,13 +40,13 @@ export function CampusLoginTabs({
   return (
     <AuthShell
       theme={tab === 'staff' ? 'management' : 'student'}
-      badge={campus.name}
+      badge="EDU SYSTEM"
       title={
-        <>
-          EDU <span className="text-amber-300">SYSTEM</span>
-        </>
+        <span className="block text-balance text-2xl leading-snug sm:text-[26px]">
+          {campus.name}
+        </span>
       }
-      subtitle={belongsTo ? `Trực thuộc: ${belongsTo}` : undefined}
+      subtitle={belongsTo ? `Trực thuộc ${belongsTo}` : undefined}
       footer={
         <p>
           <Link

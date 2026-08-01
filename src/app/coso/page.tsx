@@ -1,8 +1,7 @@
 import Link from 'next/link'
-import { ArrowRight, Building2, SearchX, Shield } from 'lucide-react'
+import { ArrowRight, Building2, SearchX } from 'lucide-react'
 import { listPublicCampuses } from './actions'
 import { campusPortalPath } from '@/lib/utils/orgSlug'
-import { CampusLoginHelp } from './CampusLoginHelp'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,11 +32,6 @@ export default async function CampusDirectoryPage() {
           <h1 className="mt-2 font-heading text-3xl font-extrabold text-slate-900 sm:text-4xl">
             Chọn cơ sở của bạn
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Mỗi cơ sở có đường dẫn riêng{' '}
-            <span className="font-mono text-indigo-600">/coso/ten-co-so</span> — vào
-            đó để đăng nhập Quản lý, Học viên hoặc Phụ huynh.
-          </p>
         </div>
 
         {error ? (
@@ -47,11 +41,7 @@ export default async function CampusDirectoryPage() {
         ) : campuses.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white/80 py-14 text-slate-500">
             <SearchX className="h-10 w-10 text-slate-300" aria-hidden="true" />
-            <p className="text-sm font-medium">Chưa có cơ sở nào có đường dẫn công khai.</p>
-            <p className="max-w-sm text-center text-xs">
-              Super Admin tạo cơ sở (License / Quản lý Cơ sở) — hệ thống tự cấp slug và
-              cổng /coso/…
-            </p>
+            <p className="text-sm font-medium">Chưa có cơ sở nào.</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -82,23 +72,11 @@ export default async function CampusDirectoryPage() {
           </ul>
         )}
 
-        <div className="mt-10 rounded-2xl border border-slate-200 bg-white/70 px-4 py-4 text-center text-sm text-slate-600">
-          <p className="inline-flex items-center justify-center gap-2 font-medium text-slate-800">
-            <Shield className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-            Super Admin toàn hệ thống
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Đăng nhập tại gốc domain — không vào /coso
-          </p>
-          <Link
-            href="/login"
-            className="mt-3 inline-flex font-semibold text-indigo-600 hover:underline"
-          >
-            Đi tới /login
+        <p className="mt-10 text-center text-xs text-slate-400">
+          <Link href="/login" className="font-semibold text-indigo-600 hover:underline">
+            Đăng nhập quản trị hệ thống
           </Link>
-        </div>
-
-        <CampusLoginHelp />
+        </p>
       </div>
     </main>
   )

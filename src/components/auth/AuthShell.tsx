@@ -233,14 +233,16 @@ export function AuthShell({
           <div className="text-center">
             <EmblemLogo />
             {badge && (
-              <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
-                {badge}
+              <span className="mt-3 inline-flex max-w-full items-center rounded-full border border-white/40 bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
+                <span className="truncate">{badge}</span>
               </span>
             )}
-            <h1 className="mt-3 font-heading text-[1.9em] font-bold leading-tight tracking-tight text-white">
+            <h1 className="mt-3 break-words font-heading text-[1.9em] font-bold leading-tight tracking-tight text-white">
               {title}
             </h1>
-            {subtitle && <p className="mt-1.5 text-sm text-white/85">{subtitle}</p>}
+            {subtitle && (
+              <p className="mt-1.5 text-balance text-sm text-white/85">{subtitle}</p>
+            )}
           </div>
 
           <div className="mt-2">{children}</div>

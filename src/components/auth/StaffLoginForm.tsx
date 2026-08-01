@@ -14,7 +14,6 @@ import { resolveLoginEmail, resolveRoleByUserId } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
-import { LoginGuide } from '@/components/auth/LoginGuide'
 
 const loginFormSchema = z.object({
   identifier: z
@@ -238,13 +237,19 @@ export function StaffLoginForm({
   return (
     <AuthShell
       theme="management"
-      badge={campus ? campus.name : undefined}
+      badge={campus ? 'EDU SYSTEM' : undefined}
       title={
-        <>
-          EDU <span className="text-amber-300">SYSTEM</span>
-        </>
+        campus ? (
+          <span className="block text-balance text-2xl leading-snug sm:text-[26px]">
+            {campus.name}
+          </span>
+        ) : (
+          <>
+            EDU <span className="text-amber-300">SYSTEM</span>
+          </>
+        )
       }
-      subtitle={campus ? `Cổng quản trị cơ sở · ${campus.name}` : undefined}
+      subtitle={campus ? undefined : 'Đăng nhập hệ thống'}
       footer={
         campus ? (
           <p>
@@ -255,11 +260,19 @@ export function StaffLoginForm({
               ← Về trang cơ sở
             </Link>
           </p>
-        ) : undefined
+        ) : (
+          <p>
+            <Link
+              href="/coso"
+              className="font-bold text-white/85 underline-offset-2 hover:underline"
+            >
+              Đăng nhập theo cơ sở →
+            </Link>
+          </p>
+        )
       }
     >
       {formEl}
-      {!campus && <LoginGuide />}
     </AuthShell>
   )
 }

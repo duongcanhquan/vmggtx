@@ -71,15 +71,9 @@ export default async function CampusPortalPage({ params }: Props) {
           </h1>
           {campus.parentNames && campus.parentNames.length > 0 && (
             <p className="mt-1.5 text-sm font-medium text-indigo-700">
-              Trực thuộc: {campus.parentNames.join(' · ')}
+              Trực thuộc {campus.parentNames.join(' · ')}
             </p>
           )}
-          <p className="mt-2 text-sm text-slate-500">
-            Một cổng đăng nhập duy nhất — chọn đúng nhóm của bạn
-          </p>
-          <p className="mt-1 font-mono text-xs text-slate-400">
-            /coso/{campus.slug}
-          </p>
         </div>
 
         <ul className="grid gap-3 sm:gap-4">
@@ -115,9 +109,8 @@ export default async function CampusPortalPage({ params }: Props) {
         </ul>
 
         <p className="mt-8 text-center text-xs text-slate-400">
-          Đăng nhập toàn hệ thống?{' '}
-          <Link href="/login" className="font-semibold text-indigo-600 hover:underline">
-            /login
+          <Link href="/coso" className="font-semibold text-indigo-600 hover:underline">
+            ← Chọn cơ sở khác
           </Link>
         </p>
       </div>

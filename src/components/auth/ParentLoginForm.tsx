@@ -141,10 +141,6 @@ export function ParentLoginForm({
           </p>
         )}
 
-        <p className="mt-4 text-center text-xs text-white/80">
-          Demo: <span className="font-bold text-white">0901234567</span> · OTP{' '}
-          <span className="font-bold text-white">123456</span>
-        </p>
       </form>
   )
 
@@ -153,22 +149,25 @@ export function ParentLoginForm({
   return (
     <AuthShell
       theme="parent"
-      badge={campus ? campus.name : 'Dành cho Phụ huynh'}
-      title="Sổ Liên Lạc Điện Tử"
-      subtitle={
-        campus
-          ? `Phụ huynh · ${campus.name}`
-          : 'Nên vào /coso/ten-co-so — cổng đúng cơ sở của con bạn'
+      badge="Cổng Phụ huynh"
+      title={
+        campus ? (
+          <span className="block text-balance text-2xl leading-snug sm:text-[26px]">
+            {campus.name}
+          </span>
+        ) : (
+          'Sổ Liên Lạc Điện Tử'
+        )
       }
+      subtitle={campus ? 'Sổ liên lạc điện tử' : undefined}
       footer={
         !campus ? (
           <p>
-            Chọn cơ sở trước khi đăng nhập:{' '}
             <Link
               href="/coso"
               className="font-bold text-white underline-offset-2 hover:underline"
             >
-              /coso
+              Chọn cơ sở của bạn →
             </Link>
           </p>
         ) : (

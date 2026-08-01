@@ -21,7 +21,6 @@ export default async function BranchPortalPage({ params }: Props) {
 
   const { campus, chain } = data
   const current = chain[chain.length - 1]
-  const fullPath = `/coso/${campus.slug}/${chain.map((c) => c.slug).join('/')}`
 
   const portals = [
     {
@@ -93,11 +92,6 @@ export default async function BranchPortalPage({ params }: Props) {
             ))}
           </nav>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Đăng nhập chung một cổng của {campus.name} — hệ thống tự nhận diện bạn thuộc{' '}
-            {current.name}
-          </p>
-          <p className="mt-1 font-mono text-xs text-slate-400">{fullPath}</p>
         </div>
 
         <ul className="grid gap-3 sm:gap-4">
@@ -131,12 +125,11 @@ export default async function BranchPortalPage({ params }: Props) {
         </ul>
 
         <p className="mt-8 text-center text-xs text-slate-400">
-          Cổng chính của Đơn vị:{' '}
           <Link
             href={`/coso/${campus.slug}`}
-            className="font-mono font-semibold text-indigo-600 hover:underline"
+            className="font-semibold text-indigo-600 hover:underline"
           >
-            /coso/{campus.slug}
+            ← Về cổng chính {campus.name}
           </Link>
         </p>
       </div>

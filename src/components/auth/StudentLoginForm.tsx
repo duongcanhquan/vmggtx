@@ -223,26 +223,26 @@ export function StudentLoginForm({
   return (
     <AuthShell
       theme="student"
-      badge={campus ? campus.name : 'Cổng Học viên (toàn hệ thống)'}
+      badge="Cổng Học viên"
       title={
-        <>
-          EDU <span className="text-yellow-200">SYSTEM</span>
-        </>
-      }
-      subtitle={
-        campus
-          ? `Học viên · ${campus.name}`
-          : 'Nên đăng nhập tại /coso/ten-co-so — cổng đúng cơ sở của bạn'
+        campus ? (
+          <span className="block text-balance text-2xl leading-snug sm:text-[26px]">
+            {campus.name}
+          </span>
+        ) : (
+          <>
+            EDU <span className="text-yellow-200">SYSTEM</span>
+          </>
+        )
       }
       footer={
         !campus ? (
           <p>
-            Thuộc một cơ sở cụ thể?{' '}
             <Link
               href="/coso"
               className="font-bold text-white underline-offset-2 hover:underline"
             >
-              Chọn cơ sở tại /coso
+              Chọn cơ sở của bạn →
             </Link>
           </p>
         ) : (

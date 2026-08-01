@@ -14,7 +14,11 @@ export type PublicCampus = {
   parentNames?: string[]
 }
 
-/** Đi ngược cây tổ chức lấy tên các cấp trên (gần nhất trước, tối đa 4 cấp) */
+/**
+ * Đi ngược cây tổ chức lấy tên các cấp trên (gần nhất trước, tối đa 4 cấp).
+ * BỎ QUA gốc hệ thống (node không có cha) — "Trực thuộc: Hệ thống" là
+ * thông tin vô nghĩa với người dùng cuối.
+ */
 async function getAncestorNames(
   admin: ReturnType<typeof createAdminClient>,
   orgId: string
@@ -34,6 +38,7 @@ async function getAncestorNames(
       .is('deleted_at', null)
       .maybeSingle()
     if (!parent) break
+    if ((parent.parent_id ?? null) === null) break // gốc hệ thống -> không hiển thị
     names.push(parent.name)
     nextId = parent.parent_id ?? null
   }
