@@ -193,7 +193,18 @@ export async function middleware(request: NextRequest) {
     // Đã đăng nhập mà vào /login → đẩy về portal đúng role
     if (session && (pathname === '/login' || pathname === '/')) {
       const role = await resolveRole()
-      return redirectTo(request, getHomePathForRole(role))
+      if (role) {
+        return redirectTo(request, getHomePathForRole(role))
+      }
+      // Session "mồ côi" (user đã bị xóa / không có profile):
+      // KHÔNG redirect (tránh ERR_TOO_MANY_REDIRECTS) — xóa cookie
+      // phiên hỏng rồi cho ở lại trang login.
+      try {
+        await supabase.auth.signOut({ scope: 'local' })
+      } catch {
+        /* refresh token đã chết — bỏ qua */
+      }
+      return response
     }
     return response
   }
@@ -204,7 +215,11 @@ export async function middleware(request: NextRequest) {
       return redirectTo(request, '/login')
     }
     const role = await resolveRole()
-    return redirectTo(request, getHomePathForRole(role))
+    if (role) {
+      return redirectTo(request, getHomePathForRole(role))
+    }
+    // Session hỏng → về /login; nhánh public ở trên sẽ dọn cookie.
+    return redirectTo(request, '/login')
   }
 
   // ===== 3. Khu vực có ROUTE_RULES =====
