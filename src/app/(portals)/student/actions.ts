@@ -200,6 +200,36 @@ export async function getStudentHome(): Promise<StudentHomeResult> {
       }
     }
 
+    // Kết quả đơn từ Cổng dịch vụ (migration 032) - 7 ngày gần nhất
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: decidedTickets } = await admin
+        .from('tickets')
+        .select('id, status, updated_at, ticket_categories(name)')
+        .eq('requester_id', user.id)
+        .in('status', ['approved', 'rejected'])
+        .gte('updated_at', since)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(3)
+      for (const ticket of decidedTickets ?? []) {
+        const category = Array.isArray(ticket.ticket_categories)
+          ? ticket.ticket_categories[0]
+          : ticket.ticket_categories
+        const approved = ticket.status === 'approved'
+        alerts.push({
+          id: `ticket-${ticket.id}`,
+          kind: 'announcement',
+          title: `Đơn "${(category as { name?: string } | null)?.name ?? 'dịch vụ'}" ${approved ? 'đã được DUYỆT' : 'bị TỪ CHỐI'}`,
+          description: 'Xem chi tiết và phản hồi của người duyệt tại mục Dịch vụ.',
+          severe: !approved,
+          href: '/student/requests',
+        })
+      }
+    } catch {
+      // Bảng tickets chưa tồn tại (pre-032) -> bỏ qua êm
+    }
+
     // Cảnh báo đỏ nổi lên trước
     alerts.sort((a, b) => Number(b.severe) - Number(a.severe))
 

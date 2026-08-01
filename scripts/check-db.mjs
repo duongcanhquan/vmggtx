@@ -162,6 +162,11 @@ await checkColumn('class_sessions', 'is_makeup', '031_exam_ops.sql')
 await checkColumn('class_sessions', 'substitute_teacher_id', '031_exam_ops.sql')
 await checkColumn('grades', 'review_status', '031_exam_ops.sql')
 
+console.log('\n-- Migration 032 (cổng dịch vụ E-Ticketing + approval workflows) --')
+await checkTable('ticket_categories', '032_ticketing_workflows.sql')
+await checkTable('tickets', '032_ticketing_workflows.sql')
+await checkTable('ticket_approvals', '032_ticketing_workflows.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

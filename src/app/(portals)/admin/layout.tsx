@@ -5,6 +5,7 @@ import {
   Building2,
   LayoutDashboard,
   Settings,
+  TicketCheck,
   Users,
 } from 'lucide-react'
 import { PortalShell, type PortalNavGroup } from '@/components/shared/PortalShell'
@@ -22,6 +23,7 @@ const ADMIN_NAV: PortalNavGroup[] = [
       { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
       { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
       { label: 'Quản lý Nhân sự', href: '/campus-admin/users', icon: Users },
+      { label: 'Cổng dịch vụ', href: '/admin/requests', icon: TicketCheck },
       { label: 'Cài đặt Hệ thống', href: '/settings', icon: Settings },
       { label: 'Báo cáo Doanh thu', href: '/admin/revenue', icon: BarChart3 },
     ],

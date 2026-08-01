@@ -39,6 +39,11 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
 
   // --- Portal homes (Smart Auth) ---
   {
+    // Cổng dịch vụ E-Ticketing (032): giáo vụ cũng được duyệt đơn
+    prefix: '/admin/requests',
+    allowedRoles: ['super_admin', 'campus_admin', 'academic_staff'],
+  },
+  {
     prefix: '/admin',
     allowedRoles: ['super_admin', 'campus_admin'],
   },

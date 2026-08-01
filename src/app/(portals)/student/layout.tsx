@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, Home, Medal, MonitorPlay, Settings } from 'lucide-react'
+import { CalendarDays, Home, Medal, MonitorPlay, Settings, TicketCheck } from 'lucide-react'
 
 // ============================================================
 // Layout STUDENT PORTAL (/student/*) — TUYỆT ĐỐI MOBILE-FIRST.
@@ -15,6 +15,7 @@ const STUDENT_MENU = [
   { label: 'Lịch học', href: '/schedule', icon: CalendarDays },
   { label: 'Học bài', href: '/learn', icon: MonitorPlay },
   { label: 'Sổ điểm', href: '/grades', icon: Medal },
+  { label: 'Dịch vụ', href: '/student/requests', icon: TicketCheck },
   { label: 'Cài đặt', href: '/student/settings', icon: Settings },
 ]
 
@@ -36,7 +37,7 @@ export default function StudentWorkspaceLayout({
           aria-label="Menu học sinh"
           className="fixed bottom-0 z-40 w-full max-w-[480px] md:max-w-[640px] border-t border-border bg-surface/95 backdrop-blur"
         >
-          <ul className="grid grid-cols-5">
+          <ul className="grid grid-cols-6">
             {STUDENT_MENU.map((item) => {
               const Icon = item.icon
               const isActive =
