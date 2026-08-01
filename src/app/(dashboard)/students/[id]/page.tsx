@@ -20,6 +20,7 @@ import {
 import dynamic from 'next/dynamic'
 import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
 import { getStudent360, type Student360 } from './actions'
+import { EnrollmentManager } from './EnrollmentManager'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // Lazy-load recharts: chỉ tải khi mở tab có biểu đồ -> trang mở tức thì
@@ -353,6 +354,9 @@ export default function Student360Page({ params }: { params: { id: string } }) {
               </ul>
             )}
           </div>
+
+          {/* Ghi danh / chuyển lớp / bảo lưu / thôi học */}
+          <EnrollmentManager studentId={params.id} />
 
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Radar điểm mạnh/yếu */}

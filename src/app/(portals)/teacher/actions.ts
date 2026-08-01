@@ -47,6 +47,13 @@ export type TeacherSession = {
   status: 'scheduled' | 'completed' | 'cancelled'
 }
 
+export type TeacherAnnouncement = {
+  id: string
+  title: string
+  body: string
+  createdAt: string
+}
+
 export type TeacherHomeResult =
   | { error: string }
   | {
@@ -55,6 +62,8 @@ export type TeacherHomeResult =
       /** Buổi ĐÃ KẾT THÚC (7 ngày gần nhất) nhưng chưa chốt điểm danh */
       pendingAttendance: TeacherSession[]
       stats: { monthCompleted: number; activeClasses: number }
+      /** Thông báo chung của cơ sở (migration 030) */
+      announcements: TeacherAnnouncement[]
     }
 
 type SessionRow = {
@@ -134,6 +143,31 @@ export async function getTeacherHome(): Promise<TeacherHomeResult> {
       return { error: `Không tải được lịch dạy: ${todayResult.error.message}` }
     }
 
+    // Thông báo chung của cơ sở (audience GV) - bỏ qua êm nếu chưa chạy 030
+    let announcements: TeacherAnnouncement[] = []
+    const { data: myProfile } = await supabase
+      .from('profiles')
+      .select('org_id')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (myProfile?.org_id) {
+      const { data: announceRows } = await supabase
+        .from('announcements')
+        .select('id, title, body, created_at')
+        .eq('org_id', myProfile.org_id)
+        .in('audience', ['all', 'teachers'])
+        .is('deleted_at', null)
+        .order('pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(3)
+      announcements = (announceRows ?? []).map((row) => ({
+        id: row.id,
+        title: row.title,
+        body: row.body,
+        createdAt: row.created_at,
+      }))
+    }
+
     return {
       todaySessions: ((todayResult.data ?? []) as unknown as SessionRow[]).map(
         toTeacherSession
@@ -145,6 +179,7 @@ export async function getTeacherHome(): Promise<TeacherHomeResult> {
         monthCompleted: monthResult.count ?? 0,
         activeClasses: classesResult.count ?? 0,
       },
+      announcements,
     }
   } catch (error) {
     return {

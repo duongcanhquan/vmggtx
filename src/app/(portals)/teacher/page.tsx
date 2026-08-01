@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import {
   AlertTriangle,
+  BellRing,
   BookOpen,
   CalendarCheck,
   CheckCircle2,
@@ -88,7 +89,7 @@ export default async function TeacherHomePage() {
     )
   }
 
-  const { todaySessions, pendingAttendance, stats } = result
+  const { todaySessions, pendingAttendance, stats, announcements } = result
   const now = Date.now()
 
   return (
@@ -101,6 +102,26 @@ export default async function TeacherHomePage() {
           {dateFormat.format(new Date())}
         </p>
       </div>
+
+      {/* ===== Thông báo chung từ cơ sở ===== */}
+      {announcements.length > 0 && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4">
+          <h2 className="flex items-center gap-2 font-heading text-sm font-bold text-indigo-800">
+            <BellRing className="h-4 w-4" aria-hidden="true" />
+            Thông báo từ cơ sở
+          </h2>
+          <ul className="mt-2.5 space-y-2">
+            {announcements.map((item) => (
+              <li key={item.id} className="rounded-xl border border-indigo-100 bg-surface px-3.5 py-2.5">
+                <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                <p className="mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground">
+                  {item.body}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* ===== CẢNH BÁO ĐỎ: đã học xong nhưng CHƯA điểm danh ===== */}
       {pendingAttendance.length > 0 && (

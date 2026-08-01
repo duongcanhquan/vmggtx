@@ -24,6 +24,7 @@ const ALERT_ICON: Record<StudentAlert['kind'], typeof Wallet> = {
   tuition: Wallet,
   attendance: AlertTriangle,
   grade: Medal,
+  announcement: BellRing,
 }
 
 function AlertCard({ alert }: { alert: StudentAlert }) {

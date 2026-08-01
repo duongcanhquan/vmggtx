@@ -400,12 +400,13 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
     const supabase = admin()
     const notices: ParentNotice[] = []
 
-    // [PERF] 4 truy vấn độc lập chạy SONG SONG thay vì nối tiếp
+    // [PERF] 5 truy vấn độc lập chạy SONG SONG thay vì nối tiếp
     const [
       { data: warnings },
       { data: gradeNotes },
       { data: attendanceNotes },
       { data: enrolledClasses },
+      { data: studentProfile },
     ] = await Promise.all([
       supabase
         .from('student_warnings')
@@ -438,7 +439,29 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
         .eq('student_id', studentId)
         .eq('status', 'active')
         .is('deleted_at', null),
+      supabase.from('profiles').select('org_id').eq('id', studentId).maybeSingle(),
     ])
+
+    // Thông báo chung của cơ sở (migration 030) - audience phụ huynh
+    if (studentProfile?.org_id) {
+      const { data: announcements } = await supabase
+        .from('announcements')
+        .select('id, title, body, created_at')
+        .eq('org_id', studentProfile.org_id)
+        .in('audience', ['all', 'parents'])
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      for (const item of announcements ?? []) {
+        notices.push({
+          id: `an-${item.id}`,
+          kind: 'warning',
+          title: `Thông báo chung · ${item.title}`,
+          description: item.body,
+          date: item.created_at,
+        })
+      }
+    }
 
     for (const warning of warnings ?? []) {
       const cls = warning.classes as { name?: string } | { name?: string }[] | null
@@ -583,5 +606,115 @@ export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
     return Array.from(byClass.values())
   } catch {
     return MOCK_GRADE_REPORT
+  }
+}
+
+// ============================================================
+// HỌC PHÍ (tab Học phí) - phụ huynh xem hóa đơn + công nợ của con
+// Admin client nhưng LUÔN lọc cứng theo student_id đã verify HMAC.
+// ============================================================
+
+export type ParentInvoice = {
+  id: string
+  code: string
+  amount: number
+  paidTotal: number
+  status: 'pending' | 'partial' | 'paid' | 'cancelled'
+  dueDate: string | null
+  note: string | null
+  overdue: boolean
+}
+
+export type ParentTuition = {
+  invoices: ParentInvoice[]
+  totalAmount: number
+  totalPaid: number
+  totalRemaining: number
+  overdueRemaining: number
+}
+
+const MOCK_TUITION: ParentTuition = {
+  invoices: [
+    {
+      id: 'mt1',
+      code: 'HD-DEMO01',
+      amount: 4_500_000,
+      paidTotal: 4_500_000,
+      status: 'paid',
+      dueDate: new Date(Date.now() - 20 * 86400_000).toISOString().slice(0, 10),
+      note: 'Học phí khóa Toán 12',
+      overdue: false,
+    },
+    {
+      id: 'mt2',
+      code: 'HD-DEMO02',
+      amount: 4_500_000,
+      paidTotal: 2_000_000,
+      status: 'partial',
+      dueDate: new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10),
+      note: 'Học phí khóa Văn 12 - đợt 2',
+      overdue: true,
+    },
+  ],
+  totalAmount: 9_000_000,
+  totalPaid: 6_500_000,
+  totalRemaining: 2_500_000,
+  overdueRemaining: 2_500_000,
+}
+
+export async function getParentTuition(): Promise<ParentTuition> {
+  const studentId = getSessionStudentId()
+  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_TUITION
+
+  try {
+    const supabase = admin()
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('id, amount, status, due_date, note, created_at, payments(amount_paid, deleted_at)')
+      .eq('student_id', studentId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+
+    const now = new Date()
+    const invoices: ParentInvoice[] = (data ?? [])
+      .filter((row) => row.status !== 'cancelled')
+      .map((row) => {
+        const payments = ((row.payments ?? []) as {
+          amount_paid: number
+          deleted_at: string | null
+        }[]).filter((p) => p.deleted_at === null)
+        const paidTotal = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0)
+        const overdue =
+          (row.status === 'pending' || row.status === 'partial') &&
+          !!row.due_date &&
+          new Date(`${row.due_date}T23:59:59`) < now
+        return {
+          id: row.id,
+          code: `HD-${row.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`,
+          amount: Number(row.amount),
+          paidTotal,
+          status: row.status as ParentInvoice['status'],
+          dueDate: row.due_date,
+          note: row.note,
+          overdue,
+        }
+      })
+
+    const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0)
+    const totalPaid = invoices.reduce((sum, inv) => sum + inv.paidTotal, 0)
+    const overdueRemaining = invoices
+      .filter((inv) => inv.overdue)
+      .reduce((sum, inv) => sum + (inv.amount - inv.paidTotal), 0)
+
+    return {
+      invoices,
+      totalAmount,
+      totalPaid,
+      totalRemaining: totalAmount - totalPaid,
+      overdueRemaining,
+    }
+  } catch {
+    return { invoices: [], totalAmount: 0, totalPaid: 0, totalRemaining: 0, overdueRemaining: 0 }
   }
 }

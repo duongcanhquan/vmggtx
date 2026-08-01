@@ -135,11 +135,37 @@ export async function getRequestsForReview(): Promise<
   }
 }
 
-/** Duyệt / từ chối đơn kèm phản hồi cho giáo viên */
+/** Danh sách giáo viên trong phạm vi (cho ô chọn GV dạy thay) */
+export async function getTeacherOptions(): Promise<{ id: string; name: string }[]> {
+  try {
+    const supabase = createClient()
+    const reviewer = await getReviewer(supabase)
+    if (reviewer.error !== undefined) return []
+
+    // RLS profiles giới hạn subtree sẵn
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('role', 'teacher')
+      .is('deleted_at', null)
+      .order('full_name')
+      .limit(300)
+    return (data ?? []).map((row) => ({ id: row.id, name: row.full_name }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Duyệt / từ chối đơn kèm phản hồi cho giáo viên.
+ * Với đơn XIN NGHỈ: nếu chọn substituteTeacherId -> ĐỔI GIÁO VIÊN
+ * dạy thay (buổi học giữ nguyên); nếu không -> HỦY buổi học.
+ */
 export async function reviewRequest(
   requestId: string,
   decision: 'approve' | 'reject',
-  note: string
+  note: string,
+  substituteTeacherId?: string
 ): Promise<ActionResult> {
   const trimmedNote = note.trim()
   if (!requestId) return { error: 'Thiếu mã đơn.' }
@@ -170,7 +196,7 @@ export async function reviewRequest(
         if (!request.session_id) return { error: 'Đơn xin nghỉ thiếu thông tin buổi dạy.' }
         const { data: session } = await supabase
           .from('class_sessions')
-          .select('id, status')
+          .select('id, status, start_time, end_time')
           .eq('id', request.session_id)
           .is('deleted_at', null)
           .maybeSingle()
@@ -178,11 +204,48 @@ export async function reviewRequest(
         if (session.status === 'completed') {
           return { error: 'Buổi này đã hoàn thành điểm danh — không thể duyệt nghỉ.' }
         }
-        const { error: cancelError } = await supabase
-          .from('class_sessions')
-          .update({ status: 'cancelled' })
-          .eq('id', request.session_id)
-        if (cancelError) return { error: `Không hủy được buổi dạy: ${cancelError.message}` }
+
+        if (substituteTeacherId) {
+          // ===== Cử GIÁO VIÊN DẠY THAY: buổi học giữ nguyên =====
+          if (substituteTeacherId === request.teacher_id) {
+            return { error: 'Giáo viên dạy thay phải khác giáo viên xin nghỉ.' }
+          }
+          const { data: substitute } = await supabase
+            .from('profiles')
+            .select('id, role')
+            .eq('id', substituteTeacherId)
+            .eq('role', 'teacher')
+            .is('deleted_at', null)
+            .maybeSingle()
+          if (!substitute) return { error: 'Giáo viên dạy thay không tồn tại.' }
+
+          // Check trùng lịch của GV dạy thay trong khung giờ buổi này
+          const { data: conflicts } = await supabase
+            .from('class_sessions')
+            .select('id')
+            .eq('teacher_id', substituteTeacherId)
+            .neq('status', 'cancelled')
+            .is('deleted_at', null)
+            .lt('start_time', session.end_time)
+            .gt('end_time', session.start_time)
+            .limit(1)
+          if (conflicts && conflicts.length > 0) {
+            return { error: 'Giáo viên dạy thay đã có buổi dạy trùng khung giờ này.' }
+          }
+
+          const { error: swapError } = await supabase
+            .from('class_sessions')
+            .update({ teacher_id: substituteTeacherId })
+            .eq('id', request.session_id)
+          if (swapError) return { error: `Không đổi được giáo viên: ${swapError.message}` }
+        } else {
+          // ===== Không có GV dạy thay -> HỦY buổi học =====
+          const { error: cancelError } = await supabase
+            .from('class_sessions')
+            .update({ status: 'cancelled' })
+            .eq('id', request.session_id)
+          if (cancelError) return { error: `Không hủy được buổi dạy: ${cancelError.message}` }
+        }
       } else {
         // propose: cần lớp + khung giờ để tự tạo buổi học
         if (!request.class_id || !request.proposed_start || !request.proposed_end) {

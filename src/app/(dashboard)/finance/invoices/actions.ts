@@ -157,6 +157,134 @@ export async function getInvoices(
   }
 }
 
+/** Học viên trong org hiện tại + chi nhánh con - cho form tạo hóa đơn */
+export async function getStudentsForInvoice(
+  orgId: string
+): Promise<{ id: string; name: string }[]> {
+  try {
+    const supabase = createClient()
+    const orgIds = await getDescendantOrgIds(supabase, orgId)
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('role', 'student')
+      .in('org_id', orgIds)
+      .is('deleted_at', null)
+      .order('full_name')
+      .limit(500)
+    return (data ?? []).map((row) => ({ id: row.id, name: row.full_name }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Tạo hóa đơn học phí thủ công (trước đây CHỈ tự sinh khi chuyển đổi
+ * lead CRM -> giáo vụ không thể thu các khoản phát sinh: học lại,
+ * tài liệu, phí thi...). Hóa đơn gắn theo ORG CỦA HỌC VIÊN.
+ */
+export async function createInvoice(
+  studentId: string,
+  amount: number,
+  dueDate: string | null,
+  note: string
+): Promise<{ error: string } | { error?: undefined }> {
+  if (!studentId) return { error: 'Vui lòng chọn học viên.' }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: 'Số tiền phải lớn hơn 0.' }
+  }
+  if (amount > 1_000_000_000) return { error: 'Số tiền vượt giới hạn cho phép.' }
+  if (note.trim().length > 300) return { error: 'Ghi chú tối đa 300 ký tự.' }
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { data: student } = await supabase
+      .from('profiles')
+      .select('id, org_id')
+      .eq('id', studentId)
+      .eq('role', 'student')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!student) return { error: 'Học viên không tồn tại.' }
+
+    const { data: authorized } = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: student.org_id,
+      p_required_role: 'academic_staff',
+    })
+    if (authorized !== true) {
+      return { error: 'Bạn không có quyền tạo hóa đơn cho chi nhánh của học viên này.' }
+    }
+
+    const { error } = await supabase.from('invoices').insert({
+      org_id: student.org_id,
+      student_id: studentId,
+      amount,
+      status: 'pending',
+      due_date: dueDate || null,
+      note: note.trim() || null,
+    })
+    if (error) return { error: `Không tạo được hóa đơn: ${error.message}` }
+
+    revalidatePath('/finance/invoices')
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
+  }
+}
+
+/** Hủy hóa đơn (chỉ khi CHƯA có phiếu thu nào) */
+export async function cancelInvoice(
+  invoiceId: string
+): Promise<{ error: string } | { error?: undefined }> {
+  if (!invoiceId) return { error: 'Thiếu mã hóa đơn.' }
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { data: invoice } = await supabase
+      .from('invoices')
+      .select('id, org_id, status, payments(amount_paid, deleted_at)')
+      .eq('id', invoiceId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!invoice) return { error: 'Hóa đơn không tồn tại hoặc ngoài phạm vi của bạn.' }
+    if (invoice.status === 'cancelled') return { error: 'Hóa đơn đã hủy trước đó.' }
+
+    const payments = ((invoice.payments ?? []) as { amount_paid: number; deleted_at: string | null }[])
+      .filter((p) => p.deleted_at === null)
+    if (payments.length > 0) {
+      return { error: 'Hóa đơn đã có phiếu thu — không thể hủy. Liên hệ kế toán để xử lý hoàn phí.' }
+    }
+
+    const { data: authorized } = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: invoice.org_id,
+      p_required_role: 'academic_staff',
+    })
+    if (authorized !== true) return { error: 'Bạn không có quyền hủy hóa đơn này.' }
+
+    const { error } = await supabase
+      .from('invoices')
+      .update({ status: 'cancelled' })
+      .eq('id', invoiceId)
+    if (error) return { error: `Không hủy được hóa đơn: ${error.message}` }
+
+    revalidatePath('/finance/invoices')
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
+  }
+}
+
 /**
  * Thu tiền một đợt cho hóa đơn (thu một phần hoặc toàn bộ).
  *

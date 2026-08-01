@@ -4,13 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { AlertTriangle, Banknote, Loader2, X } from 'lucide-react'
+import { AlertTriangle, Banknote, FilePlus2, Loader2, Trash2, X } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { SmartTable, sortableHeader } from '@/components/shared/SmartTable'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import {
+  cancelInvoice,
+  createInvoice,
   getInvoices,
+  getStudentsForInvoice,
   recordPayment,
   type InvoiceRow,
   type PaymentMethod,
@@ -317,6 +320,170 @@ function PaymentSheet({
   )
 }
 
+// ---------- Sheet tạo hóa đơn thủ công ----------
+function CreateInvoiceSheet({
+  orgId,
+  onClose,
+  onSaved,
+}: {
+  orgId: string
+  onClose: () => void
+  onSaved: (message: string) => void
+}) {
+  const [visible, setVisible] = useState(false)
+  const [students, setStudents] = useState<{ id: string; name: string }[]>([])
+  const [studentId, setStudentId] = useState('')
+  const [amount, setAmount] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true))
+    void getStudentsForInvoice(orgId).then(setStudents)
+    return () => cancelAnimationFrame(raf)
+  }, [orgId])
+
+  function close() {
+    setVisible(false)
+    setTimeout(onClose, 300)
+  }
+
+  async function submit() {
+    setError(null)
+    const parsedAmount = Number(amount)
+    if (!studentId) {
+      setError('Vui lòng chọn học viên.')
+      return
+    }
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError('Số tiền phải là số lớn hơn 0.')
+      return
+    }
+    setSaving(true)
+    const result = await createInvoice(studentId, parsedAmount, dueDate || null, note)
+    setSaving(false)
+    if (result.error !== undefined) {
+      setError(result.error)
+      return
+    }
+    onSaved(`Đã tạo hóa đơn ${CURRENCY.format(parsedAmount)}.`)
+    close()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={close}
+        className={`absolute inset-0 cursor-pointer bg-black/50 transition-opacity duration-300 ${
+          visible ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
+      <aside
+        className={`absolute inset-y-0 right-0 flex w-full max-w-md transform flex-col bg-surface shadow-2xl transition-transform duration-300 ${
+          visible ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="font-heading text-lg font-bold">Tạo hóa đơn học phí</h2>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={close}
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-muted-foreground hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <p className="rounded-xl bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+            Dùng cho các khoản phát sinh: học phí đợt mới, học lại, tài liệu, phí thi…
+          </p>
+
+          <label className="block text-sm font-medium">
+            Học viên <span className="text-destructive">*</span>
+            <select
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+              className="mt-1.5 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">— Chọn học viên —</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-sm font-medium">
+            Số tiền (VND) <span className="text-destructive">*</span>
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="VD: 4500000"
+              className="mt-1.5 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+
+          <label className="block text-sm font-medium">
+            Hạn nộp
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="mt-1.5 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+
+          <label className="block text-sm font-medium">
+            Nội dung khoản thu
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={300}
+              placeholder="VD: Học phí khóa Toán 12 - đợt 2"
+              className="mt-1.5 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+
+          {error && (
+            <p
+              role="alert"
+              className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              {error}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={saving}
+            className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+            )}
+            {saving ? 'Đang tạo…' : 'Tạo hóa đơn'}
+          </button>
+        </div>
+      </aside>
+    </div>
+  )
+}
+
 // ---------- Trang chính ----------
 export default function InvoicesPage() {
   const currentOrgId = useOrgStore((state) => state.currentOrgId)
@@ -324,7 +491,25 @@ export default function InvoicesPage() {
   const [isDemo, setIsDemo] = useState(false)
   const [loading, setLoading] = useState(true)
   const [sheetInvoice, setSheetInvoice] = useState<InvoiceRow | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
+
+  // Tổng hợp công nợ (tính trên dữ liệu đang xem, bỏ hóa đơn hủy)
+  const summary = useMemo(() => {
+    const active = invoices.filter((inv) => inv.status !== 'cancelled')
+    const total = active.reduce((sum, inv) => sum + inv.amount, 0)
+    const collected = active.reduce((sum, inv) => sum + inv.paid_total, 0)
+    const overdueAmount = active
+      .filter(isOverdue)
+      .reduce((sum, inv) => sum + (inv.amount - inv.paid_total), 0)
+    return {
+      total,
+      collected,
+      remaining: total - collected,
+      overdueAmount,
+      overdueCount: active.filter(isOverdue).length,
+    }
+  }, [invoices])
 
   const loadInvoices = useCallback(async () => {
     setLoading(true)
@@ -337,6 +522,19 @@ export default function InvoicesPage() {
   useEffect(() => {
     loadInvoices()
   }, [loadInvoices])
+
+  const handleCancelInvoice = useCallback(
+    async (invoice: InvoiceRow) => {
+      const result = await cancelInvoice(invoice.id)
+      if (result.error !== undefined) {
+        setToast({ type: 'error', message: result.error })
+        return
+      }
+      setToast({ type: 'success', message: `Đã hủy hóa đơn ${invoice.code}.` })
+      void loadInvoices()
+    },
+    [loadInvoices]
+  )
 
   const columns = useMemo<ColumnDef<InvoiceRow>[]>(
     () => [
@@ -424,32 +622,81 @@ export default function InvoicesPage() {
           const collectible =
             row.original.status === 'pending' || row.original.status === 'partial'
           if (!collectible) return null
+          const cancellable = row.original.status === 'pending' && row.original.paid_total === 0
           return (
-            <button
-              type="button"
-              onClick={() => setSheetInvoice(row.original)}
-              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
-              Thu tiền
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSheetInvoice(row.original)}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
+                Thu tiền
+              </button>
+              {cancellable && (
+                <button
+                  type="button"
+                  title="Hủy hóa đơn (chưa có phiếu thu)"
+                  onClick={() => void handleCancelInvoice(row.original)}
+                  className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  Hủy
+                </button>
+              )}
+            </div>
           )
         },
       },
     ],
-    []
+    [handleCancelInvoice]
   )
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-          Học phí &amp; Công nợ
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Dòng đỏ nhạt là công nợ quá hạn.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+            Học phí &amp; Công nợ
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Dòng đỏ nhạt là công nợ quá hạn.
+          </p>
+        </div>
+        {currentOrgId && (
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+            Tạo hóa đơn
+          </button>
+        )}
       </div>
+
+      {/* ===== Thẻ tổng hợp công nợ ===== */}
+      {!loading && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Tổng phải thu', value: CURRENCY.format(summary.total), tone: 'text-foreground' },
+            { label: 'Đã thu', value: CURRENCY.format(summary.collected), tone: 'text-emerald-700' },
+            { label: 'Còn nợ', value: CURRENCY.format(summary.remaining), tone: 'text-amber-700' },
+            {
+              label: `Quá hạn (${summary.overdueCount} HĐ)`,
+              value: CURRENCY.format(summary.overdueAmount),
+              tone: 'text-rose-600',
+            },
+          ].map((card) => (
+            <div key={card.label} className="rounded-2xl border border-border bg-surface p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {card.label}
+              </p>
+              <p className={`mt-1 font-heading text-lg font-bold ${card.tone}`}>{card.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -469,6 +716,17 @@ export default function InvoicesPage() {
           rowClassName={(invoice) =>
             isOverdue(invoice) ? 'bg-rose-50/60 hover:bg-rose-50' : ''
           }
+        />
+      )}
+
+      {showCreate && currentOrgId && (
+        <CreateInvoiceSheet
+          orgId={currentOrgId}
+          onClose={() => setShowCreate(false)}
+          onSaved={(message) => {
+            setToast({ type: 'success', message })
+            loadInvoices()
+          }}
         />
       )}
 

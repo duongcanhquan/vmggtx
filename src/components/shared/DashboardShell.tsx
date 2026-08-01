@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
+  BellRing,
   BookOpen,
   Briefcase,
   Calendar,
@@ -38,6 +39,7 @@ const MENU_ITEMS = [
   { label: 'Vận hành (Giáo vụ)', href: '/staff/classes', icon: Briefcase },
   { label: 'Lịch dạy (GV)', href: '/teacher/schedule', icon: Calendar },
   { label: 'Duyệt đơn GV', href: '/academic/requests', icon: Inbox },
+  { label: 'Thông báo chung', href: '/announcements', icon: BellRing },
   { label: 'Học phí & Công nợ', href: '/finance/invoices', icon: Receipt },
   { label: 'Tính lương', href: '/finance/payroll', icon: Wallet },
   { label: 'Lương & Hợp đồng', href: '/hr/contracts', icon: FileSignature },

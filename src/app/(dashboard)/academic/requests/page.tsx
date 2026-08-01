@@ -16,6 +16,7 @@ import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
 import {
   getRequestsForReview,
+  getTeacherOptions,
   reviewRequest,
   type ReviewRequest,
 } from './actions'
@@ -53,12 +54,18 @@ export default function AcademicRequestsPage() {
   const [requests, setRequests] = useState<ReviewRequest[]>([])
   const [toast, setToast] = useState<ToastData | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [substitutes, setSubstitutes] = useState<Record<string, string>>({})
+  const [teacherOptions, setTeacherOptions] = useState<{ id: string; name: string }[]>([])
   const [actingId, setActingId] = useState<string | null>(null)
   const [tab, setTab] = useState<'pending' | 'processed'>('pending')
 
   const load = useCallback(async () => {
     setLoading(true)
-    const result = await getRequestsForReview()
+    const [result, teachers] = await Promise.all([
+      getRequestsForReview(),
+      getTeacherOptions(),
+    ])
+    setTeacherOptions(teachers)
     if (result.error !== undefined) {
       setLoadError(result.error)
     } else {
@@ -87,7 +94,7 @@ export default function AcademicRequestsPage() {
   const handleReview = async (id: string, decision: 'approve' | 'reject') => {
     if (actingId) return
     setActingId(id)
-    const result = await reviewRequest(id, decision, notes[id] ?? '')
+    const result = await reviewRequest(id, decision, notes[id] ?? '', substitutes[id] || undefined)
     setActingId(null)
     if (result.error) {
       setToast({ type: 'error', message: result.error })
@@ -97,7 +104,9 @@ export default function AcademicRequestsPage() {
       type: 'success',
       message:
         decision === 'approve'
-          ? 'Đã duyệt — lịch dạy đã tự cập nhật, giáo viên nhận được phản hồi.'
+          ? substitutes[id]
+            ? 'Đã duyệt — giáo viên dạy thay được gán vào buổi học.'
+            : 'Đã duyệt — lịch dạy đã tự cập nhật, giáo viên nhận được phản hồi.'
           : 'Đã từ chối kèm phản hồi cho giáo viên.',
     })
     void load()
@@ -198,6 +207,24 @@ export default function AcademicRequestsPage() {
 
                 {req.status === 'pending' ? (
                   <div className="mt-3 space-y-2">
+                    {req.request_type === 'leave' && (
+                      <select
+                        value={substitutes[req.id] ?? ''}
+                        onChange={(e) =>
+                          setSubstitutes((prev) => ({ ...prev, [req.id]: e.target.value }))
+                        }
+                        className="min-h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <option value="">Duyệt = HỦY buổi học (không có GV dạy thay)</option>
+                        {teacherOptions
+                          .filter((t) => t.name !== req.teacher_name)
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              Dạy thay: {t.name}
+                            </option>
+                          ))}
+                      </select>
+                    )}
                     <textarea
                       value={notes[req.id] ?? ''}
                       onChange={(e) =>
@@ -230,7 +257,8 @@ export default function AcademicRequestsPage() {
                     </div>
                     {req.request_type === 'leave' ? (
                       <p className="text-[11px] text-muted-foreground">
-                        Duyệt = buổi dạy tự chuyển Hủy (TKB, điểm danh, lương nhận biết).
+                        Chọn GV dạy thay = buổi học giữ nguyên, chỉ đổi giáo viên. Không chọn =
+                        buổi tự chuyển Hủy (TKB, điểm danh, lương nhận biết).
                       </p>
                     ) : (
                       <p className="text-[11px] text-muted-foreground">

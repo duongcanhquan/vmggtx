@@ -150,6 +150,11 @@ await checkColumn('profiles', 'student_code', '028_student_codes.sql')
 console.log('\n-- Migration 029 (đơn từ giáo viên: đề xuất lịch / xin nghỉ) --')
 await checkTable('teacher_requests', '029_teacher_requests.sql')
 
+console.log('\n-- Migration 030 (vận hành: thông báo chung, vòng đời ghi danh, sĩ số) --')
+await checkTable('announcements', '030_operations.sql')
+await checkColumn('enrollments', 'status_note', '030_operations.sql')
+await checkColumn('classes', 'max_students', '030_operations.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

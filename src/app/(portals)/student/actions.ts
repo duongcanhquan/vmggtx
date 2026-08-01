@@ -22,7 +22,7 @@ export type NextLesson = {
 
 export type StudentAlert = {
   id: string
-  kind: 'tuition' | 'attendance' | 'grade'
+  kind: 'tuition' | 'attendance' | 'grade' | 'announcement'
   title: string
   description: string
   /** Cảnh báo mức đỏ (quá hạn / vắng nhiều) hay vàng */
@@ -67,7 +67,7 @@ export async function getStudentHome(): Promise<StudentHomeResult> {
       await Promise.all([
         admin
           .from('profiles')
-          .select('full_name')
+          .select('full_name, org_id')
           .eq('id', user.id)
           .is('deleted_at', null)
           .maybeSingle(),
@@ -176,6 +176,30 @@ export async function getStudentHome(): Promise<StudentHomeResult> {
         href: '/grades',
       })
     }
+    // Thông báo chung của cơ sở (migration 030) - audience học viên
+    const orgId = (profileResult.data as { org_id?: string } | null)?.org_id
+    if (orgId) {
+      const { data: announcements } = await admin
+        .from('announcements')
+        .select('id, title, body')
+        .eq('org_id', orgId)
+        .in('audience', ['all', 'students'])
+        .is('deleted_at', null)
+        .order('pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(3)
+      for (const item of announcements ?? []) {
+        alerts.push({
+          id: `announce-${item.id}`,
+          kind: 'announcement',
+          title: item.title,
+          description: item.body,
+          severe: false,
+          href: '/student',
+        })
+      }
+    }
+
     // Cảnh báo đỏ nổi lên trước
     alerts.sort((a, b) => Number(b.severe) - Number(a.severe))
 
