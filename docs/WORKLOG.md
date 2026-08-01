@@ -66,3 +66,8 @@
   nút navy #162938, hàng remember/forgot) áp cho cả 3 cổng login.
 - Lưu ý: "Ghi nhớ đăng nhập" chỉ là UI (session Supabase vốn persist); parent portal
   không có UserMenu (không dùng Supabase Auth, đã có nút thoát riêng).
+
+## 2026-08-01 | 3bc1bad + (commit kế tiếp) | Full-width + siết bố cục gọn
+- Làm: bỏ max-w shell (Dashboard/Portal/student/teacher); vá brand teacher+hdsd;
+  licenses bỏ padding kép; staff header slot thừa; tutor ẩn UUID; chuẩn hóa
+  7 header slate → token; 6 empty state py-16 → p-12 token; hero admin gọn hơn.

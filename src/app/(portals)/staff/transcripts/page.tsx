@@ -72,7 +72,7 @@ export default function StaffTranscriptsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-slate-900">
+        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight text-foreground">
           <BookOpenCheck className="h-6 w-6 text-indigo-600" aria-hidden="true" />
           Bảng điểm tổng
         </h1>
@@ -99,7 +99,7 @@ export default function StaffTranscriptsPage() {
       {loadingClasses || loadingGrades ? (
         <FunLoader label="Đang tải bảng điểm…" />
       ) : !gradebook || classes.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-slate-500">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-surface p-12 text-muted-foreground">
           <SearchX className="h-10 w-10 text-slate-300" aria-hidden="true" />
           <p className="text-sm font-medium">Chưa có lớp học nào trong cơ sở.</p>
         </div>
@@ -119,7 +119,7 @@ export default function StaffTranscriptsPage() {
           </div>
 
           {gradebook.students.length === 0 || gradebook.assessments.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-slate-500">
+            <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
               <SearchX className="h-10 w-10 text-slate-300" aria-hidden="true" />
               <p className="text-sm font-medium">
                 {gradebook.students.length === 0

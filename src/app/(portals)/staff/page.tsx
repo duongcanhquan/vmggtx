@@ -91,21 +91,19 @@ export default function StaffPortalPage() {
   ]
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">
-            Staff Portal
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">
+          Staff Portal
+        </p>
+        <h1 className="mt-1 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+          Bảng điều khiển của bạn
+        </h1>
+        {dashboard.migrationMissing && (
+          <p className="mt-1 text-xs text-amber-700">
+            Database chưa chạy migration 034 — layout sẽ không được lưu lại.
           </p>
-          <h1 className="mt-1 font-heading text-3xl font-bold tracking-tight">
-            Bảng điều khiển của bạn
-          </h1>
-          {dashboard.migrationMissing && (
-            <p className="mt-1 text-xs text-amber-700">
-              Database chưa chạy migration 034 — layout sẽ không được lưu lại.
-            </p>
-          )}
-        </div>
+        )}
       </div>
 
       <WidgetContainer

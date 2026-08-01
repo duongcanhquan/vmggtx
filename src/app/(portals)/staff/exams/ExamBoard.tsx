@@ -159,7 +159,7 @@ export function ExamBoard({ initialExams }: { initialExams: ExamRow[] }) {
       </div>
 
       {exams.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-slate-500">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-surface p-12 text-muted-foreground">
           <SearchX className="h-10 w-10 text-slate-300" />
           <p className="text-sm font-medium">Không tìm thấy bài thi nào.</p>
         </div>

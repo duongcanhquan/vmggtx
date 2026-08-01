@@ -34,8 +34,7 @@ export default function TutorPage({ params }: { params: { id: string } }) {
           <div>
             <h1 className="font-heading text-2xl font-bold tracking-tight">Gia sư AI</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Trả lời dựa trên tài liệu của lớp{' '}
-              <span className="font-mono text-xs">{params.id}</span>
+              Trả lời dựa trên tài liệu bài giảng của lớp này
             </p>
           </div>
         </div>

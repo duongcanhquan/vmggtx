@@ -323,9 +323,9 @@ export default function AdminLicensesPage() {
   }
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 font-heading text-2xl font-semibold text-slate-900">
+        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight text-foreground">
           <PackageOpen className="h-6 w-6 text-indigo-600" aria-hidden="true" />
           Gói dịch vụ &amp; License
         </h1>

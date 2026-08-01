@@ -21,14 +21,14 @@ export default function AdminPortalPage() {
   return (
     <div className="space-y-6">
       {/* Hero bento tối */}
-      <div className="bento-card-dark p-7 sm:p-8">
+      <div className="bento-card-dark p-5 sm:p-6">
         <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#e5c369]">
           Admin Portal
         </p>
-        <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight sm:text-4xl">
+        <h1 className="mt-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
           Trung tâm Điều hành
         </h1>
-        <div className="gold-hairline mt-5 w-40" aria-hidden="true" />
+        <div className="gold-hairline mt-3 w-40" aria-hidden="true" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

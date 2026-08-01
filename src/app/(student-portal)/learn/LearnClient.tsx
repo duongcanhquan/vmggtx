@@ -118,8 +118,8 @@ export function LearnClient({ data }: { data: LearnData }) {
   if (!cls) return null
 
   return (
-    <div className="space-y-4">
-      <h1 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">Học Online</h1>
+    <div className="space-y-6">
+      <h1 className="font-heading text-2xl font-bold tracking-tight">Học Online</h1>
 
       {/* Chip chọn lớp */}
       <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

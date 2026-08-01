@@ -113,7 +113,7 @@ export default function ResultsApprovalPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-slate-900">
+          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight text-foreground">
             <ClipboardCheck className="h-6 w-6 text-indigo-600" aria-hidden="true" />
             Xét duyệt kết quả
           </h1>
@@ -134,7 +134,7 @@ export default function ResultsApprovalPage() {
           {loadError}
         </div>
       ) : queue.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-slate-500">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-surface p-12 text-muted-foreground">
           <SearchX className="h-10 w-10 text-slate-300" aria-hidden="true" />
           <p className="text-sm font-medium">Không có lớp nào cần xét duyệt.</p>
         </div>

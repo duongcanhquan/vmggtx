@@ -163,7 +163,7 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">LMS - Dạy học Online</h1>
         <select
