@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { SmartTable, sortableHeader } from '@/components/shared/SmartTable'
+import { SectionTabs } from '@/components/shared/SectionTabs'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { importStudentRowSchema } from '@/lib/validation/schemas'
 import { bulkImportStudents, type BulkImportRowOutcome } from '../actions'
@@ -378,6 +379,14 @@ export default function StudentImportPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           Học sinh được gán vào cơ sở đang chọn.
         </p>
+        <div className="mt-3">
+          <SectionTabs
+            tabs={[
+              { label: 'Danh sách học sinh', href: '/students' },
+              { label: 'Import Excel/CSV', href: '/students/import' },
+            ]}
+          />
+        </div>
       </div>
 
       {/* ===== Bước 1: Template + Dropzone ===== */}

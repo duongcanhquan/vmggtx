@@ -12,6 +12,7 @@ import {
   sortableHeader,
 } from '@/components/shared/SmartTable'
 import { Toast, type ToastData } from '@/components/shared/Toast'
+import { SectionTabs } from '@/components/shared/SectionTabs'
 import { StudentForm, type StudentFormValues } from '@/components/forms/StudentForm'
 import { getCustomFields } from '@/app/(dashboard)/settings/custom-fields/actions'
 import type { CustomFieldDef, CustomMetadata } from '@/lib/customFields'
@@ -198,12 +199,18 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* ===== Header ===== */}
+      {/* ===== Header + Tabs mục "Học sinh" ===== */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="space-y-3">
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Quản lý Học sinh
           </h1>
+          <SectionTabs
+            tabs={[
+              { label: 'Danh sách học sinh', href: '/students' },
+              { label: 'Import Excel/CSV', href: '/students/import' },
+            ]}
+          />
         </div>
         <div className="flex flex-wrap gap-2">
           <Link

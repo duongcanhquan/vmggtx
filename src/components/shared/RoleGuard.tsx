@@ -2,11 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import {
-  isRole,
-  readClaimsFromAccessToken,
-  type Role,
-} from '@/lib/auth/roles'
+import type { Role } from '@/lib/auth/roles'
+import { getMyRole } from '@/lib/hooks/useMyRole'
 
 // ============================================================
 // RoleGuard - Ẩn/hiện UI theo Ma trận Phân quyền.
@@ -37,43 +34,7 @@ interface RoleGuardProps {
   children: ReactNode
 }
 
-// Cache role theo phiên trình duyệt: nhiều RoleGuard trên cùng một trang
-// chỉ tốn đúng 1 lần xác định role.
-let cachedRolePromise: Promise<Role | null> | null = null
-
-async function resolveMyRole(): Promise<Role | null> {
-  const supabase = createClient()
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) return null
-
-  // Nhanh: đọc từ JWT claims (custom_access_token_hook - migration 006)
-  const fromClaims = readClaimsFromAccessToken(session.access_token).role
-  if (fromClaims) return fromClaims
-
-  // Fallback: hook chưa bật -> đọc từ profiles (RLS cho phép xem chính mình)
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', session.user.id)
-    .is('deleted_at', null)
-    .single()
-
-  return isRole(profile?.role) ? profile.role : null
-}
-
-function getMyRole(): Promise<Role | null> {
-  if (!cachedRolePromise) {
-    cachedRolePromise = resolveMyRole().catch(() => {
-      cachedRolePromise = null
-      return null
-    })
-  }
-  return cachedRolePromise
-}
+// Role được cache dùng chung qua getMyRole (src/lib/hooks/useMyRole.ts)
 
 export function RoleGuard({
   allowedRoles,

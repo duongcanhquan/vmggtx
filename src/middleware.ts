@@ -90,8 +90,9 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     allowedRoles: ['super_admin', 'campus_admin'],
   },
   {
+    // Lương & Hợp đồng (gộp tab với /finance/payroll) - kế toán được xem
     prefix: '/hr',
-    allowedRoles: ['super_admin', 'campus_admin'],
+    allowedRoles: ['super_admin', 'campus_admin', 'accountant'],
   },
   {
     prefix: '/dashboard/academic',
@@ -124,6 +125,58 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
   {
     prefix: '/ai',
     allowedRoles: ['super_admin', 'campus_admin', 'academic_staff', 'teacher'],
+  },
+
+  // --- Ma trận phân quyền theo nhóm menu (đồng bộ DashboardShell) ---
+  {
+    // Kỳ tính lương: chỉ quản lý + kế toán (đặt TRƯỚC /finance chung)
+    prefix: '/finance/payroll',
+    allowedRoles: ['super_admin', 'campus_admin', 'accountant'],
+  },
+  {
+    // Học phí & Công nợ: giáo vụ được thao tác thu/nhắc phí
+    prefix: '/finance',
+    allowedRoles: ['super_admin', 'campus_admin', 'academic_staff', 'accountant'],
+  },
+  {
+    // Hồ sơ học sinh: mọi nhân sự văn phòng (Staff Portal cũng link tới)
+    prefix: '/students',
+    allowedRoles: [
+      'super_admin',
+      'campus_admin',
+      'academic_staff',
+      'admission_staff',
+      'accountant',
+    ],
+  },
+  {
+    // Điểm danh: nhân sự văn phòng + giáo viên (điểm danh lớp mình)
+    prefix: '/attendance',
+    allowedRoles: [
+      'super_admin',
+      'campus_admin',
+      'academic_staff',
+      'admission_staff',
+      'accountant',
+      'teacher',
+    ],
+  },
+  {
+    // Quản lý lớp học. LƯU Ý: /classes/[id]/tutor (Gia sư AI) được cả
+    // giáo viên VÀ học viên dùng (link từ trang /learn) -> phải có student.
+    prefix: '/classes',
+    allowedRoles: [
+      'super_admin',
+      'campus_admin',
+      'academic_staff',
+      'teacher',
+      'student',
+    ],
+  },
+  {
+    // Thông báo toàn cơ sở
+    prefix: '/announcements',
+    allowedRoles: ['super_admin', 'campus_admin', 'academic_staff'],
   },
 ]
 

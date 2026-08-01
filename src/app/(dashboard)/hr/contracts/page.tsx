@@ -32,6 +32,7 @@ import {
   type PayrollResultRow,
 } from '../payroll/actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { SectionTabs } from '@/components/shared/SectionTabs'
 
 // ============================================================
 // Quản lý Hợp đồng Giáo viên (/hr/contracts) - Campus Admin
@@ -671,11 +672,17 @@ export default function HrContractsPage() {
 
   return (
     <div className="space-y-6">
-      {/* ===== Header ===== */}
-      <div>
+      {/* ===== Header + Tabs mục "Lương & Hợp đồng" ===== */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-          Hợp đồng Giáo viên
+          Lương &amp; Hợp đồng
         </h1>
+        <SectionTabs
+          tabs={[
+            { label: 'Hợp đồng Giáo viên', href: '/hr/contracts', icon: FileSignature },
+            { label: 'Kỳ tính lương', href: '/finance/payroll', icon: Calculator },
+          ]}
+        />
       </div>
 
       {isDemo && (
