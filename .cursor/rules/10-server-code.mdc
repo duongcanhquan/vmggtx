@@ -1,0 +1,37 @@
+---
+description: Chuẩn Server Actions / API routes - auth, org scoping, validation
+globs: **/actions.ts,**/route.ts,**/*-actions.ts
+alwaysApply: false
+---
+
+# Chuẩn code server (actions.ts / route.ts)
+
+## Khung bắt buộc cho mọi action ghi dữ liệu
+```typescript
+export async function doThing(formData: FormData): Promise<ActionResult> {
+  const parsed = thingSchema.safeParse({ ... })        // 1. Zod từ src/lib/validation/schemas.ts
+  if (!parsed.success) return zodFail(parsed.error)
+  try {
+    const supabase = createClient()                     // 2. Auth
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+    // 3. Kiểm tra role + org scope TRƯỚC khi ghi:
+    //    - đọc profile role, hoặc rpc('is_authorized', { p_target_org_id, p_required_role })
+    //    - danh sách org hợp lệ: getDescendantOrgIds(supabase, myOrgId)
+    // 4. Ghi dữ liệu LUÔN kèm org_id đã xác thực
+    revalidatePath('/duong-dan')                        // 5. Revalidate
+    return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
+  }
+}
+```
+
+## Cấm / Lưu ý
+- `createAdminClient()` (bỏ qua RLS) CHỈ dùng SAU khi đã xác thực quyền server-side.
+- KHÔNG tin `org_id`/`role` từ client - luôn xác thực lại.
+- Query nhiều bảng độc lập → gộp `Promise.all` (tránh N+1, tránh nhiều round-trip).
+- Lỗi trả về là tiếng Việt, có tiền tố rõ (VD "TỪ CHỐI: ..." cho lỗi phân quyền).
+- Gọi AI: `getTenantAIConfig(orgId)` + try/catch + `AbortSignal.timeout(30_000)`,
+  fallback "Hệ thống AI đang bảo trì". RAG phải lọc `org_id`.
+- Sau khi sửa cây tổ chức: gọi `invalidateOrgScopeCache()`.

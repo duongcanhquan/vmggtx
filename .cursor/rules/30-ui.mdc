@@ -1,0 +1,22 @@
+---
+description: Chuẩn UI/UX - tiếng Việt, loading/empty state, phản hồi tức thì, responsive
+globs: **/*.tsx
+alwaysApply: false
+---
+
+# Chuẩn UI/UX
+
+- Toàn bộ label/thông báo tiếng Việt, ưu tiên icon (lucide-react), ít chữ hướng dẫn.
+- Mọi thao tác chờ dữ liệu: `FunLoader` (component có sẵn) hoặc spinner `Loader2` -
+  KHÔNG để màn hình trắng/đứng im. Nút bấm phải phản hồi tức thì (disabled + spinner
+  khi pending; navigation dùng pendingHref pattern như `SectionTabs`/`DashboardShell`).
+- Luôn có empty state thân thiện (icon + 1 câu + nút hành động nếu hợp lý).
+- Trang cùng nhóm nghiệp vụ → dùng `SectionTabs` (VD Lương & Hợp đồng, Học viên & Import).
+- Bảng dữ liệu → `SmartTable` với `viewKey` để lưu góc nhìn vào user_preferences.
+- Chặn UI theo role: `RoleGuard` / `useMyRole` / `useMyMenuKeys` - nhưng ĐÂY CHỈ LÀ UX,
+  bảo mật thật nằm ở middleware + server action.
+- Responsive bắt buộc 3 mức: desktop full-width rõ ràng, iPad đẹp, mobile đọc được
+  (bảng rộng → `overflow-x-auto`; grid → `grid-cols-1 md:grid-cols-2 xl:grid-cols-N`).
+- Màu: dùng token semantic (bg-surface, text-muted-foreground, border-border...) +
+  palette indigo/emerald/amber đã thống nhất; login dùng glassmorphism theo cổng.
+- Component nặng (Recharts, editor...) → `next/dynamic` với `ssr: false` khi hợp lý.

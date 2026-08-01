@@ -1,0 +1,36 @@
+---
+description: Luật cốt lõi GDTX ERP - bắt buộc đọc/tuân thủ mọi phiên làm việc
+alwaysApply: true
+---
+
+# GDTX ERP - Luật cốt lõi (BẮT BUỘC)
+
+Hệ thống ERP giáo dục đa cơ sở (multi-tenant SaaS). Chủ hệ thống = super_admin
+bán account cho từng cơ sở; admin cơ sở toàn quyền vận hành trong phạm vi của mình.
+
+## Giao thức phiên làm việc (SESSION PROTOCOL)
+1. **TRƯỚC KHI LÀM**: đọc `docs/STATE.md` (trạng thái + vấn đề tồn đọng).
+   Cần hiểu kiến trúc thì đọc thêm `docs/ARCHITECTURE.md`. KHÔNG đọc lại toàn bộ code.
+2. **SAU KHI XONG** (trước commit): cập nhật `docs/STATE.md` (mục thay đổi + tồn đọng)
+   và thêm 3-6 dòng vào cuối `docs/WORKLOG.md` theo template có sẵn.
+3. Quyết định kiến trúc mới → thêm 1 dòng vào `docs/DECISIONS.md`. KHÔNG làm trái
+   quyết định đã ghi trong đó nếu user chưa yêu cầu đổi.
+
+## Luật vàng (không có ngoại lệ)
+- **Đa tầng**: mọi insert/update/delete phải ràng buộc `org_id` trong phạm vi user
+  (dùng `getDescendantOrgIds` / RPC `is_authorized`). Bảng mới bắt buộc có `org_id` + RLS.
+- **Role**: 8 role trong `src/lib/auth/roles.ts`. KHÔNG bao giờ cho gán `super_admin`
+  qua form. Parent KHÔNG có Supabase session (cookie HMAC `parent_session`).
+- **Mã học viên**: cột định danh import bắt buộc tiêu đề chính xác `MaSV`.
+- **Menu/route mới**: khai báo trong `src/lib/auth/menuRegistry.ts` + `MENU` trong
+  `DashboardShell.tsx` + `ROUTE_RULES` trong `src/middleware.ts` (đủ cả 3 nơi).
+- **AI**: key lấy qua `getTenantAIConfig` (org_ai_settings → env fallback), luôn
+  try/catch + `AbortSignal.timeout`, RAG bắt buộc lọc `org_id`.
+- **UI**: tiếng Việt, ưu tiên icon, luôn có loading state (FunLoader) + empty state.
+
+## Quy trình commit (Windows PowerShell - KHÔNG dùng && hay heredoc)
+1. `npm run build` phải sạch (exit 0) trước khi commit.
+2. Ghi message vào `.git-commit-msg.txt` (không dấu tiếng Việt), rồi:
+   `git add -A; git reset -q -- .git-commit-msg.txt; git commit -F .git-commit-msg.txt; git push`
+3. Migration mới → cập nhật `VERCEL_DEPLOYMENT_CHECKLIST.md` + `scripts/check-db.mjs`
+   và ghi vào STATE.md rằng migration CHƯA chạy trên DB thật (user chạy tay qua SQL Editor).
