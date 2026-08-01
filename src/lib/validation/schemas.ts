@@ -177,6 +177,65 @@ export const createUserSchema = z.object({
   orgId: requiredId('Vui lòng chọn chi nhánh cho nhân sự mới.'),
 })
 
+// ====== Quản lý tài sản (/assets - migration 041) ======
+
+export const ASSET_CATEGORIES = [
+  'furniture',
+  'it_equipment',
+  'teaching_device',
+  'vehicle',
+  'building',
+  'software',
+  'other',
+] as const
+
+export const ASSET_STATUSES = [
+  'in_use',
+  'in_storage',
+  'under_repair',
+  'broken',
+  'liquidated',
+  'lost',
+] as const
+
+/** Form Thêm/Sửa tài sản */
+export const assetSchema = z
+  .object({
+    orgId: requiredId('Vui lòng chọn đơn vị sở hữu tài sản.'),
+    /** Mã tài sản - để trống sẽ tự sinh TS-YYYY-xxxx */
+    code: z.string().trim().max(30, 'Mã tài sản tối đa 30 ký tự.').optional().default(''),
+    name: safeText('Tên tài sản'),
+    category: z.enum(ASSET_CATEGORIES, {
+      errorMap: () => ({ message: 'Nhóm tài sản không hợp lệ.' }),
+    }),
+    serialNumber: z.string().trim().max(100, 'Số serial tối đa 100 ký tự.').optional().default(''),
+    vendor: z.string().trim().max(150, 'Nhà cung cấp tối đa 150 ký tự.').optional().default(''),
+    location: z.string().trim().max(150, 'Vị trí tối đa 150 ký tự.').optional().default(''),
+    purchaseDate: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày mua phải theo định dạng YYYY-MM-DD.'),
+    purchasePrice: z.coerce
+      .number({ invalid_type_error: 'Nguyên giá phải là số.' })
+      .min(0, 'Nguyên giá không được âm.')
+      .max(100_000_000_000, 'Nguyên giá vượt giới hạn.'),
+    salvageValue: z.coerce
+      .number({ invalid_type_error: 'Giá trị thu hồi phải là số.' })
+      .min(0, 'Giá trị thu hồi không được âm.')
+      .default(0),
+    usefulLifeMonths: z.coerce
+      .number({ invalid_type_error: 'Thời gian khấu hao phải là số tháng.' })
+      .int('Thời gian khấu hao phải là số nguyên (tháng).')
+      .min(1, 'Tối thiểu 1 tháng.')
+      .max(600, 'Tối đa 600 tháng (50 năm).'),
+    warrantyUntil: optionalDateSchema,
+    note: z.string().trim().max(500, 'Ghi chú tối đa 500 ký tự.').optional().default(''),
+  })
+  .refine((data) => data.salvageValue <= data.purchasePrice, {
+    message: 'Giá trị thu hồi không được lớn hơn nguyên giá.',
+    path: ['salvageValue'],
+  })
+
 /** Form Sửa nhân sự (Campus Admin) - đổi tên/role/chi nhánh, KHÔNG có super_admin */
 export const updateUserSchema = z.object({
   userId: requiredId('Thiếu ID người dùng.'),

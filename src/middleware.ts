@@ -81,6 +81,11 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     allowedRoles: ['super_admin', 'campus_admin'],
   },
   {
+    // Sổ tài sản & khấu hao (041) - nhân sự quản lý/kế toán
+    prefix: '/assets',
+    allowedRoles: ['super_admin', 'campus_admin', 'academic_staff', 'accountant'],
+  },
+  {
     prefix: '/dashboard/hr',
     allowedRoles: ['super_admin', 'campus_admin'],
   },
