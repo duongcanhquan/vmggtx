@@ -1149,6 +1149,30 @@ export default function ModuleCenterPage() {
                   ))}
                 </select>
               </label>
+
+              {/* Người liên hệ của Đơn vị (khách hàng) — trống thì lấy theo Admin */}
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Người liên hệ của Đơn vị (tùy chọn)
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Để trống sẽ tự lấy theo thông tin Admin ở bước 3.
+                </p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Họ tên
+                    <input name="contactName" placeholder="VD: Nguyễn Văn A" className={inputClass} />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Email
+                    <input name="contactEmail" type="email" placeholder="lienhe@donvi.vn" className={inputClass} />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Điện thoại
+                    <input name="contactPhone" placeholder="0912345678" className={inputClass} />
+                  </label>
+                </div>
+              </div>
             </div>
 
             {/* Bước 2: gói + module + giới hạn */}
@@ -1182,6 +1206,10 @@ export default function ModuleCenterPage() {
                   onChange={(event) => setWizAdminEmail(event.target.value)}
                   className={inputClass}
                 />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Số điện thoại Admin (tùy chọn)
+                <input name="adminPhone" placeholder="VD: 0912345678" className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 Mật khẩu khởi tạo (tối thiểu 8 ký tự)

@@ -295,6 +295,10 @@ export async function provisionCampus(
     adminEmail: String(formData.get('adminEmail') ?? ''),
     adminPassword: String(formData.get('adminPassword') ?? ''),
     adminFullName: String(formData.get('adminFullName') ?? ''),
+    adminPhone: String(formData.get('adminPhone') ?? ''),
+    contactName: String(formData.get('contactName') ?? ''),
+    contactEmail: String(formData.get('contactEmail') ?? ''),
+    contactPhone: String(formData.get('contactPhone') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
 
@@ -423,6 +427,7 @@ export async function provisionCampus(
       id: created.user.id,
       full_name: parsed.data.adminFullName,
       email: parsed.data.adminEmail,
+      phone: parsed.data.adminPhone || null,
       role: 'campus_admin',
       org_id: newOrgId,
     })
@@ -432,6 +437,20 @@ export async function provisionCampus(
       await admin.from('organizations').delete().eq('id', newOrgId)
       return { error: `Không tạo được hồ sơ admin cơ sở: ${profileError.message}` }
     }
+
+    // BƯỚC 4 (fail-soft): lưu NGƯỜI LIÊN HỆ của Đơn vị vào org_settings
+    // (trống thì mặc định lấy theo thông tin Admin vừa tạo)
+    const unitContact = {
+      name: parsed.data.contactName || parsed.data.adminFullName,
+      email: parsed.data.contactEmail || parsed.data.adminEmail,
+      phone: parsed.data.contactPhone || parsed.data.adminPhone || '',
+    }
+    await admin
+      .from('org_settings')
+      .upsert(
+        { org_id: newOrgId, config: { unit_contact: unitContact } },
+        { onConflict: 'org_id' }
+      )
 
     invalidateOrgScopeCache()
     revalidatePath('/admin/modules')

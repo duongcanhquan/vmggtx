@@ -5,7 +5,12 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDescendantOrgIds, invalidateOrgScopeCache } from '@/lib/utils/orgScope'
-import { zodFail, type ActionResult } from '@/lib/validation/schemas'
+import {
+  unitAdminCreateSchema,
+  unitAdminUpdateSchema,
+  zodFail,
+  type ActionResult,
+} from '@/lib/validation/schemas'
 import type { OrgFlat, OrgType } from '@/lib/utils/org-tree'
 import { orgSlugSchema, slugifyOrgName } from '@/lib/utils/orgSlug'
 import { MODULE_CATALOG } from '@/lib/licensing/moduleCatalog'
@@ -705,5 +710,283 @@ export async function getUnitProfile(orgId: string): Promise<UnitProfile> {
     return {
       error: error instanceof Error ? error.message : 'Lỗi không xác định khi tải hồ sơ đơn vị.',
     }
+  }
+}
+
+// ============================================================
+// QUẢN LÝ ADMIN ĐƠN VỊ (Super Admin) — thêm/sửa/xóa tài khoản
+// campus_admin của từng Đơn vị khách hàng + thông tin người liên hệ.
+// Pattern giống campus-admin/users: Zod -> xác thực quyền -> Admin client.
+// ============================================================
+
+export type UnitAdminRow = {
+  id: string
+  fullName: string
+  email: string
+  phone: string | null
+  orgId: string
+  orgName: string
+  createdAt: string | null
+}
+
+export type UnitContact = { name: string; email: string; phone: string }
+
+export type UnitAdminsData =
+  | { error: string }
+  | { error?: undefined; admins: UnitAdminRow[]; contact: UnitContact | null }
+
+/** Cửa xác thực chung: super_admin (mọi Đơn vị) hoặc campus_admin (cây của mình) */
+async function requireUnitAdminManager(
+  orgId: string
+): Promise<{ error: string } | { error?: undefined; userId: string }> {
+  const auth = await requireOrgManager()
+  if (auth.error !== undefined) return { error: auth.error }
+  if (!inScope(auth, orgId)) {
+    return { error: 'TỪ CHỐI: Đơn vị này nằm ngoài phạm vi quản lý của bạn.' }
+  }
+  return { userId: auth.userId }
+}
+
+export async function getUnitAdmins(orgId: string): Promise<UnitAdminsData> {
+  if (!z.string().uuid().safeParse(orgId).success) {
+    return { error: 'Đơn vị không hợp lệ.' }
+  }
+  try {
+    const gate = await requireUnitAdminManager(orgId)
+    if (gate.error !== undefined) return { error: gate.error }
+
+    const admin = createAdminClient()
+    const subtreeIds = await getDescendantOrgIds(admin, orgId)
+
+    const [adminsRes, orgsRes, settingsRes] = await Promise.all([
+      admin
+        .from('profiles')
+        .select('id, full_name, email, phone, org_id, created_at')
+        .eq('role', 'campus_admin')
+        .in('org_id', subtreeIds)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true }),
+      admin.from('organizations').select('id, name').in('id', subtreeIds),
+      admin.from('org_settings').select('config').eq('org_id', orgId).maybeSingle(),
+    ])
+
+    const orgNameById = new Map((orgsRes.data ?? []).map((o) => [o.id, o.name]))
+    const admins: UnitAdminRow[] = (adminsRes.data ?? []).map((row) => ({
+      id: row.id,
+      fullName: row.full_name ?? '',
+      email: row.email ?? '',
+      phone: (row.phone as string | null) ?? null,
+      orgId: row.org_id ?? orgId,
+      orgName: orgNameById.get(row.org_id ?? '') ?? '',
+      createdAt: (row.created_at as string | null) ?? null,
+    }))
+
+    const rawContact = (settingsRes.data?.config as Record<string, unknown> | null)
+      ?.unit_contact as Partial<UnitContact> | undefined
+    const contact: UnitContact | null = rawContact
+      ? {
+          name: String(rawContact.name ?? ''),
+          email: String(rawContact.email ?? ''),
+          phone: String(rawContact.phone ?? ''),
+        }
+      : null
+
+    return { admins, contact }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : 'Lỗi không xác định khi tải danh sách Admin.',
+    }
+  }
+}
+
+/** Thêm Admin Đơn vị: tạo auth user + profile role campus_admin gắn vào Đơn vị */
+export async function createUnitAdmin(formData: FormData): Promise<ActionResult> {
+  const parsed = unitAdminCreateSchema.safeParse({
+    orgId: String(formData.get('orgId') ?? ''),
+    fullName: String(formData.get('fullName') ?? ''),
+    email: String(formData.get('email') ?? ''),
+    password: String(formData.get('password') ?? ''),
+    phone: String(formData.get('phone') ?? ''),
+  })
+  if (!parsed.success) return zodFail(parsed.error)
+
+  try {
+    const gate = await requireUnitAdminManager(parsed.data.orgId)
+    if (gate.error !== undefined) return { error: gate.error }
+
+    const admin = createAdminClient()
+    const { data: org } = await admin
+      .from('organizations')
+      .select('id')
+      .eq('id', parsed.data.orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!org) return { error: 'Đơn vị không tồn tại hoặc đã bị xóa.' }
+
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      email_confirm: true,
+      user_metadata: { full_name: parsed.data.fullName },
+    })
+    if (createError || !created.user) {
+      return { error: `Không tạo được tài khoản: ${createError?.message ?? 'không xác định'}` }
+    }
+
+    const { error: profileError } = await admin.from('profiles').insert({
+      id: created.user.id,
+      full_name: parsed.data.fullName,
+      email: parsed.data.email,
+      phone: parsed.data.phone || null,
+      role: 'campus_admin',
+      org_id: parsed.data.orgId,
+    })
+    if (profileError) {
+      // Rollback: không để auth user mồ côi
+      await admin.auth.admin.deleteUser(created.user.id)
+      return { error: `Không tạo được hồ sơ Admin: ${profileError.message}` }
+    }
+
+    revalidatePath('/admin/organizations')
+    return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
+  }
+}
+
+/** Kiểm tra target là campus_admin còn hiệu lực TRONG phạm vi người gọi */
+async function requireManageableUnitAdmin(
+  userId: string
+): Promise<{ error: string } | { error?: undefined; orgId: string }> {
+  const admin = createAdminClient()
+  const { data: target } = await admin
+    .from('profiles')
+    .select('id, role, org_id')
+    .eq('id', userId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!target) return { error: 'Tài khoản không tồn tại hoặc đã bị xóa.' }
+  if (target.role !== 'campus_admin') {
+    return { error: 'Chỉ thao tác được với tài khoản Admin Đơn vị (campus_admin).' }
+  }
+  if (!target.org_id) return { error: 'Tài khoản chưa gắn Đơn vị.' }
+  const gate = await requireUnitAdminManager(target.org_id)
+  if (gate.error !== undefined) return { error: gate.error }
+  return { orgId: target.org_id }
+}
+
+/** Sửa Admin Đơn vị: họ tên, SĐT, và (tùy chọn) đặt lại mật khẩu */
+export async function updateUnitAdmin(formData: FormData): Promise<ActionResult> {
+  const parsed = unitAdminUpdateSchema.safeParse({
+    userId: String(formData.get('userId') ?? ''),
+    fullName: String(formData.get('fullName') ?? ''),
+    phone: String(formData.get('phone') ?? ''),
+    newPassword: String(formData.get('newPassword') ?? ''),
+  })
+  if (!parsed.success) return zodFail(parsed.error)
+
+  try {
+    const gate = await requireManageableUnitAdmin(parsed.data.userId)
+    if (gate.error !== undefined) return { error: gate.error }
+
+    const admin = createAdminClient()
+    const { error: profileError } = await admin
+      .from('profiles')
+      .update({
+        full_name: parsed.data.fullName,
+        phone: parsed.data.phone || null,
+      })
+      .eq('id', parsed.data.userId)
+    if (profileError) return { error: `Không cập nhật được hồ sơ: ${profileError.message}` }
+
+    if (parsed.data.newPassword) {
+      const { error: passError } = await admin.auth.admin.updateUserById(
+        parsed.data.userId,
+        { password: parsed.data.newPassword }
+      )
+      if (passError) return { error: `Không đổi được mật khẩu: ${passError.message}` }
+    }
+
+    revalidatePath('/admin/organizations')
+    return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
+  }
+}
+
+/** Xóa (mềm) Admin Đơn vị + khóa đăng nhập. Chặn xóa Admin CUỐI CÙNG của Đơn vị. */
+export async function deleteUnitAdmin(userId: string): Promise<ActionResult> {
+  if (!z.string().uuid().safeParse(userId).success) {
+    return { error: 'Tài khoản không hợp lệ.' }
+  }
+  try {
+    const gate = await requireManageableUnitAdmin(userId)
+    if (gate.error !== undefined) return { error: gate.error }
+
+    const admin = createAdminClient()
+    // Không để Đơn vị "vô chủ": phải còn ít nhất 1 admin khác trong cây
+    const subtreeIds = await getDescendantOrgIds(admin, gate.orgId)
+    const { count } = await admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'campus_admin')
+      .in('org_id', subtreeIds)
+      .is('deleted_at', null)
+    if ((count ?? 0) <= 1) {
+      return {
+        error:
+          'Đây là Admin CUỐI CÙNG của Đơn vị — hãy tạo Admin mới trước rồi mới xóa, để Đơn vị không bị vô chủ.',
+      }
+    }
+
+    const { error: deleteError } = await admin
+      .from('profiles')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', userId)
+    if (deleteError) return { error: `Không xóa được tài khoản: ${deleteError.message}` }
+
+    // Soft delete nhưng khóa cửa thật: ban ~100 năm
+    await admin.auth.admin.updateUserById(userId, { ban_duration: '876000h' })
+
+    revalidatePath('/admin/organizations')
+    return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
+  }
+}
+
+/** Lưu/đổi NGƯỜI LIÊN HỆ của Đơn vị (org_settings.config.unit_contact) */
+export async function saveUnitContact(formData: FormData): Promise<ActionResult> {
+  const orgId = String(formData.get('orgId') ?? '')
+  if (!z.string().uuid().safeParse(orgId).success) return { error: 'Đơn vị không hợp lệ.' }
+  const name = String(formData.get('contactName') ?? '').trim().slice(0, 120)
+  const email = String(formData.get('contactEmail') ?? '').trim().slice(0, 160)
+  const phone = String(formData.get('contactPhone') ?? '').trim().slice(0, 20)
+
+  try {
+    const gate = await requireUnitAdminManager(orgId)
+    if (gate.error !== undefined) return { error: gate.error }
+
+    const admin = createAdminClient()
+    // Merge vào config hiện có, không ghi đè các key khác
+    const { data: existing } = await admin
+      .from('org_settings')
+      .select('config')
+      .eq('org_id', orgId)
+      .maybeSingle()
+    const config = {
+      ...((existing?.config as Record<string, unknown>) ?? {}),
+      unit_contact: { name, email, phone },
+    }
+    const { error } = await admin
+      .from('org_settings')
+      .upsert({ org_id: orgId, config }, { onConflict: 'org_id' })
+    if (error) return { error: `Không lưu được người liên hệ: ${error.message}` }
+
+    revalidatePath('/admin/organizations')
+    return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
   }
 }

@@ -699,6 +699,28 @@ export const provisionCampusSchema = z.object({
   adminEmail: emailSchema,
   adminPassword: passwordSchema,
   adminFullName: safeText('Họ tên admin cơ sở'),
+  adminPhone: z.union([z.literal(''), phoneVNSchema]).default(''),
+  // Người liên hệ của Đơn vị (khách hàng) — trống thì lấy theo admin
+  contactName: z.string().trim().max(120, 'Tên người liên hệ tối đa 120 ký tự.').default(''),
+  contactEmail: z.union([z.literal(''), emailSchema]).default(''),
+  contactPhone: z.union([z.literal(''), phoneVNSchema]).default(''),
+})
+
+/** Super Admin tạo/sửa Admin Đơn vị (khách hàng) */
+export const unitAdminCreateSchema = z.object({
+  orgId: z.string().uuid('Đơn vị không hợp lệ.'),
+  fullName: safeText('Họ tên admin', 2, 120),
+  email: emailSchema,
+  password: passwordSchema,
+  phone: z.union([z.literal(''), phoneVNSchema]).default(''),
+})
+
+export const unitAdminUpdateSchema = z.object({
+  userId: z.string().uuid('Tài khoản không hợp lệ.'),
+  fullName: safeText('Họ tên admin', 2, 120),
+  phone: z.union([z.literal(''), phoneVNSchema]).default(''),
+  /** Trống = giữ mật khẩu cũ */
+  newPassword: z.union([z.literal(''), passwordSchema]).default(''),
 })
 
 export type SaveLicenseValues = z.infer<typeof saveLicenseSchema>
