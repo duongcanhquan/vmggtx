@@ -10,6 +10,7 @@ import {
   FileStack,
   PenSquare,
   Projector,
+  RefreshCcw,
   ShieldCheck,
   Users,
 } from 'lucide-react'
@@ -40,6 +41,7 @@ const STAFF_NAV: PortalNavGroup[] = [
       { label: 'Ngân hàng đề', href: '/staff/exam-bank', icon: FileStack },
       { label: 'Kỳ thi', href: '/staff/exams', icon: PenSquare },
       { label: 'Lịch thi & Giám thị', href: '/staff/exam-schedule', icon: ShieldCheck },
+      { label: 'Tổ chức thi & Thi lại', href: '/staff/assessments', icon: RefreshCcw },
       { label: 'Bảng điểm tổng', href: '/staff/transcripts', icon: FileSpreadsheet },
       { label: 'Xét duyệt kết quả', href: '/staff/results-approval', icon: CheckSquare },
     ],
