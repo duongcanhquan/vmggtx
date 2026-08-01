@@ -1,13 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Medal } from 'lucide-react'
-import { getMyGrades, type PortalClassGrades } from '../actions'
+import { FileSearch, Medal, Send, X } from 'lucide-react'
+import {
+  getMyGrades,
+  requestGradeReview,
+  type PortalClassGrades,
+  type PortalGradeItem,
+} from '../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { Toast, type ToastData } from '@/components/shared/Toast'
 
 // ============================================================
 // Báo cáo điểm (/grades - Cổng Học sinh)
 // Toàn bộ điểm của học sinh, NHÓM theo lớp, kèm TB dự kiến.
+// + PHÚC KHẢO (migration 031): nút "Yêu cầu thi lại / Phúc khảo"
+//   ngay trên từng dòng điểm -> trạng thái 'Đang phúc khảo'.
 // ============================================================
 
 function averageColor(avg: number | null) {
@@ -26,21 +34,112 @@ function averageLabel(avg: number | null) {
   return 'Cần cố gắng'
 }
 
+// ---------- Modal gửi yêu cầu phúc khảo ----------
+function ReviewRequestModal({
+  item,
+  onClose,
+  onDone,
+}: {
+  item: PortalGradeItem
+  onClose: () => void
+  onDone: (message: string) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    if (!item.grade_id) return
+    setSending(true)
+    setError(null)
+    const result = await requestGradeReview(item.grade_id, reason)
+    setSending(false)
+    if (result.error !== undefined) {
+      setError(result.error)
+      return
+    }
+    onDone('Đã gửi yêu cầu phúc khảo — điểm chuyển trạng thái "Đang phúc khảo".')
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Đóng" onClick={onClose} className="absolute inset-0 bg-black/50" />
+      <div className="relative w-full max-w-md rounded-2xl bg-surface p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-lg font-bold">Yêu cầu thi lại / Phúc khảo</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {item.assessment_name} · Điểm hiện tại: {item.score}/{item.max_score}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <label className="mt-4 block text-sm font-medium">
+          Lý do phúc khảo
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder="VD: Em nghĩ câu 5 phần tự luận chưa được chấm..."
+            className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Sau khi gửi, bộ phận Khảo thí sẽ xem xét và trả kết quả. Điểm hiển thị trạng thái
+          &quot;Đang phúc khảo&quot; đến khi có kết quả.
+        </p>
+
+        {error && (
+          <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={sending || reason.trim().length < 5}
+          className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          <Send className="h-4 w-4" aria-hidden="true" />
+          {sending ? 'Đang gửi…' : 'Gửi yêu cầu phúc khảo'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function StudentGradesPage() {
   const [classGrades, setClassGrades] = useState<PortalClassGrades[]>([])
   const [isDemo, setIsDemo] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [reviewItem, setReviewItem] = useState<PortalGradeItem | null>(null)
+  const [toast, setToast] = useState<ToastData | null>(null)
 
-  useEffect(() => {
+  const load = () => {
     getMyGrades().then((result) => {
       setClassGrades(result.data)
       setIsDemo(result.demo)
       setLoading(false)
     })
-  }, [])
+  }
+
+  useEffect(load, [])
 
   return (
     <div className="space-y-6">
+      {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
+
       <h1 className="font-heading text-2xl font-bold tracking-tight">
         Kết quả học tập
       </h1>
@@ -88,22 +187,56 @@ export default function StudentGradesPage() {
                     key={`${group.class_id}-${index}`}
                     className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium text-foreground">{item.assessment_name}</p>
                       <p className="text-xs text-muted-foreground">Hệ số {item.weight}</p>
+                      {item.review_status === 'under_review' && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          <FileSearch className="h-3 w-3" aria-hidden="true" />
+                          Đang phúc khảo
+                        </span>
+                      )}
+                      {item.review_status === 'resolved' && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          Đã có kết quả phúc khảo
+                        </span>
+                      )}
                     </div>
-                    <p className="font-semibold text-foreground">
-                      {item.score}
-                      <span className="text-xs font-normal text-muted-foreground">
-                        /{item.max_score}
-                      </span>
-                    </p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <p className="font-semibold text-foreground">
+                        {item.score}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          /{item.max_score}
+                        </span>
+                      </p>
+                      {item.grade_id && item.review_status !== 'under_review' && (
+                        <button
+                          type="button"
+                          title="Yêu cầu thi lại / Phúc khảo"
+                          onClick={() => setReviewItem(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                        >
+                          <FileSearch className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
             </section>
           ))}
         </div>
+      )}
+
+      {reviewItem && (
+        <ReviewRequestModal
+          item={reviewItem}
+          onClose={() => setReviewItem(null)}
+          onDone={(message) => {
+            setToast({ type: 'success', message })
+            load()
+          }}
+        />
       )}
     </div>
   )

@@ -18,10 +18,14 @@ export type PortalSession = {
 }
 
 export type PortalGradeItem = {
+  /** id dòng điểm - dùng cho yêu cầu phúc khảo (null = dữ liệu demo) */
+  grade_id: string | null
   assessment_name: string
   weight: number
   max_score: number
   score: number
+  /** null = bình thường | under_review = đang phúc khảo | resolved = đã trả kết quả */
+  review_status: 'under_review' | 'resolved' | null
 }
 
 export type PortalClassGrades = {
@@ -55,14 +59,27 @@ function mockSchedule(): PortalSession[] {
   ]
 }
 
+const mockGradeItem = (
+  assessment_name: string,
+  weight: number,
+  score: number
+): PortalGradeItem => ({
+  grade_id: null,
+  assessment_name,
+  weight,
+  max_score: 10,
+  score,
+  review_status: null,
+})
+
 const MOCK_GRADES: PortalClassGrades[] = [
   {
     class_id: 'mc-1',
     class_name: 'Toán 12A - Ôn thi THPT',
     items: [
-      { assessment_name: '15 phút', weight: 0.1, max_score: 10, score: 8 },
-      { assessment_name: '1 tiết', weight: 0.2, max_score: 10, score: 7.5 },
-      { assessment_name: 'Giữa kỳ', weight: 0.3, max_score: 10, score: 8.5 },
+      mockGradeItem('15 phút', 0.1, 8),
+      mockGradeItem('1 tiết', 0.2, 7.5),
+      mockGradeItem('Giữa kỳ', 0.3, 8.5),
     ],
     average: 8.17,
   },
@@ -70,16 +87,16 @@ const MOCK_GRADES: PortalClassGrades[] = [
     class_id: 'mc-2',
     class_name: 'Tiếng Anh B1 - Tối T3/T5',
     items: [
-      { assessment_name: '15 phút', weight: 0.1, max_score: 10, score: 9 },
-      { assessment_name: 'Giữa kỳ', weight: 0.3, max_score: 10, score: 8 },
-      { assessment_name: 'Cuối kỳ', weight: 0.4, max_score: 10, score: 9.5 },
+      mockGradeItem('15 phút', 0.1, 9),
+      mockGradeItem('Giữa kỳ', 0.3, 8),
+      mockGradeItem('Cuối kỳ', 0.4, 9.5),
     ],
     average: 8.88,
   },
   {
     class_id: 'mc-3',
     class_name: 'Vật lý 12 - Luyện đề',
-    items: [{ assessment_name: '15 phút', weight: 0.1, max_score: 10, score: 7 }],
+    items: [mockGradeItem('15 phút', 0.1, 7)],
     average: 7,
   },
 ]
@@ -173,15 +190,36 @@ export async function getMyGrades(): Promise<{
 
     if (!user) return { data: MOCK_GRADES, demo: true }
 
-    const { data: grades, error } = await supabase
+    // review_status (migration 031) có thể chưa tồn tại -> fallback êm
+    let grades:
+      | {
+          id: string
+          score: number
+          review_status?: string | null
+          assessments: unknown
+        }[]
+      | null = null
+    const fullQuery = await supabase
       .from('grades')
       .select(
-        'score, assessments(id, name, weight, max_score, class_id, classes(id, name))'
+        'id, score, review_status, assessments(id, name, weight, max_score, class_id, classes(id, name))'
       )
       .eq('student_id', user.id)
       .is('deleted_at', null)
+    if (fullQuery.error) {
+      const basicQuery = await supabase
+        .from('grades')
+        .select(
+          'id, score, assessments(id, name, weight, max_score, class_id, classes(id, name))'
+        )
+        .eq('student_id', user.id)
+        .is('deleted_at', null)
+      grades = basicQuery.data
+    } else {
+      grades = fullQuery.data
+    }
 
-    if (error || !grades || grades.length === 0) {
+    if (!grades || grades.length === 0) {
       return { data: MOCK_GRADES, demo: true }
     }
 
@@ -213,11 +251,17 @@ export async function getMyGrades(): Promise<{
           average: null,
         })
       }
+      const reviewStatus = row.review_status
       byClass.get(classId)!.items.push({
+        grade_id: row.id,
         assessment_name: assessment.name,
         weight: Number(assessment.weight),
         max_score: Number(assessment.max_score),
         score: Number(row.score),
+        review_status:
+          reviewStatus === 'under_review' || reviewStatus === 'resolved'
+            ? reviewStatus
+            : null,
       })
     }
 
@@ -228,5 +272,65 @@ export async function getMyGrades(): Promise<{
     return { data: result, demo: false }
   } catch {
     return { data: MOCK_GRADES, demo: true }
+  }
+}
+
+/**
+ * PHÚC KHẢO (migration 031): học sinh yêu cầu chấm lại một bài.
+ * - Xác thực điểm thuộc CHÍNH học sinh đang đăng nhập (không tin client).
+ * - Ghi bằng admin client vì RLS không cho học sinh UPDATE bảng grades;
+ *   filter cứng theo grade_id + student_id = auth.uid() nên an toàn.
+ * - Điểm chuyển trạng thái 'under_review', Khảo thí xử lý ở /staff/exam-schedule.
+ */
+export async function requestGradeReview(
+  gradeId: string,
+  reason: string
+): Promise<{ error: string } | { error?: undefined }> {
+  const trimmedReason = reason.trim()
+  if (!gradeId) return { error: 'Thiếu mã điểm.' }
+  if (trimmedReason.length < 5) {
+    return { error: 'Vui lòng nêu lý do phúc khảo (ít nhất 5 ký tự).' }
+  }
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const admin = createAdminClient()
+
+    const { data: grade } = await admin
+      .from('grades')
+      .select('id, review_status')
+      .eq('id', gradeId)
+      .eq('student_id', user.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!grade) return { error: 'Không tìm thấy điểm này của bạn.' }
+    if (grade.review_status === 'under_review') {
+      return { error: 'Bài này đang được phúc khảo — vui lòng chờ kết quả.' }
+    }
+
+    const { error } = await admin
+      .from('grades')
+      .update({
+        review_status: 'under_review',
+        review_reason: trimmedReason.slice(0, 500),
+        review_requested_at: new Date().toISOString(),
+      })
+      .eq('id', gradeId)
+      .eq('student_id', user.id)
+    if (error) {
+      if (/review_status|column/i.test(error.message)) {
+        return { error: 'Tính năng phúc khảo chưa sẵn sàng (thiếu migration 031).' }
+      }
+      return { error: `Không gửi được yêu cầu: ${error.message}` }
+    }
+    return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
   }
 }

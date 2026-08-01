@@ -2,12 +2,14 @@
 
 import {
   BookOpen,
+  CalendarCog,
   CalendarRange,
   CheckSquare,
   ClipboardCheck,
   FileSpreadsheet,
   FileStack,
   PenSquare,
+  ShieldCheck,
   Users,
 } from 'lucide-react'
 import { PortalShell, type PortalNavGroup } from '@/components/shared/PortalShell'
@@ -26,6 +28,7 @@ const STAFF_NAV: PortalNavGroup[] = [
       { label: 'Học viên', href: '/students', icon: Users },
       { label: 'Lớp học', href: '/staff/classes', icon: BookOpen },
       { label: 'Thời khóa biểu', href: '/staff/timetable', icon: CalendarRange },
+      { label: 'Điều phối lịch', href: '/staff/schedule-management', icon: CalendarCog },
       { label: 'Điểm danh', href: '/attendance', icon: ClipboardCheck },
     ],
   },
@@ -34,6 +37,7 @@ const STAFF_NAV: PortalNavGroup[] = [
     items: [
       { label: 'Ngân hàng đề', href: '/staff/exam-bank', icon: FileStack },
       { label: 'Kỳ thi', href: '/staff/exams', icon: PenSquare },
+      { label: 'Lịch thi & Giám thị', href: '/staff/exam-schedule', icon: ShieldCheck },
       { label: 'Bảng điểm tổng', href: '/staff/transcripts', icon: FileSpreadsheet },
       { label: 'Xét duyệt kết quả', href: '/staff/results-approval', icon: CheckSquare },
     ],
