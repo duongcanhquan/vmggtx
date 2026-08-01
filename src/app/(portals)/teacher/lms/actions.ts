@@ -225,19 +225,27 @@ export async function getTeacherDownloadUrl(input: {
     if (auth.error !== undefined) return { error: auth.error }
     const { supabase } = auth
 
-    const table =
-      input.kind === 'lesson'
-        ? 'lms_lessons'
-        : input.kind === 'assignment'
-          ? 'lms_assignments'
-          : 'lms_submissions'
-    const { data: row } = await supabase
-      .from(table)
-      .select('attachments')
-      .eq('id', input.recordId)
-      .maybeSingle()
+    // Ràng class_id để không tải file của lớp khác cùng quyền quản lý
+    let attachments: AttachmentMeta[] = []
+    if (input.kind === 'lesson' || input.kind === 'assignment') {
+      const table = input.kind === 'lesson' ? 'lms_lessons' : 'lms_assignments'
+      const { data: row } = await supabase
+        .from(table)
+        .select('attachments')
+        .eq('id', input.recordId)
+        .eq('class_id', input.classId)
+        .maybeSingle()
+      attachments = (row?.attachments ?? []) as AttachmentMeta[]
+    } else {
+      const { data: row } = await supabase
+        .from('lms_submissions')
+        .select('attachments, lms_assignments!inner(class_id)')
+        .eq('id', input.recordId)
+        .eq('lms_assignments.class_id', input.classId)
+        .maybeSingle()
+      attachments = (row?.attachments ?? []) as AttachmentMeta[]
+    }
 
-    const attachments = (row?.attachments ?? []) as AttachmentMeta[]
     if (!attachments.some((f) => f.key === input.key))
       return { error: 'File không thuộc bản ghi này.' }
 
@@ -287,7 +295,11 @@ export async function saveLesson(input: z.infer<typeof lessonSchema>): Promise<A
     }
 
     const { error } = parsed.data.id
-      ? await supabase.from('lms_lessons').update(payload).eq('id', parsed.data.id)
+      ? await supabase
+          .from('lms_lessons')
+          .update(payload)
+          .eq('id', parsed.data.id)
+          .eq('class_id', cls.id) // chặn di chuyển bài sang lớp khác
       : await supabase.from('lms_lessons').insert({ ...payload, created_by: user.id })
     if (error) return { error: 'Không lưu được bài giảng: ' + error.message }
 
@@ -349,7 +361,11 @@ export async function saveAssignment(
     }
 
     const { error } = parsed.data.id
-      ? await supabase.from('lms_assignments').update(payload).eq('id', parsed.data.id)
+      ? await supabase
+          .from('lms_assignments')
+          .update(payload)
+          .eq('id', parsed.data.id)
+          .eq('class_id', cls.id)
       : await supabase.from('lms_assignments').insert({ ...payload, created_by: user.id })
     if (error) return { error: 'Không lưu được bài tập: ' + error.message }
 
@@ -401,6 +417,15 @@ export async function getSubmissions(
     const auth = await authorizeClass(classId)
     if (auth.error !== undefined) return { error: auth.error }
 
+    const { data: assignment } = await auth.supabase
+      .from('lms_assignments')
+      .select('id')
+      .eq('id', assignmentId)
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!assignment) return { error: 'Bài tập không thuộc lớp này.' }
+
     const { data, error } = await auth.supabase
       .from('lms_submissions')
       .select(
@@ -445,6 +470,15 @@ export async function gradeSubmission(input: z.infer<typeof gradeSchema>): Promi
 
     const auth = await authorizeClass(parsed.data.classId)
     if (auth.error !== undefined) return { error: auth.error }
+
+    // Chỉ chấm bài nộp thuộc bài tập của đúng lớp đang mở
+    const { data: owned } = await auth.supabase
+      .from('lms_submissions')
+      .select('id, lms_assignments!inner(class_id)')
+      .eq('id', parsed.data.submissionId)
+      .eq('lms_assignments.class_id', parsed.data.classId)
+      .maybeSingle()
+    if (!owned) return { error: 'Bài nộp không thuộc lớp này.' }
 
     const { error } = await auth.supabase
       .from('lms_submissions')
@@ -508,6 +542,16 @@ export async function saveQuiz(input: z.infer<typeof quizSchema>): Promise<Actio
     }
 
     if (quizId) {
+      // Xác nhận đề thuộc đúng lớp trước khi đụng câu hỏi / lượt làm
+      const { data: existingQuiz } = await supabase
+        .from('lms_quizzes')
+        .select('id')
+        .eq('id', quizId)
+        .eq('class_id', cls.id)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (!existingQuiz) return { error: 'Đề không thuộc lớp này.' }
+
       // Đã có lượt làm bài -> không cho sửa câu hỏi (giữ công bằng)
       const { count } = await supabase
         .from('lms_quiz_attempts')
@@ -516,7 +560,11 @@ export async function saveQuiz(input: z.infer<typeof quizSchema>): Promise<Actio
       if ((count ?? 0) > 0)
         return { error: 'Đề đã có học viên làm bài, không thể sửa câu hỏi. Hãy tạo đề mới.' }
 
-      const { error } = await supabase.from('lms_quizzes').update(quizPayload).eq('id', quizId)
+      const { error } = await supabase
+        .from('lms_quizzes')
+        .update(quizPayload)
+        .eq('id', quizId)
+        .eq('class_id', cls.id)
       if (error) return { error: error.message }
       await supabase.from('lms_quiz_questions').delete().eq('quiz_id', quizId)
     } else {
@@ -603,6 +651,15 @@ export async function getQuizQuestions(
     const auth = await authorizeClass(classId)
     if (auth.error !== undefined) return { error: auth.error }
 
+    const { data: quiz } = await auth.supabase
+      .from('lms_quizzes')
+      .select('id')
+      .eq('id', quizId)
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!quiz) return { error: 'Đề không thuộc lớp này.' }
+
     const { data, error } = await auth.supabase
       .from('lms_quiz_questions')
       .select('question, options, correct_index, points')
@@ -637,6 +694,15 @@ export async function getQuizResults(
   try {
     const auth = await authorizeClass(classId)
     if (auth.error !== undefined) return { error: auth.error }
+
+    const { data: quiz } = await auth.supabase
+      .from('lms_quizzes')
+      .select('id')
+      .eq('id', quizId)
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!quiz) return { error: 'Đề không thuộc lớp này.' }
 
     const { data, error } = await auth.supabase
       .from('lms_quiz_attempts')
@@ -692,6 +758,8 @@ export async function syncScoresToGradebook(
         .from('lms_assignments')
         .select('title')
         .eq('id', parsed.data.sourceId)
+        .eq('class_id', cls.id)
+        .is('deleted_at', null)
         .maybeSingle()
       if (!a) return { error: 'Không tìm thấy bài tập.' }
       title = `BT: ${a.title}`
@@ -708,6 +776,8 @@ export async function syncScoresToGradebook(
         .from('lms_quizzes')
         .select('title')
         .eq('id', parsed.data.sourceId)
+        .eq('class_id', cls.id)
+        .is('deleted_at', null)
         .maybeSingle()
       if (!q) return { error: 'Không tìm thấy đề kiểm tra.' }
       title = `KT: ${q.title}`
