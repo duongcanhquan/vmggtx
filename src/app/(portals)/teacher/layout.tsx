@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   BookOpen,
   CalendarCheck,
+  FileSignature,
   GraduationCap,
   MonitorPlay,
   PenSquare,
@@ -22,6 +23,7 @@ const TEACHER_MENU = [
   { label: 'Lịch dạy hôm nay', href: '/teacher', icon: CalendarCheck },
   { label: 'Các lớp phụ trách', href: '/teacher/classes', icon: BookOpen },
   { label: 'Chấm điểm', href: '/teacher/grading', icon: PenSquare },
+  { label: 'Đơn từ', href: '/teacher/requests', icon: FileSignature },
   { label: 'LMS Online', href: '/teacher/lms', icon: MonitorPlay },
   { label: 'Trợ lý AI', href: '/teacher/assistant', icon: Sparkles },
 ]

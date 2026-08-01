@@ -36,7 +36,7 @@
 
 ## 2. Supabase (làm TRƯỚC khi deploy)
 
-- [ ] Chạy đủ migrations theo thứ tự `supabase/migrations/001 → 028`, rồi `999_final_rls_patch.sql` và `999_performance_indexes.sql` (qua `supabase db push` hoặc SQL Editor). `025_lms.sql` = module LMS Online; `026_lms_hardening.sql` = vá constraint role (admission_staff) + gia cố RLS bài nộp; `027_attendance_notes.sql` = sổ đầu bài điện tử (nhận xét buổi học + dặn dò phụ huynh); `028_student_codes.sql` = mã học viên theo quy tắc của từng cơ sở.
+- [ ] Chạy đủ migrations theo thứ tự `supabase/migrations/001 → 029`, rồi `999_final_rls_patch.sql` và `999_performance_indexes.sql` (qua `supabase db push` hoặc SQL Editor). `025_lms.sql` = module LMS Online; `026_lms_hardening.sql` = vá constraint role (admission_staff) + gia cố RLS bài nộp; `027_attendance_notes.sql` = sổ đầu bài điện tử (nhận xét buổi học + dặn dò phụ huynh); `028_student_codes.sql` = mã học viên theo quy tắc của từng cơ sở; `029_teacher_requests.sql` = đơn từ giáo viên (đề xuất lịch / xin nghỉ — giáo vụ duyệt kèm phản hồi).
 - [ ] Sau khi seed, chạy `node scripts/smoke-lms.mjs` để test RLS LMS bằng tài khoản thật (học viên không đọc được đáp án, không tự chấm điểm được...).
 - [ ] Kiểm tra nhanh database đã đủ bảng/hàm chưa: điền `.env` thật rồi chạy `node scripts/check-db.mjs` — script liệt kê chính xác migration nào còn thiếu.
 - [ ] **QUAN TRỌNG**: `999_final_rls_patch.sql` bật RLS cho `organizations`, `class_sessions`, `attendance`, `subjects` và thêm policy GHI cho `classes` — bắt buộc cho production đa tầng.
