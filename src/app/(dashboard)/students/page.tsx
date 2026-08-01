@@ -15,7 +15,13 @@ import { Toast, type ToastData } from '@/components/shared/Toast'
 import { StudentForm, type StudentFormValues } from '@/components/forms/StudentForm'
 import { getCustomFields } from '@/app/(dashboard)/settings/custom-fields/actions'
 import type { CustomFieldDef, CustomMetadata } from '@/lib/customFields'
-import { createStudent, getStudents, updateStudent, type StudentRow } from './actions'
+import {
+  createStudent,
+  deleteStudent,
+  getStudents,
+  updateStudent,
+  type StudentRow,
+} from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
@@ -94,6 +100,23 @@ export default function StudentsPage() {
     loadData()
   }
 
+  const handleDelete = useCallback(
+    async (student: StudentRow) => {
+      const confirmed = window.confirm(
+        `Xóa hồ sơ "${student.full_name}"? Hồ sơ được XÓA MỀM (khôi phục được từ database).\nYêu cầu quyền Quản lý cơ sở.`
+      )
+      if (!confirmed) return
+      const result = await deleteStudent(student.id)
+      if (result.error !== undefined) {
+        setToast({ type: 'error', message: result.error })
+        return
+      }
+      setToast({ type: 'success', message: `Đã xóa hồ sơ ${student.full_name}.` })
+      void loadData()
+    },
+    [loadData]
+  )
+
   const columns = useMemo<ColumnDef<StudentRow>[]>(
     () => [
       {
@@ -163,18 +186,14 @@ export default function StudentsPage() {
                 label: 'Xóa (xóa mềm)',
                 icon: Trash2,
                 variant: 'destructive',
-                onClick: () =>
-                  setToast({
-                    type: 'error',
-                    message: `Demo: chưa kích hoạt xóa hồ sơ ${row.original.full_name}.`,
-                  }),
+                onClick: () => void handleDelete(row.original),
               },
             ]}
           />
         ),
       },
     ],
-    []
+    [handleDelete]
   )
 
   return (

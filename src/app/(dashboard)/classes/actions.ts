@@ -124,10 +124,12 @@ export async function createClass(formData: FormData): Promise<ActionResult> {
     teacherId: String(formData.get('teacherId') ?? ''),
     startDate: String(formData.get('startDate') ?? ''),
     endDate: String(formData.get('endDate') ?? ''),
+    maxStudents: String(formData.get('maxStudents') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
 
-  const { orgId, name, teacherId, subjectId, startDate, endDate } = parsed.data
+  const { orgId, name, teacherId, subjectId, startDate, endDate, maxStudents } =
+    parsed.data
 
   try {
     const supabase = createClient()
@@ -202,6 +204,7 @@ export async function createClass(formData: FormData): Promise<ActionResult> {
       teacher_id: teacherId || null,
       start_date: startDate || null,
       end_date: endDate || null,
+      max_students: maxStudents ? parseInt(maxStudents, 10) : null,
     })
 
     if (insertError) {

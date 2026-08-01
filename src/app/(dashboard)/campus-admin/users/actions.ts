@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createUserSchema, zodFail } from '@/lib/validation/schemas'
+import {
+  createUserSchema,
+  resetPasswordSchema,
+  updateUserSchema,
+  zodFail,
+} from '@/lib/validation/schemas'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 
 // ============================================================
@@ -308,6 +313,166 @@ export async function createUserAccount(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Lỗi không xác định'
     return { error: `Không thể tạo tài khoản: ${message}` }
+  }
+
+  revalidatePath('/campus-admin/users')
+  return {}
+}
+
+/**
+ * Gác cổng chung cho SỬA/XÓA/CẤP LẠI MẬT KHẨU tài khoản:
+ * 1. Người thao tác phải đăng nhập.
+ * 2. Target không được là super_admin (Campus Admin không đụng tới).
+ * 3. Không tự thao tác lên chính mình (với xóa).
+ * 4. is_authorized(user, org CỦA TARGET, 'campus_admin') - target phải
+ *    nằm trong subtree của người thao tác.
+ * Trả về target profile nếu qua hết.
+ */
+async function requireManageableTarget(
+  targetUserId: string,
+  opts: { blockSelf?: boolean } = {}
+): Promise<
+  | { error: string }
+  | {
+      error?: undefined
+      currentUserId: string
+      target: { id: string; org_id: string; role: string; full_name: string }
+    }
+> {
+  const supabase = createClient()
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser()
+  if (!currentUser) return { error: 'Bạn chưa đăng nhập.' }
+
+  if (opts.blockSelf && currentUser.id === targetUserId) {
+    return { error: 'Không thể tự xóa tài khoản của chính mình.' }
+  }
+
+  const { data: target } = await supabase
+    .from('profiles')
+    .select('id, org_id, role, full_name')
+    .eq('id', targetUserId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!target?.org_id) {
+    return { error: 'Tài khoản không tồn tại hoặc ngoài phạm vi của bạn.' }
+  }
+  if (target.role === 'super_admin') {
+    return { error: 'TỪ CHỐI: Không thể thao tác lên tài khoản Super Admin.' }
+  }
+
+  const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+    p_user_id: currentUser.id,
+    p_target_org_id: target.org_id,
+    p_required_role: 'campus_admin',
+  })
+  if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
+  if (authorized !== true) {
+    return {
+      error:
+        'TỪ CHỐI: Bạn không phải Campus Admin hoặc tài khoản này không thuộc chi nhánh của bạn.',
+    }
+  }
+
+  return {
+    currentUserId: currentUser.id,
+    target: target as { id: string; org_id: string; role: string; full_name: string },
+  }
+}
+
+/**
+ * SỬA tài khoản nhân sự/học viên: họ tên, role (không super_admin),
+ * chi nhánh (phải thuộc subtree của người thao tác).
+ */
+export async function updateUserAccount(
+  formData: FormData
+): Promise<UsersActionResult> {
+  const parsed = updateUserSchema.safeParse({
+    userId: String(formData.get('userId') ?? ''),
+    fullName: String(formData.get('fullName') ?? ''),
+    role: String(formData.get('role') ?? ''),
+    orgId: String(formData.get('orgId') ?? ''),
+  })
+  if (!parsed.success) return zodFail(parsed.error)
+  const { userId, fullName, role, orgId } = parsed.data
+
+  try {
+    const gate = await requireManageableTarget(userId)
+    if (gate.error !== undefined) return { error: gate.error }
+
+    // Chi nhánh MỚI cũng phải thuộc quyền của người thao tác
+    const supabase = createClient()
+    const { data: orgAuthorized } = await supabase.rpc('is_authorized', {
+      p_user_id: gate.currentUserId,
+      p_target_org_id: orgId,
+      p_required_role: 'campus_admin',
+    })
+    if (orgAuthorized !== true) {
+      return { error: 'TỪ CHỐI: Chi nhánh đích không thuộc quyền quản lý của bạn.' }
+    }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from('profiles')
+      .update({ full_name: fullName, role, org_id: orgId })
+      .eq('id', userId)
+    if (error) return { error: `Không cập nhật được tài khoản: ${error.message}` }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
+  }
+
+  revalidatePath('/campus-admin/users')
+  return {}
+}
+
+/** CẤP LẠI MẬT KHẨU cho nhân sự/học viên trong subtree */
+export async function resetUserPassword(
+  formData: FormData
+): Promise<UsersActionResult> {
+  const parsed = resetPasswordSchema.safeParse({
+    userId: String(formData.get('userId') ?? ''),
+    password: String(formData.get('password') ?? ''),
+  })
+  if (!parsed.success) return zodFail(parsed.error)
+  const { userId, password } = parsed.data
+
+  try {
+    const gate = await requireManageableTarget(userId)
+    if (gate.error !== undefined) return { error: gate.error }
+
+    const admin = createAdminClient()
+    const { error } = await admin.auth.admin.updateUserById(userId, { password })
+    if (error) return { error: `Không đổi được mật khẩu: ${error.message}` }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
+  }
+
+  return {}
+}
+
+/**
+ * XÓA tài khoản (XÓA MỀM profile + chặn đăng nhập bằng ban).
+ * Không xóa auth user thật để giữ vết dữ liệu (điểm, học phí, log...).
+ */
+export async function deleteUserAccount(userId: string): Promise<UsersActionResult> {
+  if (!userId) return { error: 'Thiếu ID người dùng.' }
+
+  try {
+    const gate = await requireManageableTarget(userId, { blockSelf: true })
+    if (gate.error !== undefined) return { error: gate.error }
+
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from('profiles')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', userId)
+    if (error) return { error: `Không xóa được tài khoản: ${error.message}` }
+
+    // Chặn đăng nhập: ban ~100 năm (soft delete nhưng khóa cửa thật)
+    await admin.auth.admin.updateUserById(userId, { ban_duration: '876000h' })
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
   }
 
   revalidatePath('/campus-admin/users')

@@ -184,6 +184,34 @@ export async function getFreeTeachers(sessionId: string): Promise<
   }
 }
 
+// ---------- Thông báo đẩy (migration 040) - lỗi KHÔNG chặn luồng chính ----------
+function formatSlot(startISO: string, endISO: string): string {
+  const start = new Date(startISO)
+  const end = new Date(endISO)
+  const day = start.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })
+  const hhmm = (d: Date) => d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  return `${day} ${hhmm(start)}–${hhmm(end)}`
+}
+
+async function pushNotifications(
+  rows: {
+    org_id: string
+    recipient_id: string
+    type: 'schedule_change'
+    title: string
+    body: string
+    link: string
+  }[]
+): Promise<void> {
+  if (rows.length === 0) return
+  try {
+    const supabase = createClient()
+    await supabase.from('user_notifications').insert(rows)
+  } catch {
+    /* bảng chưa migrate / lỗi mạng - bỏ qua, không chặn nghiệp vụ */
+  }
+}
+
 /** A) Gán GV DẠY THAY - buổi giữ nguyên, ghi substitute_teacher_id */
 export async function assignSubstitute(
   sessionId: string,
@@ -197,7 +225,7 @@ export async function assignSubstitute(
     const supabase = createClient()
     const { data: session } = await supabase
       .from('class_sessions')
-      .select('id, teacher_id, status, start_time, end_time')
+      .select('id, org_id, teacher_id, status, start_time, end_time, classes(name)')
       .eq('id', sessionId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -231,6 +259,34 @@ export async function assignSubstitute(
       return { error: `Không gán được GV dạy thay: ${error.message}` }
     }
 
+    // Báo cho GV dạy thay + GV gốc (không chặn luồng nếu lỗi)
+    {
+      const cls = session.classes as { name?: string } | { name?: string }[] | null
+      const className = (Array.isArray(cls) ? cls[0]?.name : cls?.name) ?? 'Lớp học'
+      const slot = formatSlot(session.start_time, session.end_time)
+      const rows = [
+        {
+          org_id: session.org_id as string,
+          recipient_id: substituteTeacherId,
+          type: 'schedule_change' as const,
+          title: 'Bạn được phân công DẠY THAY',
+          body: `${className} · ${slot}. Vui lòng kiểm tra lịch dạy.`,
+          link: '/teacher/schedule',
+        },
+      ]
+      if (session.teacher_id) {
+        rows.push({
+          org_id: session.org_id as string,
+          recipient_id: session.teacher_id,
+          type: 'schedule_change' as const,
+          title: 'Buổi dạy của bạn đã có GV dạy thay',
+          body: `${className} · ${slot} sẽ do giáo viên khác phụ trách.`,
+          link: '/teacher/schedule',
+        })
+      }
+      await pushNotifications(rows)
+    }
+
     revalidatePath('/staff/schedule-management')
     return {}
   } catch (error) {
@@ -260,7 +316,7 @@ export async function cancelAndMakeup(
     const supabase = createClient()
     const { data: session } = await supabase
       .from('class_sessions')
-      .select('id, org_id, class_id, teacher_id, status')
+      .select('id, org_id, class_id, teacher_id, status, start_time, end_time, classes(name)')
       .eq('id', sessionId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -310,6 +366,46 @@ export async function cancelAndMakeup(
       .eq('id', sessionId)
     if (cancelError) {
       return { error: `Đã tạo buổi bù nhưng không hủy được buổi gốc: ${cancelError.message}` }
+    }
+
+    // Báo dời lịch cho GV + toàn bộ học viên đang học lớp này
+    {
+      const cls = session.classes as { name?: string } | { name?: string }[] | null
+      const className = (Array.isArray(cls) ? cls[0]?.name : cls?.name) ?? 'Lớp học'
+      const oldSlot = formatSlot(session.start_time, session.end_time)
+      const newSlot = formatSlot(newStart.toISOString(), newEnd.toISOString())
+      const body = `${className}: buổi ${oldSlot} được HỦY và học bù vào ${newSlot}${
+        newRoom.trim() ? ` tại ${newRoom.trim()}` : ''
+      }.`
+
+      const rows: Parameters<typeof pushNotifications>[0] = []
+      if (session.teacher_id) {
+        rows.push({
+          org_id: session.org_id as string,
+          recipient_id: session.teacher_id,
+          type: 'schedule_change',
+          title: 'Buổi dạy được dời lịch (học bù)',
+          body,
+          link: '/teacher/schedule',
+        })
+      }
+      const { data: enrolled } = await supabase
+        .from('enrollments')
+        .select('student_id')
+        .eq('class_id', session.class_id)
+        .eq('status', 'active')
+        .is('deleted_at', null)
+      for (const row of enrolled ?? []) {
+        rows.push({
+          org_id: session.org_id as string,
+          recipient_id: row.student_id,
+          type: 'schedule_change',
+          title: 'Buổi học được dời lịch (học bù)',
+          body,
+          link: '/schedule',
+        })
+      }
+      await pushNotifications(rows)
     }
 
     revalidatePath('/staff/schedule-management')

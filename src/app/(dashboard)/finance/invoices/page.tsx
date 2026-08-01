@@ -4,17 +4,28 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { AlertTriangle, Banknote, FilePlus2, Loader2, Trash2, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Banknote,
+  BellRing,
+  FilePlus2,
+  Loader2,
+  Printer,
+  Trash2,
+  X,
+} from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { SmartTable, sortableHeader } from '@/components/shared/SmartTable'
 import { Toast, type ToastData } from '@/components/shared/Toast'
+import { printReceipt } from '@/lib/utils/printReceipt'
 import {
   cancelInvoice,
   createInvoice,
   getInvoices,
   getStudentsForInvoice,
   recordPayment,
+  sendTuitionReminders,
   type InvoiceRow,
   type PaymentMethod,
 } from './actions'
@@ -45,6 +56,46 @@ function isOverdue(invoice: InvoiceRow): boolean {
   if (invoice.status !== 'pending' && invoice.status !== 'partial') return false
   if (!invoice.due_date) return false
   return new Date(`${invoice.due_date}T23:59:59`) < new Date()
+}
+
+// ---------- Tuổi nợ (aging) ----------
+type AgingBucket = 'current' | 'b7' | 'b30' | 'b30plus'
+
+const AGING_META: Record<AgingBucket, { label: string; className: string; activeClassName: string }> = {
+  current: {
+    label: 'Chưa đến hạn',
+    className: 'border-border bg-surface text-foreground',
+    activeClassName: 'border-indigo-400 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-200',
+  },
+  b7: {
+    label: 'Quá hạn 0–7 ngày',
+    className: 'border-amber-200 bg-amber-50 text-amber-800',
+    activeClassName: 'border-amber-400 bg-amber-100 text-amber-900 ring-2 ring-amber-200',
+  },
+  b30: {
+    label: 'Quá hạn 8–30 ngày',
+    className: 'border-orange-200 bg-orange-50 text-orange-800',
+    activeClassName: 'border-orange-400 bg-orange-100 text-orange-900 ring-2 ring-orange-200',
+  },
+  b30plus: {
+    label: 'Quá hạn >30 ngày',
+    className: 'border-rose-200 bg-rose-50 text-rose-800',
+    activeClassName: 'border-rose-400 bg-rose-100 text-rose-900 ring-2 ring-rose-200',
+  },
+}
+
+/** Phân loại hóa đơn còn nợ theo số ngày quá hạn (null = không có nợ) */
+function agingBucket(invoice: InvoiceRow): AgingBucket | null {
+  if (invoice.status !== 'pending' && invoice.status !== 'partial') return null
+  if (invoice.amount - invoice.paid_total <= 0) return null
+  if (!invoice.due_date) return 'current'
+  const overdueDays = Math.floor(
+    (Date.now() - new Date(`${invoice.due_date}T23:59:59`).getTime()) / 86_400_000
+  )
+  if (overdueDays < 0) return 'current'
+  if (overdueDays <= 7) return 'b7'
+  if (overdueDays <= 30) return 'b30'
+  return 'b30plus'
 }
 
 function formatDueDate(iso: string | null) {
@@ -81,6 +132,7 @@ function PaymentSheet({
   const [visible, setVisible] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [printAfter, setPrintAfter] = useState(true)
 
   const remaining = invoice.amount - invoice.paid_total
 
@@ -135,6 +187,20 @@ function PaymentSheet({
     if (result.error !== undefined) {
       setError(result.error)
       return
+    }
+
+    // In biên lai (cửa sổ in của trình duyệt -> có thể Save as PDF)
+    if (printAfter) {
+      printReceipt({
+        invoiceCode: invoice.code,
+        studentName: invoice.student_name,
+        orgName: invoice.org_name,
+        amountPaid: amount,
+        paymentMethod,
+        invoiceTotal: invoice.amount,
+        paidTotal: invoice.paid_total + amount,
+        remaining: result.remaining,
+      })
     }
 
     onSaved(
@@ -290,6 +356,18 @@ function PaymentSheet({
               </div>
               <FieldError message={errors.paymentMethod?.message} />
             </div>
+
+            {/* ===== In biên lai sau khi thu ===== */}
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-background px-3.5 py-3 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={printAfter}
+                onChange={(e) => setPrintAfter(e.target.checked)}
+                className="h-4 w-4 cursor-pointer accent-indigo-600"
+              />
+              <Printer className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              In biên lai sau khi thu (có thể lưu PDF)
+            </label>
 
             {error && (
               <p
@@ -493,6 +571,8 @@ export default function InvoicesPage() {
   const [sheetInvoice, setSheetInvoice] = useState<InvoiceRow | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
+  const [reminding, setReminding] = useState(false)
+  const [agingFilter, setAgingFilter] = useState<AgingBucket | null>(null)
 
   // Tổng hợp công nợ (tính trên dữ liệu đang xem, bỏ hóa đơn hủy)
   const summary = useMemo(() => {
@@ -511,12 +591,55 @@ export default function InvoicesPage() {
     }
   }, [invoices])
 
+  // Báo cáo tuổi nợ: gom hóa đơn còn nợ theo số ngày quá hạn
+  const aging = useMemo(() => {
+    const buckets: Record<AgingBucket, { count: number; amount: number }> = {
+      current: { count: 0, amount: 0 },
+      b7: { count: 0, amount: 0 },
+      b30: { count: 0, amount: 0 },
+      b30plus: { count: 0, amount: 0 },
+    }
+    for (const inv of invoices) {
+      const bucket = agingBucket(inv)
+      if (!bucket) continue
+      buckets[bucket].count += 1
+      buckets[bucket].amount += inv.amount - inv.paid_total
+    }
+    return buckets
+  }, [invoices])
+
+  const visibleInvoices = useMemo(
+    () =>
+      agingFilter
+        ? invoices.filter((inv) => agingBucket(inv) === agingFilter)
+        : invoices,
+    [invoices, agingFilter]
+  )
+
   const loadInvoices = useCallback(async () => {
     setLoading(true)
     const result = await getInvoices(currentOrgId)
     setInvoices(result.data)
     setIsDemo(result.demo)
     setLoading(false)
+  }, [currentOrgId])
+
+  const handleRemind = useCallback(async () => {
+    if (!currentOrgId) return
+    setReminding(true)
+    const result = await sendTuitionReminders(currentOrgId)
+    setReminding(false)
+    if (result.error !== undefined) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({
+      type: 'success',
+      message:
+        result.sent > 0
+          ? `Đã gửi nhắc học phí tới ${result.sent} học viên (bỏ qua ${result.skipped} hóa đơn đã nhắc gần đây).`
+          : 'Không có hóa đơn nào cần nhắc (đã nhắc trong 3 ngày qua hoặc chưa đến kỳ hạn).',
+    })
   }, [currentOrgId])
 
   useEffect(() => {
@@ -664,14 +787,30 @@ export default function InvoicesPage() {
           </p>
         </div>
         {currentOrgId && (
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <FilePlus2 className="h-4 w-4" aria-hidden="true" />
-            Tạo hóa đơn
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleRemind()}
+              disabled={reminding}
+              title="Đẩy thông báo nhắc học phí tới Cổng Học viên & Sổ Liên Lạc Phụ huynh"
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {reminding ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <BellRing className="h-4 w-4" aria-hidden="true" />
+              )}
+              {reminding ? 'Đang gửi nhắc…' : 'Nhắc học phí'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+              Tạo hóa đơn
+            </button>
+          </div>
         )}
       </div>
 
@@ -698,6 +837,41 @@ export default function InvoicesPage() {
         </div>
       )}
 
+      {/* ===== Báo cáo tuổi nợ (bấm để lọc bảng) ===== */}
+      {!loading && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Báo cáo tuổi nợ — bấm ô để lọc danh sách
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {(Object.keys(AGING_META) as AgingBucket[]).map((bucket) => {
+              const meta = AGING_META[bucket]
+              const stats = aging[bucket]
+              const active = agingFilter === bucket
+              return (
+                <button
+                  key={bucket}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setAgingFilter(active ? null : bucket)}
+                  className={`cursor-pointer rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    active ? meta.activeClassName : meta.className
+                  }`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide opacity-80">
+                    {meta.label}
+                  </p>
+                  <p className="mt-1 font-heading text-lg font-bold">
+                    {CURRENCY.format(stats.amount)}
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-70">{stats.count} hóa đơn</p>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {isDemo && (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống).
@@ -709,7 +883,7 @@ export default function InvoicesPage() {
       ) : (
         <SmartTable
           columns={columns}
-          data={invoices}
+          data={visibleInvoices}
           searchKey="student_name"
           searchPlaceholder="Tìm theo tên học viên…"
           emptyMessage="Chưa có hóa đơn nào trong phạm vi này."

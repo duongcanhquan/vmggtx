@@ -34,6 +34,8 @@ export type StaffClassRow = {
   start_date: string | null
   end_date: string | null
   session_count: number
+  /** Sĩ số tối đa - null = không giới hạn */
+  max_students: number | null
 }
 
 export type StaffActionResult = { error: string } | { error?: undefined }
@@ -56,6 +58,7 @@ const MOCK_CLASSES: StaffClassRow[] = [
     start_date: '2026-07-01',
     end_date: '2026-12-20',
     session_count: 24,
+    max_students: 35,
   },
   {
     id: 'mock-c2',
@@ -65,6 +68,7 @@ const MOCK_CLASSES: StaffClassRow[] = [
     start_date: '2026-08-01',
     end_date: '2026-11-30',
     session_count: 16,
+    max_students: 20,
   },
   {
     id: 'mock-c3',
@@ -74,6 +78,7 @@ const MOCK_CLASSES: StaffClassRow[] = [
     start_date: '2026-09-01',
     end_date: null,
     session_count: 0,
+    max_students: null,
   },
 ]
 
@@ -127,7 +132,7 @@ export async function getStaffClasses(): Promise<{
     const { data, error } = await supabase
       .from('classes')
       .select(
-        'id, name, teacher_id, start_date, end_date, profiles(full_name), class_sessions(count)'
+        'id, name, teacher_id, start_date, end_date, max_students, profiles(full_name), class_sessions(count)'
       )
       .eq('org_id', context.orgId)
       .is('deleted_at', null)
@@ -150,6 +155,7 @@ export async function getStaffClasses(): Promise<{
         start_date: row.start_date,
         end_date: row.end_date,
         session_count: sessions?.[0]?.count ?? 0,
+        max_students: row.max_students ?? null,
       }
     })
     return { data: rows, demo: false }
@@ -236,10 +242,11 @@ export async function createClassAsStaff(
     teacherId: String(formData.get('teacherId') ?? ''),
     startDate: String(formData.get('startDate') ?? ''),
     endDate: String(formData.get('endDate') ?? ''),
+    maxStudents: String(formData.get('maxStudents') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
 
-  const { name, teacherId, startDate, endDate } = parsed.data
+  const { name, teacherId, startDate, endDate, maxStudents } = parsed.data
 
   try {
     const scope = await requireStaffScope()
@@ -252,6 +259,7 @@ export async function createClassAsStaff(
       teacher_id: teacherId || null,
       start_date: startDate || null,
       end_date: endDate || null,
+      max_students: maxStudents ? parseInt(maxStudents, 10) : null,
     })
 
     if (error) return { error: `Lỗi tạo lớp: ${error.message}` }
@@ -280,10 +288,11 @@ export async function updateClassAsStaff(
     teacherId: String(formData.get('teacherId') ?? ''),
     startDate: String(formData.get('startDate') ?? ''),
     endDate: String(formData.get('endDate') ?? ''),
+    maxStudents: String(formData.get('maxStudents') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
 
-  const { name, teacherId, startDate, endDate } = parsed.data
+  const { name, teacherId, startDate, endDate, maxStudents } = parsed.data
 
   try {
     const scope = await requireStaffScope()
@@ -300,6 +309,7 @@ export async function updateClassAsStaff(
         teacher_id: teacherId || null,
         start_date: startDate || null,
         end_date: endDate || null,
+        max_students: maxStudents ? parseInt(maxStudents, 10) : null,
       })
       .eq('id', classId)
 

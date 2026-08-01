@@ -822,3 +822,60 @@ export async function updateStudent(
     }
   }
 }
+
+/**
+ * XÓA MỀM hồ sơ học sinh (set deleted_at) - yêu cầu quyền tối thiểu
+ * CAMPUS_ADMIN trên org của học sinh (xóa hồ sơ là thao tác nhạy cảm,
+ * cao hơn mức academic_staff của sửa hồ sơ). RLS campusadmin_update_subtree
+ * (migration 005) cho phép UPDATE trong subtree nên dùng session client.
+ */
+export async function deleteStudent(studentId: string): Promise<ActionResult> {
+  const idParsed = requiredId('Thiếu ID học sinh.').safeParse(studentId)
+  if (!idParsed.success) return zodFail(idParsed.error)
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser()
+    if (!currentUser) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { data: student } = await supabase
+      .from('profiles')
+      .select('id, org_id, full_name')
+      .eq('id', idParsed.data)
+      .eq('role', 'student')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!student?.org_id) {
+      return { error: 'Học sinh không tồn tại hoặc ngoài phạm vi của bạn.' }
+    }
+
+    const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+      p_user_id: currentUser.id,
+      p_target_org_id: student.org_id,
+      p_required_role: 'campus_admin',
+    })
+    if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
+    if (authorized !== true) {
+      return {
+        error:
+          'TỪ CHỐI: Xóa hồ sơ học sinh yêu cầu quyền Quản lý cơ sở (campus_admin) trên chi nhánh của học sinh.',
+      }
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', idParsed.data)
+    if (error) return { error: `Không thể xóa hồ sơ: ${error.message}` }
+
+    revalidatePath('/students')
+    return {}
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : 'Lỗi không xác định khi xóa hồ sơ.',
+    }
+  }
+}

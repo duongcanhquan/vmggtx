@@ -1,6 +1,19 @@
 import Link from 'next/link'
-import { Bot, CalendarDays, ChevronRight, Medal, Star, Wallet } from 'lucide-react'
+import {
+  Bell,
+  Bot,
+  CalendarDays,
+  CheckCheck,
+  ChevronRight,
+  Medal,
+  Star,
+  Wallet,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import {
+  getMyNotifications,
+  markAllNotificationsRead,
+} from './notification-actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,13 +106,90 @@ async function getPendingEvaluations(): Promise<PendingEvaluation[]> {
 }
 
 export default async function StudentPortalHomePage() {
-  const pendingEvaluations = await getPendingEvaluations()
+  const [pendingEvaluations, notifications] = await Promise.all([
+    getPendingEvaluations(),
+    getMyNotifications(),
+  ])
+  const unreadCount = notifications.filter((n) => n.read_at === null).length
 
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold tracking-tight">
         Xin chào! 👋
       </h1>
+
+      {/* ===== Thông báo đẩy: nhắc học phí, đổi lịch… ===== */}
+      {notifications.length > 0 && (
+        <div className="rounded-2xl border border-border bg-surface p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-heading text-sm font-bold">
+              <Bell className="h-4 w-4 text-primary" aria-hidden="true" />
+              Thông báo
+              {unreadCount > 0 && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
+                  {unreadCount}
+                </span>
+              )}
+            </h2>
+            {unreadCount > 0 && (
+              <form action={markAllNotificationsRead}>
+                <button
+                  type="submit"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  Đã đọc hết
+                </button>
+              </form>
+            )}
+          </div>
+          <ul className="mt-3 space-y-2">
+            {notifications.slice(0, 5).map((notice) => {
+              const unread = notice.read_at === null
+              const isTuition = notice.type === 'tuition_reminder'
+              const content = (
+                <>
+                  <p
+                    className={`text-sm ${
+                      unread ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'
+                    }`}
+                  >
+                    {isTuition && '💰 '}
+                    {notice.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{notice.body}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground/70">
+                    {new Date(notice.created_at).toLocaleString('vi-VN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </>
+              )
+              const itemClass = `block rounded-xl border px-3.5 py-3 transition-colors ${
+                unread
+                  ? isTuition
+                    ? 'border-amber-200 bg-amber-50 hover:bg-amber-100/70'
+                    : 'border-indigo-200 bg-indigo-50 hover:bg-indigo-100/70'
+                  : 'border-border bg-background hover:bg-indigo-50/40'
+              }`
+              return (
+                <li key={notice.id}>
+                  {notice.link ? (
+                    <Link href={notice.link} className={itemClass}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <div className={itemClass}>{content}</div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* ===== Khảo sát giáo viên đang chờ (ẩn danh) ===== */}
       {pendingEvaluations.length > 0 && (

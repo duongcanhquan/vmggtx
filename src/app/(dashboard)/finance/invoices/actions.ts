@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { paymentSchema, zodFail } from '@/lib/validation/schemas'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { sendTuitionRemindersForOrgs } from '@/lib/services/tuitionReminders'
 
 // ============================================================
 // Tài chính - Học phí & Công nợ (Campus Admin / Staff)
@@ -280,6 +281,44 @@ export async function cancelInvoice(
 
     revalidatePath('/finance/invoices')
     return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
+  }
+}
+
+/**
+ * NHẮC HỌC PHÍ: đẩy thông báo tới học viên có hóa đơn chưa thu đủ
+ * (quá hạn hoặc đến hạn trong 7 ngày tới) trong org đang chọn +
+ * chi nhánh con. Thông báo hiện ở Cổng Học viên và Sổ Liên Lạc
+ * Phụ huynh. Mỗi hóa đơn chỉ nhắc lại sau 3 ngày (chống spam).
+ */
+export async function sendTuitionReminders(
+  orgId: string
+): Promise<{ error: string } | { error?: undefined; sent: number; skipped: number }> {
+  if (!orgId) return { error: 'Chưa chọn cấp quản lý.' }
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { data: authorized } = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: orgId,
+      p_required_role: 'academic_staff',
+    })
+    if (authorized !== true) {
+      return { error: 'Bạn không có quyền gửi nhắc học phí cho cơ sở này.' }
+    }
+
+    const orgIds = await getDescendantOrgIds(supabase, orgId)
+    const result = await sendTuitionRemindersForOrgs(
+      supabase,
+      orgIds.includes(orgId) ? orgIds : [orgId, ...orgIds]
+    )
+    if (result.error) return { error: `Không gửi được nhắc học phí: ${result.error}` }
+    return { sent: result.sent, skipped: result.skipped }
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
   }

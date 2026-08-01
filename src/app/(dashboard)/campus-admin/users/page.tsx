@@ -4,13 +4,26 @@ import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
-import { UserPlus, Users, X, Loader2, ShieldAlert } from 'lucide-react'
+import {
+  KeyRound,
+  Loader2,
+  Pencil,
+  Save,
+  ShieldAlert,
+  Trash2,
+  UserPlus,
+  Users,
+  X,
+} from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { createUserSchema } from '@/lib/validation/schemas'
 import {
   createUserAccount,
+  deleteUserAccount,
   getManagedOrgs,
   getUsersInScope,
+  resetUserPassword,
+  updateUserAccount,
   type ManagedOrg,
   type StaffRow,
 } from './actions'
@@ -91,6 +104,11 @@ export default function CampusAdminUsersPage() {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
 
+  // Sửa / cấp lại mật khẩu / xóa tài khoản
+  const [editUser, setEditUser] = useState<StaffRow | null>(null)
+  const [resetUser, setResetUser] = useState<StaffRow | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   // react-hook-form + zodResolver: lỗi đỏ hiện ngay khi blur, trước khi Submit
   const {
     register,
@@ -151,6 +169,22 @@ export default function CampusAdminUsersPage() {
     setToast({ type: 'success', message: 'Đã tạo tài khoản nhân sự mới.' })
     reset()
     setFormOpen(false)
+    loadUsers()
+  }
+
+  async function handleDeleteUser(user: StaffRow) {
+    const confirmed = window.confirm(
+      `Xóa tài khoản "${user.full_name}"?\nHồ sơ được XÓA MỀM và tài khoản bị KHÓA đăng nhập.`
+    )
+    if (!confirmed) return
+    setDeletingId(user.id)
+    const result = await deleteUserAccount(user.id)
+    setDeletingId(null)
+    if (result.error) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({ type: 'success', message: `Đã xóa tài khoản ${user.full_name}.` })
     loadUsers()
   }
 
@@ -245,6 +279,7 @@ export default function CampusAdminUsersPage() {
                   <th scope="col" className="px-4 py-3 font-semibold">Vai trò</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Tổ chức</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Ngày tạo</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -271,6 +306,44 @@ export default function CampusAdminUsersPage() {
                     <td className="px-4 py-3 text-muted-foreground">{user.org_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatDate(user.created_at)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.role !== 'super_admin' && (
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            title="Sửa tài khoản"
+                            aria-label={`Sửa tài khoản ${user.full_name}`}
+                            onClick={() => setEditUser(user)}
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-amber-600 transition-colors duration-150 hover:bg-amber-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Cấp lại mật khẩu"
+                            aria-label={`Cấp lại mật khẩu cho ${user.full_name}`}
+                            onClick={() => setResetUser(user)}
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <KeyRound className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Xóa tài khoản (xóa mềm + khóa đăng nhập)"
+                            aria-label={`Xóa tài khoản ${user.full_name}`}
+                            onClick={() => void handleDeleteUser(user)}
+                            disabled={deletingId === user.id}
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-rose-600 transition-colors duration-150 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingId === user.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -433,7 +506,294 @@ export default function CampusAdminUsersPage() {
         </div>
       )}
 
+      {/* ===== Modal Sửa tài khoản ===== */}
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          orgs={orgs}
+          onClose={() => setEditUser(null)}
+          onSaved={(message) => {
+            setToast({ type: 'success', message })
+            setEditUser(null)
+            loadUsers()
+          }}
+          onError={(message) => setToast({ type: 'error', message })}
+        />
+      )}
+
+      {/* ===== Modal Cấp lại mật khẩu ===== */}
+      {resetUser && (
+        <ResetPasswordModal
+          user={resetUser}
+          onClose={() => setResetUser(null)}
+          onSaved={(message) => {
+            setToast({ type: 'success', message })
+            setResetUser(null)
+          }}
+          onError={(message) => setToast({ type: 'error', message })}
+        />
+      )}
+
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
+    </div>
+  )
+}
+
+// ---------- Modal Sửa tài khoản ----------
+function EditUserModal({
+  user,
+  orgs,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  user: StaffRow
+  orgs: ManagedOrg[]
+  onClose: () => void
+  onSaved: (message: string) => void
+  onError: (message: string) => void
+}) {
+  const [fullName, setFullName] = useState(user.full_name)
+  const [role, setRole] = useState(user.role)
+  const [orgId, setOrgId] = useState(user.org_id ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    const formData = new FormData()
+    formData.set('userId', user.id)
+    formData.set('fullName', fullName)
+    formData.set('role', role)
+    formData.set('orgId', orgId)
+    const result = await updateUserAccount(formData)
+    setSaving(false)
+    if (result.error) {
+      onError(result.error)
+      return
+    }
+    onSaved(`Đã cập nhật tài khoản ${fullName}.`)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-user-title"
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={onClose}
+        className="absolute inset-0 cursor-pointer bg-black/50"
+      />
+      <div className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-surface p-6 shadow-xl sm:rounded-3xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 id="edit-user-title" className="font-heading text-xl font-bold">
+            Sửa tài khoản: {user.full_name}
+          </h2>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={onClose}
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label htmlFor="edit-fullname" className="mb-1.5 block text-sm font-medium">
+              Họ tên <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="edit-fullname"
+              type="text"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="edit-role" className="mb-1.5 block text-sm font-medium">
+                Vai trò <span className="text-destructive">*</span>
+              </label>
+              <select
+                id="edit-role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {ASSIGNABLE_ROLE_OPTIONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="edit-org" className="mb-1.5 block text-sm font-medium">
+                Chi nhánh <span className="text-destructive">*</span>
+              </label>
+              <select
+                id="edit-org"
+                value={orgId}
+                onChange={(e) => setOrgId(e.target.value)}
+                className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="" disabled>
+                  — Chọn chi nhánh —
+                </option>
+                {orgs.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-border px-5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !orgId}
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Save className="h-4 w-4" aria-hidden="true" />
+              )}
+              {saving ? 'Đang lưu…' : 'Lưu thay đổi'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------- Modal Cấp lại mật khẩu ----------
+function ResetPasswordModal({
+  user,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  user: StaffRow
+  onClose: () => void
+  onSaved: (message: string) => void
+  onError: (message: string) => void
+}) {
+  const [password, setPassword] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (password.length < 8) {
+      onError('Mật khẩu mới phải có ít nhất 8 ký tự.')
+      return
+    }
+    setSaving(true)
+    const formData = new FormData()
+    formData.set('userId', user.id)
+    formData.set('password', password)
+    const result = await resetUserPassword(formData)
+    setSaving(false)
+    if (result.error) {
+      onError(result.error)
+      return
+    }
+    onSaved(`Đã cấp lại mật khẩu cho ${user.full_name}.`)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reset-pass-title"
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={onClose}
+        className="absolute inset-0 cursor-pointer bg-black/50"
+      />
+      <div className="relative w-full max-w-md rounded-t-3xl bg-surface p-6 shadow-xl sm:rounded-3xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 id="reset-pass-title" className="font-heading text-xl font-bold">
+            Cấp lại mật khẩu
+          </h2>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={onClose}
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <p className="mb-4 rounded-xl bg-indigo-50 px-3.5 py-2.5 text-sm text-indigo-900">
+          Đặt mật khẩu mới cho <span className="font-semibold">{user.full_name}</span>
+          {user.email ? ` (${user.email})` : ''}. Hãy gửi mật khẩu này cho họ qua kênh an
+          toàn.
+        </p>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label htmlFor="reset-pass" className="mb-1.5 block text-sm font-medium">
+              Mật khẩu mới <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="reset-pass"
+              type="text"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Tối thiểu 8 ký tự"
+              autoComplete="off"
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 font-mono text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-border px-5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <KeyRound className="h-4 w-4" aria-hidden="true" />
+              )}
+              {saving ? 'Đang đổi…' : 'Đổi mật khẩu'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

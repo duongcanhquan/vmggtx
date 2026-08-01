@@ -79,6 +79,18 @@ export function requiredId(message: string) {
 
 // ---------- Schema theo từng form ----------
 
+/** Sĩ số tối đa của lớp: rỗng = không giới hạn, có giá trị = 1..500 */
+export const maxStudentsSchema = z
+  .string()
+  .trim()
+  .regex(/^\d*$/, 'Sĩ số tối đa phải là số nguyên dương.')
+  .refine(
+    (value) => value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 500),
+    'Sĩ số tối đa từ 1 đến 500 (để trống = không giới hạn).'
+  )
+  .optional()
+  .default('')
+
 /** Form Tạo lớp (Admin /classes/new): phần user nhập */
 export const classFormSchema = z
   .object({
@@ -87,6 +99,7 @@ export const classFormSchema = z
     teacherId: z.string().trim().optional().default(''),
     startDate: optionalDateSchema,
     endDate: optionalDateSchema,
+    maxStudents: maxStudentsSchema,
   })
   .refine(
     (data) => !data.startDate || !data.endDate || data.endDate >= data.startDate,
@@ -102,6 +115,7 @@ export const createClassSchema = z
     teacherId: z.string().trim().optional().default(''),
     startDate: optionalDateSchema,
     endDate: optionalDateSchema,
+    maxStudents: maxStudentsSchema,
   })
   .refine(
     (data) => !data.startDate || !data.endDate || data.endDate >= data.startDate,
@@ -115,6 +129,7 @@ export const staffClassSchema = z
     teacherId: z.string().trim().optional().default(''),
     startDate: optionalDateSchema,
     endDate: optionalDateSchema,
+    maxStudents: maxStudentsSchema,
   })
   .refine(
     (data) => !data.startDate || !data.endDate || data.endDate >= data.startDate,
@@ -160,6 +175,25 @@ export const createUserSchema = z.object({
     }
   ),
   orgId: requiredId('Vui lòng chọn chi nhánh cho nhân sự mới.'),
+})
+
+/** Form Sửa nhân sự (Campus Admin) - đổi tên/role/chi nhánh, KHÔNG có super_admin */
+export const updateUserSchema = z.object({
+  userId: requiredId('Thiếu ID người dùng.'),
+  fullName: safeText('Họ tên'),
+  role: z.enum(
+    ['campus_admin', 'academic_staff', 'admission_staff', 'teacher', 'student'],
+    {
+      errorMap: () => ({ message: 'Role không hợp lệ. Không thể gán quyền này.' }),
+    }
+  ),
+  orgId: requiredId('Vui lòng chọn chi nhánh.'),
+})
+
+/** Form Cấp lại mật khẩu (Campus Admin) */
+export const resetPasswordSchema = z.object({
+  userId: requiredId('Thiếu ID người dùng.'),
+  password: passwordSchema,
 })
 
 /** Form Thu tiền (Sheet trong /finance/invoices) */

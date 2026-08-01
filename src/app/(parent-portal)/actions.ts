@@ -442,6 +442,28 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
       supabase.from('profiles').select('org_id').eq('id', studentId).maybeSingle(),
     ])
 
+    // Thông báo đẩy đích danh (migration 040): nhắc học phí, đổi lịch…
+    {
+      const { data: pushNotices } = await supabase
+        .from('user_notifications')
+        .select('id, type, title, body, created_at')
+        .eq('recipient_id', studentId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      for (const item of pushNotices ?? []) {
+        notices.push({
+          id: `un-${item.id}`,
+          kind: 'warning',
+          // Nhắc học phí tô đỏ như cảnh báo chuyên cần để phụ huynh chú ý
+          warning_type: item.type === 'tuition_reminder' ? 'attendance' : 'grade',
+          title: item.title,
+          description: item.body,
+          date: item.created_at,
+        })
+      }
+    }
+
     // Thông báo chung của cơ sở (migration 030) - audience phụ huynh
     if (studentProfile?.org_id) {
       const { data: announcements } = await supabase

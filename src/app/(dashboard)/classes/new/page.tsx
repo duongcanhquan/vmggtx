@@ -60,7 +60,14 @@ export default function NewClassPage() {
     resolver: zodResolver(classFormSchema),
     mode: 'onBlur',
     reValidateMode: 'onChange',
-    defaultValues: { name: '', subjectId: '', teacherId: '', startDate: '', endDate: '' },
+    defaultValues: {
+      name: '',
+      subjectId: '',
+      teacherId: '',
+      startDate: '',
+      endDate: '',
+      maxStudents: '',
+    },
   })
 
   // Nạp môn học active + giáo viên thuộc subtree của org đang chọn
@@ -94,6 +101,7 @@ export default function NewClassPage() {
     formData.set('teacherId', values.teacherId ?? '')
     formData.set('startDate', values.startDate ?? '')
     formData.set('endDate', values.endDate ?? '')
+    formData.set('maxStudents', values.maxStudents ?? '')
     // orgId nhúng ngầm từ Zustand store - user KHÔNG chọn org trong form
     formData.set('orgId', currentOrgId ?? '')
 
@@ -197,6 +205,26 @@ export default function NewClassPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label htmlFor="maxStudents" className="mb-1.5 block text-sm font-medium">
+            Sĩ số tối đa
+          </label>
+          <input
+            id="maxStudents"
+            type="number"
+            min={1}
+            max={500}
+            placeholder="Để trống = không giới hạn"
+            aria-invalid={!!errors.maxStudents}
+            className={`${inputClass} ${errors.maxStudents ? inputErrorClass : ''}`}
+            {...register('maxStudents')}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Khi lớp đủ sĩ số, hệ thống tự chặn ghi danh thêm học viên.
+          </p>
+          <FieldError message={errors.maxStudents?.message} />
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

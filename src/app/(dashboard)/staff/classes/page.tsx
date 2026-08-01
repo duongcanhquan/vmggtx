@@ -194,6 +194,7 @@ export default function StaffClassesPage() {
                   <th scope="col" className="px-4 py-3 font-semibold">Bắt đầu</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Kết thúc</th>
                   <th scope="col" className="px-4 py-3 text-center font-semibold">Số buổi</th>
+                  <th scope="col" className="px-4 py-3 text-center font-semibold">Sĩ số tối đa</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Thao tác</th>
                 </tr>
               </thead>
@@ -213,6 +214,15 @@ export default function StaffClassesPage() {
                     </td>
                     <td className="px-4 py-3 text-center text-muted-foreground">
                       {cls.session_count}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {cls.max_students ? (
+                        <span className="inline-flex rounded-lg bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                          {cls.max_students} HV
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Không giới hạn</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1.5">
@@ -348,6 +358,25 @@ export default function StaffClassesPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label htmlFor="cls-max" className="mb-1.5 block text-sm font-medium">
+                  Sĩ số tối đa
+                </label>
+                <input
+                  id="cls-max"
+                  name="maxStudents"
+                  type="number"
+                  min={1}
+                  max={500}
+                  defaultValue={editingClass?.max_students ?? ''}
+                  placeholder="Để trống = không giới hạn"
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Khi lớp đủ sĩ số, hệ thống tự chặn ghi danh thêm học viên.
+                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
