@@ -180,11 +180,40 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
     const admin = createAdminClient()
     const { data: parent } = await admin
       .from('organizations')
-      .select('id, type')
+      .select('id, type, parent_id')
       .eq('id', parsed.data.parentId)
       .is('deleted_at', null)
       .maybeSingle()
     if (!parent) return { error: 'Đơn vị cha không tồn tại.' }
+
+    // [GIỚI HẠN 3 CẤP] Dưới 1 CƠ SỞ (type='campus') tối đa 3 tầng:
+    // Cơ sở (1) -> Nhánh (2) -> Nhánh con (3). Không cho tạo tầng 4.
+    // Tính tầng của ĐƠN VỊ CHA so với cơ sở gần nhất phía trên nó.
+    let parentTier = parent.type === 'campus' ? 1 : 0
+    if (parentTier === 0) {
+      let cursorId = (parent.parent_id as string | null) ?? null
+      let steps = 1
+      while (cursorId && steps <= 8) {
+        const { data: ancestor } = await admin
+          .from('organizations')
+          .select('id, type, parent_id')
+          .eq('id', cursorId)
+          .maybeSingle()
+        if (!ancestor) break
+        if (ancestor.type === 'campus') {
+          parentTier = steps + 1
+          break
+        }
+        cursorId = (ancestor.parent_id as string | null) ?? null
+        steps++
+      }
+    }
+    if (parentTier >= 3) {
+      return {
+        error:
+          'Đã chạm giới hạn 3 cấp dưới một Cơ sở (Cơ sở → Nhánh → Nhánh con). Không thể tạo thêm cấp thứ 4.',
+      }
+    }
 
     // Trigger DB tự tính path ltree từ parent_id (migration 001)
     const { error } = await admin.from('organizations').insert({

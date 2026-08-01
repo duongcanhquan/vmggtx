@@ -9,6 +9,7 @@ import {
   BellRing,
   BookOpen,
   Briefcase,
+  Building2,
   Calendar,
   ChevronDown,
   ClipboardCheck,
@@ -205,9 +206,16 @@ const MENU: MenuEntry[] = [
     menuKey: 'ai_kb',
   },
   {
-    label: 'Cài đặt',
+    label: 'Tổ chức & Cài đặt',
     icon: Settings,
     children: [
+      {
+        label: 'Cơ sở & Chi nhánh',
+        href: '/admin/organizations',
+        icon: Building2,
+        roles: MANAGERS,
+        menuKey: 'organizations',
+      },
       {
         label: 'Cài đặt Cơ sở',
         href: '/settings',
@@ -222,15 +230,22 @@ const MENU: MenuEntry[] = [
         roles: MANAGERS,
         menuKey: 'permissions',
       },
-      {
-        label: 'Cài đặt Toàn cục',
-        href: '/admin/settings',
-        icon: Globe,
-        roles: ['super_admin'],
-        menuKey: 'settings_global',
-      },
     ],
   },
+]
+
+// ============================================================
+// MENU RIÊNG CHO SUPER ADMIN - quản trị KIẾN TRÚC, không vận hành:
+// chỉ xem tổng quan các cơ sở, khởi tạo cơ sở, khởi tạo tài khoản
+// Admin cơ sở và phân quyền cho họ. Việc quản lý chi tiết (lớp học,
+// học phí, nhân viên...) thuộc về Admin CƠ SỞ trong phạm vi của mình.
+// ============================================================
+const SUPER_MENU: MenuEntry[] = [
+  { label: 'Tổng quan Hệ thống', href: '/', icon: LayoutDashboard },
+  { label: 'Quản lý Cơ sở', href: '/admin/organizations', icon: Building2 },
+  { label: 'Tài khoản Admin cơ sở', href: '/campus-admin/users', icon: Users },
+  { label: 'Phân quyền truy cập', href: '/admin/permissions', icon: ShieldCheck },
+  { label: 'Cài đặt Toàn cục', href: '/admin/settings', icon: Globe },
 ]
 
 const GROUPS_STORAGE_KEY = 'gdtx-menu-groups'
@@ -271,12 +286,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     setPendingHref(null)
   }, [pathname])
 
+  // Super Admin dùng menu KIẾN TRÚC riêng (khởi tạo cơ sở/admin/phân quyền);
+  // các role khác dùng menu vận hành đầy đủ, lọc theo 2 tầng phân quyền.
+  const baseMenu = role === 'super_admin' ? SUPER_MENU : MENU
+
   // Lọc menu: tầng 1 theo role mặc định + tầng 2 theo ma trận động
   const visibleMenu = useMemo(() => {
     const allowLeaf = (leaf: MenuLeaf) =>
       canSee(role, leaf.roles) && grantedByMatrix(role, menuKeys, leaf.menuKey)
     const result: MenuEntry[] = []
-    for (const entry of MENU) {
+    for (const entry of baseMenu) {
       if (isGroup(entry)) {
         const children = entry.children.filter(allowLeaf)
         if (children.length > 0) result.push({ ...entry, children })
@@ -285,7 +304,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       }
     }
     return result
-  }, [role, menuKeys])
+  }, [role, menuKeys, baseMenu])
 
   // Mục ACTIVE = leaf có href khớp DÀI NHẤT (tránh /students sáng cùng /students/import)
   const activeHref = useMemo(() => {
@@ -315,7 +334,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   }, [])
   useEffect(() => {
     if (!activeHref) return
-    const owner = MENU.find(
+    const owner = baseMenu.find(
       (entry) => isGroup(entry) && entry.children.some((leaf) => leaf.href === activeHref)
     )
     if (owner) {
@@ -323,7 +342,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         prev[owner.label] ? prev : { ...prev, [owner.label]: true }
       )
     }
-  }, [activeHref])
+  }, [activeHref, baseMenu])
 
   function toggleGroup(label: string) {
     setExpanded((prev) => {

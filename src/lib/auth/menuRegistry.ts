@@ -32,6 +32,7 @@ export type MenuKey =
   | 'assets'
   | 'ai_kb'
   | 'settings_org'
+  | 'organizations'
   | 'permissions'
   | 'settings_global'
 
@@ -145,6 +146,13 @@ export const MENU_SECTIONS: MenuSection[] = [
     label: 'Cài đặt Cơ sở',
     defaultRoles: MANAGERS,
     prefixes: ['/settings'],
+  },
+  {
+    // Admin cơ sở tạo/sửa/xóa nhánh con (tối đa 3 cấp dưới 1 cơ sở)
+    key: 'organizations',
+    label: 'Cơ sở & Chi nhánh',
+    defaultRoles: MANAGERS,
+    prefixes: ['/admin/organizations'],
   },
   {
     key: 'permissions',
