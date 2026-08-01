@@ -109,6 +109,23 @@ body {
   animation: fun-loader-in 0.35s ease-out;
 }
 
+/* Dashboard động: widget rung nhẹ khi bật chế độ tùy biến */
+@keyframes widget-wiggle {
+  0%,
+  100% {
+    transform: rotate(-0.35deg);
+  }
+  50% {
+    transform: rotate(0.35deg);
+  }
+}
+.widget-wiggle {
+  animation: widget-wiggle 0.35s ease-in-out infinite;
+}
+.react-grid-item.react-grid-placeholder {
+  @apply rounded-2xl bg-indigo-200/60;
+}
+
 .bento-icon {
     @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl;
   }
