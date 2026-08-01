@@ -143,7 +143,7 @@ export default function Student360Page({ params }: { params: { id: string } }) {
     <tr><td>Đã thanh toán</td><td class="total">${formatVnd(invoice.paidAmount)}</td></tr>
     <tr><td>Còn lại</td><td>${formatVnd(invoice.amount - invoice.paidAmount)}</td></tr>
   </table>
-  <p class="muted" style="margin-top:20px">Biên lai in từ hệ thống GDTX ERP — không cần đóng dấu.</p>
+  <p class="muted" style="margin-top:20px">Biên lai in từ hệ thống EDU SYSTEM — không cần đóng dấu.</p>
 </body></html>`)
     win.document.close()
     win.focus()

@@ -12,6 +12,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { UserMenu } from '@/components/shared/UserMenu'
 
 // ============================================================
 // PortalShell — khung layout Back-Office dùng chung (Admin/Staff).
@@ -129,7 +130,7 @@ function Brand({ portalName, collapsed }: { portalName: string; collapsed: boole
       {!collapsed && (
         <span className="min-w-0">
           <span className="block truncate font-heading text-base font-bold leading-tight tracking-tight text-stone-100">
-            GDTX <span className="text-gold-gradient">ERP</span>
+            EDU <span className="text-gold-gradient">SYSTEM</span>
           </span>
           <span className="block truncate text-[11px] font-semibold uppercase tracking-widest text-stone-500">
             {portalName}
@@ -252,7 +253,10 @@ export function PortalShell({
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
-          <div className="ml-auto flex items-center gap-3">{headerRight}</div>
+          <div className="ml-auto flex items-center gap-2">
+            {headerRight}
+            <UserMenu />
+          </div>
         </header>
 
         <main className="mx-auto w-full max-w-screen-2xl flex-1 p-4 sm:p-6 xl:px-8">

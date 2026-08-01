@@ -13,6 +13,7 @@ import {
   MonitorPlay,
   Wallet,
 } from 'lucide-react'
+import { UserMenu } from '@/components/shared/UserMenu'
 
 // ============================================================
 // Layout Cổng thông tin Học sinh / Phụ huynh.
@@ -55,9 +56,12 @@ export default function StudentPortalLayout({
               <GraduationCap className="h-4 w-4" aria-hidden="true" />
             </span>
             <span className="font-heading text-base font-bold tracking-tight">
-              GDTX <span className="text-primary">Student</span>
+              EDU <span className="text-primary">SYSTEM</span>
             </span>
           </Link>
+          <div className="ml-auto">
+            <UserMenu loginPath="/student/login" />
+          </div>
         </div>
 
         {/* Menu: dải cuộn ngang mobile-first, căn giữa trên desktop */}
@@ -104,7 +108,7 @@ export default function StudentPortalLayout({
       <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>
 
       <footer className="border-t border-border bg-surface py-4 text-center text-xs text-muted-foreground">
-        GDTX ERP · Cổng thông tin Học sinh &amp; Phụ huynh
+        EDU SYSTEM · Cổng thông tin Học sinh &amp; Phụ huynh
       </footer>
     </div>
   )

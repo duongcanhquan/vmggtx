@@ -11,7 +11,7 @@ import { EvaluationForm } from './EvaluationForm'
 // ============================================================
 
 export const metadata: Metadata = {
-  title: 'Đánh giá giáo viên | GDTX ERP',
+  title: 'Đánh giá giáo viên | EDU SYSTEM',
 }
 
 type TokenState =
@@ -105,7 +105,7 @@ export default async function PublicEvaluationPage({
     <main className="min-h-screen bg-gradient-to-b from-indigo-50 via-background to-background px-4 py-8">
       <div className="mx-auto w-full max-w-[480px]">
         <p className="mb-4 text-center font-heading text-sm font-bold uppercase tracking-widest text-primary">
-          GDTX ERP · Khảo sát ẩn danh
+          EDU SYSTEM · Khảo sát ẩn danh
         </p>
 
         {state.kind === 'invalid' && (

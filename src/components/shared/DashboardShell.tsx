@@ -33,6 +33,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { OrgTreeSelector } from '@/components/shared/OrgTreeSelector'
+import { UserMenu } from '@/components/shared/UserMenu'
 import { useMyRole } from '@/lib/hooks/useMyRole'
 import { useMyMenuKeys } from '@/lib/hooks/useMyMenuKeys'
 import type { MenuKey } from '@/lib/auth/menuRegistry'
@@ -401,7 +402,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <GraduationCap className="h-5 w-5" aria-hidden="true" />
         </span>
         <span className="font-heading text-lg font-bold tracking-tight text-stone-100">
-          GDTX <span className="text-gold-gradient">ERP</span>
+          EDU <span className="text-gold-gradient">SYSTEM</span>
         </span>
       </div>
       <div className="gold-hairline mx-5" aria-hidden="true" />
@@ -498,8 +499,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <OrgTreeSelector />
+            <UserMenu />
           </div>
         </header>
 

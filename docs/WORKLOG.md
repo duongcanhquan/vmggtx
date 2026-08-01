@@ -57,3 +57,12 @@
   Đổi tên node CÓ badge "Cơ sở của bạn" hoạt động đúng (đã test session admin.cs1 thật).
 - Làm: getOrgManagementData trả manageableIds (subtree); UI chỉ hiện nút thao tác
   trong phạm vi, cấp trên gắn badge "Cấp trên · chỉ xem"; select cha khi tạo mới lọc theo phạm vi.
+
+## 2026-08-01 | (commit kế tiếp) | Rebrand EDU SYSTEM + UserMenu + login style mới
+- Làm: đổi brand "GDTX ERP" → "EDU SYSTEM" toàn hệ thống (shell, metadata, hdsd, biên lai);
+  UserMenu mới (đổi mật khẩu qua auth.updateUser + đăng xuất xóa cookie hint) gắn vào
+  DashboardShell, PortalShell, student-portal layout; AuthShell redesign theo mẫu codingstella
+  (kính trong suốt viền trắng 2px bo 20px, AuthField gạch chân + label nổi + icon phải,
+  nút navy #162938, hàng remember/forgot) áp cho cả 3 cổng login.
+- Lưu ý: "Ghi nhớ đăng nhập" chỉ là UI (session Supabase vốn persist); parent portal
+  không có UserMenu (không dùng Supabase Auth, đã có nút thoát riêng).

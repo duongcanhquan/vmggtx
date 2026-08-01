@@ -6,18 +6,10 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import {
-  BookOpenCheck,
-  GraduationCap,
-  HeartHandshake,
-  Loader2,
-  Lock,
-  LogIn,
-  Mail,
-} from 'lucide-react'
+import { GraduationCap, Loader2, Lock, LogIn, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
-import { AuthShell } from '@/components/auth/AuthShell'
+import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
 import { resolveLoginEmail } from './actions'
 
 // ============================================================
@@ -40,19 +32,6 @@ const loginFormSchema = z.object({
 })
 
 type LoginFormValues = z.infer<typeof loginFormSchema>
-
-const inputClass =
-  'min-h-12 w-full rounded-xl border border-slate-200 bg-white/90 pl-10 pr-3.5 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
-const inputErrorClass = 'border-red-400 focus-visible:ring-red-400'
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null
-  return (
-    <p role="alert" className="mt-1.5 text-xs font-medium text-red-600">
-      {message}
-    </p>
-  )
-}
 
 /** Đọc role từ JWT claims, fallback bảng profiles */
 async function resolveRoleAfterLogin(
@@ -84,6 +63,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [serverError, setServerError] = useState<string | null>(null)
   const [wrongPortal, setWrongPortal] = useState(false)
+  const [forgotHint, setForgotHint] = useState(false)
 
   const {
     register,
@@ -149,97 +129,85 @@ export default function LoginPage() {
       badge="Nhà trường · Giảng viên"
       title={
         <>
-          GDTX <span className="text-indigo-700">ERP</span>
+          EDU <span className="text-amber-300">SYSTEM</span>
         </>
       }
-      subtitle="Hệ thống quản trị giáo dục thường xuyên đa cơ sở"
+      subtitle="Hệ thống quản trị giáo dục đa cơ sở"
       footer={
-        <div className="space-y-2 text-sm">
-          <Link
-            href="/student/login"
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/15 px-4 py-2.5 font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-          >
-            <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
-            Bạn là Học viên? Vào Cổng Học viên
-          </Link>
-          <Link
-            href="/parent/login"
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/15 px-4 py-2.5 font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-          >
-            <HeartHandshake className="h-4 w-4" aria-hidden="true" />
-            Phụ huynh? Vào Sổ Liên Lạc Điện Tử
-          </Link>
-        </div>
+        <>
+          <p>
+            Bạn là Học viên?{' '}
+            <Link href="/student/login" className="font-bold text-white underline-offset-2 hover:underline">
+              Vào Cổng Học viên
+            </Link>
+          </p>
+          <p>
+            Phụ huynh?{' '}
+            <Link href="/parent/login" className="font-bold text-white underline-offset-2 hover:underline">
+              Vào Sổ Liên Lạc Điện Tử
+            </Link>
+          </p>
+        </>
       }
     >
-      <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
-        <div>
-          <label htmlFor="identifier" className="mb-1.5 block text-sm font-semibold text-slate-700">
-            Email hoặc số điện thoại
-          </label>
-          <div className="relative">
-            <Mail
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-              aria-hidden="true"
-            />
-            <input
-              id="identifier"
-              type="text"
-              autoComplete="username"
-              placeholder="email@gdtx.edu.vn hoặc 090…"
-              aria-invalid={!!errors.identifier}
-              className={`${inputClass} ${errors.identifier ? inputErrorClass : ''}`}
-              {...register('identifier')}
-            />
-          </div>
-          <FieldError message={errors.identifier?.message} />
-        </div>
+      <form onSubmit={handleSubmit(onValid)} noValidate>
+        <AuthField
+          id="identifier"
+          label="Email hoặc số điện thoại"
+          icon={Mail}
+          type="text"
+          autoComplete="username"
+          error={errors.identifier?.message}
+          {...register('identifier')}
+        />
+        <AuthField
+          id="password"
+          label="Mật khẩu"
+          icon={Lock}
+          type="password"
+          autoComplete="current-password"
+          error={errors.password?.message}
+          {...register('password')}
+        />
 
-        <div>
-          <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-700">
-            Mật khẩu
+        {/* remember-forgot theo mẫu */}
+        <div className="-mt-3 mb-4 flex items-center justify-between text-[13.5px] font-medium text-white">
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input type="checkbox" defaultChecked className="accent-white" />
+            Ghi nhớ đăng nhập
           </label>
-          <div className="relative">
-            <Lock
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-              aria-hidden="true"
-            />
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              aria-invalid={!!errors.password}
-              className={`${inputClass} ${errors.password ? inputErrorClass : ''}`}
-              {...register('password')}
-            />
-          </div>
-          <FieldError message={errors.password?.message} />
+          <button
+            type="button"
+            onClick={() => setForgotHint((v) => !v)}
+            className="cursor-pointer text-white underline-offset-2 hover:underline"
+          >
+            Quên mật khẩu?
+          </button>
         </div>
+        {forgotHint && (
+          <p className="mb-3 rounded-md border border-white/30 bg-white/10 px-3 py-2 text-xs text-white/90">
+            Liên hệ Quản lý cơ sở hoặc Quản trị hệ thống để được cấp lại mật khẩu.
+          </p>
+        )}
 
         {serverError && (
           <div
             role="alert"
-            className="space-y-2 rounded-xl border border-rose-200 bg-rose-50/90 px-3.5 py-2.5 text-sm text-rose-700"
+            className="mb-4 space-y-2 rounded-md border border-rose-200/50 bg-rose-500/25 px-3.5 py-2.5 text-sm font-medium text-white"
           >
             <p>{serverError}</p>
             {wrongPortal && (
               <Link
                 href="/student/login"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-bold text-[#162938] hover:bg-white/90"
               >
-                <BookOpenCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 Sang Cổng Học viên
               </Link>
             )}
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-800 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-900/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <button type="submit" disabled={isSubmitting} className={authBtnClass}>
           {isSubmitting ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (

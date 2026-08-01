@@ -25,9 +25,9 @@ import {
 // ============================================================
 
 export const metadata: Metadata = {
-  title: 'Giới thiệu & Hướng dẫn sử dụng — GDTX ERP',
+  title: 'Giới thiệu & Hướng dẫn sử dụng — EDU SYSTEM',
   description:
-    'GDTX ERP - Hệ thống quản lý giáo dục đa cơ sở tích hợp AI: tuyển sinh, học vụ, điểm danh, học phí, lương, LMS online, sổ liên lạc điện tử.',
+    'EDU SYSTEM - Hệ thống quản lý giáo dục đa cơ sở tích hợp AI: tuyển sinh, học vụ, điểm danh, học phí, lương, LMS online, sổ liên lạc điện tử.',
 }
 
 /** Nhóm người dùng hệ thống phục vụ */
@@ -278,17 +278,17 @@ export default function HdsdPage() {
           </div>
         </section>
 
-        {/* ===== 3. Vì sao chọn GDTX ERP? ===== */}
+        {/* ===== 3. Vì sao chọn EDU SYSTEM? ===== */}
         <section aria-labelledby="hdsd-why">
           <h2 id="hdsd-why" className="font-heading text-2xl font-bold tracking-tight">
-            3. Vì sao chọn GDTX ERP?
+            3. Vì sao chọn EDU SYSTEM?
           </h2>
           <div className="mt-5 overflow-x-auto rounded-3xl border border-border bg-surface shadow-sm">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-stone-50 text-left">
                   <th className="px-5 py-3 font-heading font-bold">Trước đây</th>
-                  <th className="px-5 py-3 font-heading font-bold text-[#a16207]">Với GDTX ERP</th>
+                  <th className="px-5 py-3 font-heading font-bold text-[#a16207]">Với EDU SYSTEM</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -355,7 +355,7 @@ export default function HdsdPage() {
       </main>
 
       <footer className="border-t border-border bg-surface py-5 text-center text-xs text-muted-foreground">
-        GDTX ERP · Hệ thống Quản lý Giáo dục Đa cơ sở kết hợp AI
+        EDU SYSTEM · Hệ thống Quản lý Giáo dục Đa cơ sở kết hợp AI
       </footer>
     </div>
   )

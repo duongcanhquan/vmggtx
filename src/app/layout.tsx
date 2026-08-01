@@ -18,7 +18,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'GDTX ERP',
+  title: 'EDU SYSTEM',
   description: 'Hệ thống Quản lý Giáo dục Đa cơ sở (Multi-campus) kết hợp AI',
 }
 

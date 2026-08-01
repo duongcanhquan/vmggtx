@@ -1,61 +1,95 @@
 import type { LucideIcon } from 'lucide-react'
 
 // ============================================================
-// AuthShell - Khung đăng nhập KÍNH MỜ (glassmorphism) dùng chung
-// cho 3 cổng đăng nhập TÁCH BIỆT (sau này mỗi cổng 1 tên miền):
+// AuthShell - Khung đăng nhập KÍNH TRONG SUỐT (transparent glass)
+// theo mẫu wrapper codingstella: viền trắng 2px, bo 20px,
+// backdrop-blur 20px, input GẠCH CHÂN + label NỔI + icon phải,
+// nút màu navy #162938. Dùng chung cho 3 cổng TÁCH BIỆT
+// (sau này mỗi cổng 1 tên miền):
 //
-//   management : Nhà trường & Giảng viên - xanh indigo học thuật
-//                sâu lắng + ánh vàng đồng sang trọng.
-//   student    : Học viên - xanh da trời / ngọc lục bảo tươi sáng,
-//                thân thiện, tràn năng lượng.
-//   parent     : Phụ huynh - cam hổ phách / hồng đào ấm áp, gần gũi.
-//
-// Thẻ form là "tấm kính trắng mờ" (bg-white/75 + backdrop-blur) nổi
-// trên nền gradient + các quầng sáng blur - nội dung form giữ chữ
-// tối, dễ đọc, đạt chuẩn tương phản.
+//   management : Nhà trường & Giảng viên - nền indigo học thuật.
+//   student    : Học viên - nền xanh da trời / ngọc lục bảo.
+//   parent     : Phụ huynh - nền cam hổ phách ấm áp.
 // ============================================================
 
 export type AuthTheme = 'management' | 'student' | 'parent'
 
 const THEME: Record<
   AuthTheme,
-  {
-    bg: string
-    blobA: string
-    blobB: string
-    blobC: string
-    iconBox: string
-    badge: string
-    ring: string
-  }
+  { bg: string; blobA: string; blobB: string; blobC: string }
 > = {
   management: {
     bg: 'bg-gradient-to-br from-[#1e1b4b] via-[#27276b] to-[#0f172a]',
     blobA: 'bg-amber-400/25',
     blobB: 'bg-sky-500/25',
     blobC: 'bg-indigo-400/20',
-    iconBox: 'bg-gradient-to-br from-indigo-600 to-indigo-900 text-amber-200 ring-amber-300/40',
-    badge: 'bg-indigo-100/90 text-indigo-800 ring-indigo-200',
-    ring: 'ring-white/25',
   },
   student: {
-    bg: 'bg-gradient-to-br from-sky-500 via-cyan-500 to-emerald-500',
-    blobA: 'bg-yellow-300/40',
-    blobB: 'bg-white/30',
-    blobC: 'bg-emerald-300/40',
-    iconBox: 'bg-gradient-to-br from-sky-500 to-emerald-600 text-white ring-white/50',
-    badge: 'bg-emerald-100/90 text-emerald-800 ring-emerald-200',
-    ring: 'ring-white/40',
+    bg: 'bg-gradient-to-br from-sky-600 via-cyan-600 to-emerald-600',
+    blobA: 'bg-yellow-300/30',
+    blobB: 'bg-white/20',
+    blobC: 'bg-emerald-300/30',
   },
   parent: {
-    bg: 'bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400',
-    blobA: 'bg-yellow-200/50',
-    blobB: 'bg-white/30',
-    blobC: 'bg-rose-300/40',
-    iconBox: 'bg-gradient-to-br from-orange-500 to-rose-500 text-white ring-white/50',
-    badge: 'bg-orange-100/90 text-orange-700 ring-orange-200',
-    ring: 'ring-white/40',
+    bg: 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500',
+    blobA: 'bg-yellow-200/40',
+    blobB: 'bg-white/20',
+    blobC: 'bg-rose-300/30',
   },
+}
+
+/** Nút submit navy #162938 theo mẫu (.btn) */
+export const authBtnClass =
+  'flex h-[45px] w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-[#162938] text-[15px] font-medium text-white transition-colors duration-300 hover:bg-[#1f3a52] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed disabled:opacity-60'
+
+/**
+ * Ô nhập GẠCH CHÂN + LABEL NỔI + ICON PHẢI theo mẫu (.input-box).
+ * Label nổi lên khi focus hoặc đã có nội dung (peer-placeholder-shown).
+ */
+export function AuthField({
+  id,
+  label,
+  icon: Icon,
+  error,
+  className = '',
+  ...inputProps
+}: {
+  id: string
+  label: string
+  icon: LucideIcon
+  error?: string
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div className="my-7">
+      <div
+        className={`relative h-[50px] w-full border-b-2 transition-colors ${
+          error ? 'border-rose-300' : 'border-white/80 focus-within:border-white'
+        }`}
+      >
+        <input
+          id={id}
+          placeholder=" "
+          aria-invalid={!!error}
+          className={`peer h-full w-full border-none bg-transparent pl-1.5 pr-9 text-base font-semibold text-white outline-none autofill:shadow-[inset_0_0_0_1000px_transparent] ${className}`}
+          {...inputProps}
+        />
+        <label
+          htmlFor={id}
+          className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[15px] font-medium text-white/90 transition-all duration-300 peer-focus:top-[-2px] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[-2px] peer-[:not(:placeholder-shown)]:text-xs"
+        >
+          {label}
+        </label>
+        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/90">
+          <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+        </span>
+      </div>
+      {error && (
+        <p role="alert" className="mt-1.5 text-xs font-semibold text-rose-200">
+          {error}
+        </p>
+      )}
+    </div>
+  )
 }
 
 export function AuthShell({
@@ -96,40 +130,38 @@ export function AuthShell({
       {/* Lưới chấm mờ tạo chiều sâu */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.15]"
+        className="pointer-events-none absolute inset-0 opacity-[0.12]"
         style={{
           backgroundImage: 'radial-gradient(rgba(255,255,255,0.5) 1px, transparent 1px)',
           backgroundSize: '28px 28px',
         }}
       />
 
-      <div className="relative w-full max-w-[430px]">
-        {/* TẤM KÍNH MỜ */}
-        <div
-          className={`rounded-[2rem] border border-white/50 bg-white/75 p-7 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.45)] backdrop-blur-2xl ring-1 sm:p-8 ${t.ring}`}
-        >
+      {/* ===== WRAPPER kính TRONG SUỐT theo mẫu ===== */}
+      <div className="relative w-full max-w-[420px]">
+        <div className="rounded-[20px] border-2 border-white/50 bg-white/5 p-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur-[20px] sm:p-10">
           <div className="text-center">
-            <span
-              className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg ring-2 ${t.iconBox}`}
-            >
-              <Icon className="h-8 w-8" aria-hidden="true" />
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-white/40 bg-white/10 text-white shadow-lg">
+              <Icon className="h-7 w-7" aria-hidden="true" />
             </span>
-            <span
-              className={`mt-4 inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-widest ring-1 ${t.badge}`}
-              style={{ backdropFilter: 'blur(8px)' }}
-            >
+            <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
               {badge}
             </span>
-            <h1 className="mt-3 font-heading text-3xl font-bold tracking-tight text-slate-900">
+            <h1 className="mt-3 font-heading text-[1.9em] font-bold leading-tight tracking-tight text-white">
               {title}
             </h1>
-            <p className="mt-1.5 text-sm text-slate-600">{subtitle}</p>
+            <p className="mt-1.5 text-sm text-white/85">{subtitle}</p>
           </div>
 
-          <div className="mt-7">{children}</div>
-        </div>
+          <div className="mt-2">{children}</div>
 
-        {footer && <div className="mt-5 text-center">{footer}</div>}
+          {/* login-register: liên kết chéo giữa các cổng */}
+          {footer && (
+            <div className="mt-6 space-y-1.5 text-center text-[13.5px] font-medium text-white/90">
+              {footer}
+            </div>
+          )}
+        </div>
       </div>
     </main>
   )
