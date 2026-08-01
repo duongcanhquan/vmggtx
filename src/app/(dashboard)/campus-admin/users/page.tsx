@@ -7,10 +7,12 @@ import type { z } from 'zod'
 import {
   KeyRound,
   Loader2,
+  Lock,
   Pencil,
   Save,
   Search,
   ShieldAlert,
+  ShieldCheck,
   Trash2,
   UserPlus,
   Users,
@@ -18,15 +20,19 @@ import {
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { createUserSchema } from '@/lib/validation/schemas'
+import { MENU_SECTIONS, type MenuKey } from '@/lib/auth/menuRegistry'
 import {
   createUserAccount,
   deleteUserAccount,
   getManagedOrgs,
+  getUserGrants,
   getUsersInScope,
   resetUserPassword,
+  saveUserGrants,
   updateUserAccount,
   type ManagedOrg,
   type StaffRow,
+  type UserGrantData,
 } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
 
@@ -119,9 +125,10 @@ export default function CampusAdminUsersPage() {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
 
-  // Sửa / cấp lại mật khẩu / xóa tài khoản
+  // Sửa / cấp lại mật khẩu / xóa tài khoản / gán quyền kiêm nhiệm
   const [editUser, setEditUser] = useState<StaffRow | null>(null)
   const [resetUser, setResetUser] = useState<StaffRow | null>(null)
+  const [grantUser, setGrantUser] = useState<StaffRow | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // react-hook-form + zodResolver: lỗi đỏ hiện ngay khi blur, trước khi Submit
@@ -354,6 +361,17 @@ export default function CampusAdminUsersPage() {
                     <td className="px-4 py-3">
                       {user.role !== 'super_admin' && (
                         <div className="flex justify-end gap-1.5">
+                          {user.role !== 'student' && (
+                            <button
+                              type="button"
+                              title="Gán quyền kiêm nhiệm"
+                              aria-label={`Gán quyền cho ${user.full_name}`}
+                              onClick={() => setGrantUser(user)}
+                              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-emerald-600 transition-colors duration-150 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             title="Sửa tài khoản"
@@ -593,6 +611,19 @@ export default function CampusAdminUsersPage() {
         />
       )}
 
+      {/* ===== Modal Gán quyền kiêm nhiệm ===== */}
+      {grantUser && (
+        <GrantsModal
+          user={grantUser}
+          onClose={() => setGrantUser(null)}
+          onSaved={(message) => {
+            setToast({ type: 'success', message })
+            setGrantUser(null)
+          }}
+          onError={(message) => setToast({ type: 'error', message })}
+        />
+      )}
+
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
     </div>
   )
@@ -755,6 +786,193 @@ function EditUserModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------- Modal Gán quyền kiêm nhiệm (049) ----------
+// Tick hạng mục -> nhân sự được MỞ menu + trang + dữ liệu phần đó,
+// CỘNG THÊM vào quyền vai trò sẵn có (không thay thế).
+function GrantsModal({
+  user,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  user: StaffRow
+  onClose: () => void
+  onSaved: (message: string) => void
+  onError: (message: string) => void
+}) {
+  const [data, setData] = useState<UserGrantData | null>(null)
+  const [selected, setSelected] = useState<Set<MenuKey>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    getUserGrants(user.id).then((result) => {
+      if (cancelled) return
+      if (result.error !== undefined) {
+        onError(result.error)
+        onClose()
+        return
+      }
+      setData(result)
+      setSelected(new Set(result.grants))
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id])
+
+  function toggle(key: MenuKey) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  async function submit() {
+    setSaving(true)
+    const result = await saveUserGrants(user.id, [...selected])
+    setSaving(false)
+    if (result.error) {
+      onError(result.error)
+      return
+    }
+    onSaved(
+      selected.size > 0
+        ? `Đã gán ${selected.size} quyền kiêm nhiệm cho ${user.full_name}. Có hiệu lực trong ~1 phút.`
+        : `Đã gỡ toàn bộ quyền kiêm nhiệm của ${user.full_name}.`
+    )
+  }
+
+  const roleKeySet = new Set(data?.roleKeys ?? [])
+  const capSet = data?.capKeys ? new Set(data.capKeys) : null
+  // Ẩn mục chỉ dành cho Super Admin
+  const sections = MENU_SECTIONS.filter((s) => s.key !== 'settings_global')
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="grants-title"
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={onClose}
+        className="absolute inset-0 cursor-pointer bg-black/50"
+      />
+      <div className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-surface p-6 shadow-xl sm:rounded-3xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="grants-title" className="font-heading text-xl font-bold">
+              Gán quyền kiêm nhiệm
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{user.full_name}</span>
+              {' — '}
+              {ROLE_LABELS[user.role] ?? user.role}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <p className="mb-4 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900">
+          Tick hạng mục = nhân sự được <strong>mở menu, vào trang và thao tác dữ liệu</strong>{' '}
+          phần đó (cộng thêm vào quyền vai trò). Các mục quản trị cơ sở (tài khoản, cài đặt,
+          phân quyền) vẫn yêu cầu vai trò Quản lý cơ sở.
+        </p>
+
+        {loading ? (
+          <FunLoader label="Đang tải quyền hiện có…" />
+        ) : (
+          <>
+            <ul className="space-y-1">
+              {sections.map((section) => {
+                const byRole = roleKeySet.has(section.key)
+                const outOfCap = capSet !== null && !capSet.has(section.key)
+                const checked = byRole || selected.has(section.key)
+                const disabled = byRole || outOfCap
+                return (
+                  <li key={section.key}>
+                    <label
+                      className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm ${
+                        disabled ? 'opacity-60' : 'cursor-pointer hover:bg-indigo-50/50'
+                      }`}
+                    >
+                      {outOfCap && !byRole ? (
+                        <Lock
+                          className="h-[18px] w-[18px] shrink-0 text-stone-300"
+                          aria-label="Ngoài quyền của bạn"
+                        />
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() => toggle(section.key)}
+                          className="h-[18px] w-[18px] shrink-0 cursor-pointer accent-emerald-600 disabled:cursor-not-allowed"
+                        />
+                      )}
+                      <span className="flex-1 font-medium text-foreground">
+                        {section.label}
+                      </span>
+                      {byRole && (
+                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-500">
+                          Sẵn có theo vai trò
+                        </span>
+                      )}
+                      {!byRole && selected.has(section.key) && (
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          Kiêm nhiệm
+                        </span>
+                      )}
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-border px-5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void submit()}
+                disabled={saving}
+                className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                )}
+                {saving ? 'Đang lưu…' : 'Lưu quyền'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

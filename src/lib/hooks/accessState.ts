@@ -18,12 +18,15 @@ import {
 export type ClientAccessState = {
   /** null = không có ghi đè -> dùng ma trận mặc định */
   menuKeys: string[] | null
+  /** Quyền kiêm nhiệm gán theo TỪNG user (049) - CỘNG THÊM vào quyền vai trò */
+  menuGrants: string[]
   offModules: string[]
   offFeatures: string[]
 }
 
 const OPEN_STATE: ClientAccessState = {
   menuKeys: null,
+  menuGrants: [],
   offModules: [],
   offFeatures: [],
 }
@@ -36,6 +39,7 @@ async function fetchState(): Promise<ClientAccessState> {
   if (!error && data && typeof data === 'object') {
     const raw = data as {
       menu_keys?: unknown
+      menu_grants?: unknown
       off_modules?: unknown
       off_features?: unknown
     }
@@ -43,6 +47,9 @@ async function fetchState(): Promise<ClientAccessState> {
       menuKeys: Array.isArray(raw.menu_keys)
         ? (raw.menu_keys as string[])
         : null,
+      menuGrants: Array.isArray(raw.menu_grants)
+        ? (raw.menu_grants as string[])
+        : [],
       offModules: Array.isArray(raw.off_modules)
         ? (raw.off_modules as string[])
         : [],
@@ -59,6 +66,7 @@ async function fetchState(): Promise<ClientAccessState> {
   ])
   return {
     menuKeys: keys,
+    menuGrants: [],
     offModules: flags.modules,
     offFeatures: flags.features,
   }

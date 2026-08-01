@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { assetSchema, requiredId, zodFail, ASSET_STATUSES } from '@/lib/validation/schemas'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 
@@ -197,10 +198,12 @@ async function requireAssetScope(
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Bạn chưa đăng nhập.' }
 
-  const { data: authorized, error } = await supabase.rpc('is_authorized', {
+  const { data: authorized, error } = await isAuthorizedRpc(supabase, {
     p_user_id: user.id,
     p_target_org_id: targetOrgId,
     p_required_role: requiredRole,
+    // Kiêm nhiệm (049): grant 'assets' mở tối đa mức Giáo vụ
+    p_menu_key: 'assets',
   })
   if (error) return { error: `Lỗi kiểm tra phân quyền: ${error.message}` }
   if (authorized !== true) {

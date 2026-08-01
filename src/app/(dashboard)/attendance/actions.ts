@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { notifyAbsenceToN8n } from '@/lib/integrations/n8n'
 import { resolveSetting } from '@/lib/utils/settingsResolver'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
@@ -292,10 +293,11 @@ export async function submitAttendance(
 
     // ===== [SECURITY AUDIT] QUYỀN: GV của buổi HOẶC Staff của org =====
     if (session.teacher_id !== user.id) {
-      const { data: authorized } = await supabase.rpc('is_authorized', {
+      const { data: authorized } = await isAuthorizedRpc(supabase, {
         p_user_id: user.id,
         p_target_org_id: session.org_id,
         p_required_role: 'academic_staff',
+        p_menu_key: 'attendance',
       })
       if (authorized !== true) {
         return { error: 'TỪ CHỐI: Bạn không có quyền điểm danh buổi học này.' }

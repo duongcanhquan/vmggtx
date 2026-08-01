@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { createClassSchema, zodFail } from '@/lib/validation/schemas'
 
 export type ClassRow = {
@@ -141,10 +142,11 @@ export async function createClass(formData: FormData): Promise<ActionResult> {
     if (!user) {
       return { error: 'Bạn chưa đăng nhập. Vui lòng đăng nhập lại.' }
     }
-    const { data: authorized } = await supabase.rpc('is_authorized', {
+    const { data: authorized } = await isAuthorizedRpc(supabase, {
       p_user_id: user.id,
       p_target_org_id: orgId,
       p_required_role: 'academic_staff',
+      p_menu_key: 'classes',
     })
     if (authorized !== true) {
       return { error: 'TỪ CHỐI: Bạn không có quyền tạo lớp trên cơ sở này.' }

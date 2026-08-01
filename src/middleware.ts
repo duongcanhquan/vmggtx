@@ -22,6 +22,8 @@ type AccessState = {
   licenseOk: boolean
   /** null = không có ghi đè -> dùng ma trận mặc định */
   menuKeys: string[] | null
+  /** Quyền kiêm nhiệm gán theo TỪNG user (049) - bổ sung vào quyền role */
+  menuGrants: string[]
   offModules: string[]
   offFeatures: string[]
 }
@@ -29,6 +31,7 @@ type AccessState = {
 const ACCESS_STATE_OK: AccessState = {
   licenseOk: true,
   menuKeys: null,
+  menuGrants: [],
   offModules: [],
   offFeatures: [],
 }
@@ -55,6 +58,7 @@ async function getAccessState(
       const raw = data as {
         license_ok?: unknown
         menu_keys?: unknown
+        menu_grants?: unknown
         off_modules?: unknown
         off_features?: unknown
       }
@@ -63,6 +67,9 @@ async function getAccessState(
         menuKeys: Array.isArray(raw.menu_keys)
           ? (raw.menu_keys as string[])
           : null,
+        menuGrants: Array.isArray(raw.menu_grants)
+          ? (raw.menu_grants as string[])
+          : [],
         offModules: Array.isArray(raw.off_modules)
           ? (raw.off_modules as string[])
           : [],
@@ -165,6 +172,12 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
   {
     prefix: '/teacher',
     allowedRoles: ['super_admin', 'campus_admin', 'academic_staff', 'teacher'],
+  },
+  {
+    // Danh bạ giảng viên + gán lớp (admin-side). LƯU Ý: khớp theo
+    // segment nên KHÔNG đụng /teacher (portal của giáo viên).
+    prefix: '/teachers',
+    allowedRoles: ['super_admin', 'campus_admin', 'academic_staff'],
   },
   {
     prefix: '/student',
@@ -545,7 +558,9 @@ export async function middleware(request: NextRequest) {
       !skipMenuMatrix &&
       menuKey &&
       state.menuKeys !== null &&
-      !state.menuKeys.includes(menuKey)
+      !state.menuKeys.includes(menuKey) &&
+      // Quyền kiêm nhiệm theo user (049) CỘNG THÊM vào ma trận role
+      !state.menuGrants.includes(menuKey)
     ) {
       return 'denied'
     }
@@ -563,9 +578,17 @@ export async function middleware(request: NextRequest) {
       return redirectTo(request, loginPathFor(pathname))
     }
     const role = await resolveRole()
-    if (!role || !rule.allowedRoles.includes(role)) {
-      // Sai role: về /unauthorized (và vẫn có thể tự về home từ trang đó)
+    if (!role) {
       return redirectTo(request, '/unauthorized')
+    }
+    if (!rule.allowedRoles.includes(role)) {
+      // KIÊM NHIỆM (049): role tĩnh không cho phép, nhưng nếu user được
+      // GÁN RIÊNG hạng mục menu của trang này thì vẫn cho vào.
+      const menuKey = menuKeyForPath(pathname)
+      const state = await getAccessState(supabase, session.user.id)
+      if (!menuKey || !state.menuGrants.includes(menuKey)) {
+        return redirectTo(request, '/unauthorized')
+      }
     }
     const access = await enforceAccess(role)
     if (access === 'license') {

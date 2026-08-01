@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { paymentSchema, zodFail } from '@/lib/validation/schemas'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { sendTuitionRemindersForOrgs } from '@/lib/services/tuitionReminders'
@@ -213,10 +214,11 @@ export async function createInvoice(
       .maybeSingle()
     if (!student) return { error: 'Học viên không tồn tại.' }
 
-    const { data: authorized } = await supabase.rpc('is_authorized', {
+    const { data: authorized } = await isAuthorizedRpc(supabase, {
       p_user_id: user.id,
       p_target_org_id: student.org_id,
       p_required_role: 'academic_staff',
+      p_menu_key: 'finance_invoices',
     })
     if (authorized !== true) {
       return { error: 'Bạn không có quyền tạo hóa đơn cho chi nhánh của học viên này.' }
@@ -266,10 +268,11 @@ export async function cancelInvoice(
       return { error: 'Hóa đơn đã có phiếu thu — không thể hủy. Liên hệ kế toán để xử lý hoàn phí.' }
     }
 
-    const { data: authorized } = await supabase.rpc('is_authorized', {
+    const { data: authorized } = await isAuthorizedRpc(supabase, {
       p_user_id: user.id,
       p_target_org_id: invoice.org_id,
       p_required_role: 'academic_staff',
+      p_menu_key: 'finance_invoices',
     })
     if (authorized !== true) return { error: 'Bạn không có quyền hủy hóa đơn này.' }
 
@@ -303,10 +306,11 @@ export async function sendTuitionReminders(
     } = await supabase.auth.getUser()
     if (!user) return { error: 'Bạn chưa đăng nhập.' }
 
-    const { data: authorized } = await supabase.rpc('is_authorized', {
+    const { data: authorized } = await isAuthorizedRpc(supabase, {
       p_user_id: user.id,
       p_target_org_id: orgId,
       p_required_role: 'academic_staff',
+      p_menu_key: 'finance_invoices',
     })
     if (authorized !== true) {
       return { error: 'Bạn không có quyền gửi nhắc học phí cho cơ sở này.' }
@@ -381,10 +385,11 @@ export async function recordPayment(
     }
 
     // Double-check RBAC: quyền tối thiểu academic_staff trên org của hóa đơn
-    const { data: authorized } = await supabase.rpc('is_authorized', {
+    const { data: authorized } = await isAuthorizedRpc(supabase, {
       p_user_id: user.id,
       p_target_org_id: invoice.org_id,
       p_required_role: 'academic_staff',
+      p_menu_key: 'finance_invoices',
     })
     if (authorized !== true) {
       return {

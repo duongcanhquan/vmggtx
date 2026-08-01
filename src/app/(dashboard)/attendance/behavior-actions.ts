@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveSetting } from '@/lib/utils/settingsResolver'
 
@@ -80,10 +81,11 @@ async function requireSessionWriter(sessionId: string): Promise<
   if (!session) return { error: 'Buổi học không tồn tại hoặc đã bị xóa.' }
 
   if (session.teacher_id !== user.id) {
-    const { data: authorized } = await supabase.rpc('is_authorized', {
+    const { data: authorized } = await isAuthorizedRpc(supabase, {
       p_user_id: user.id,
       p_target_org_id: session.org_id,
       p_required_role: 'academic_staff',
+      p_menu_key: 'attendance',
     })
     if (authorized !== true) {
       return { error: 'TỪ CHỐI: Bạn không có quyền ghi nhận hành vi cho buổi học này.' }

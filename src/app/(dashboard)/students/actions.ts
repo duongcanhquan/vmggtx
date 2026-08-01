@@ -5,6 +5,7 @@ import { generateObject } from 'ai'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   importStudentRowSchema,
@@ -437,10 +438,11 @@ export async function createStudent(
     } = await supabase.auth.getUser()
     if (!currentUser) return { error: 'Bạn chưa đăng nhập.' }
 
-    const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+    const { data: authorized, error: authzError } = await isAuthorizedRpc(supabase, {
       p_user_id: currentUser.id,
       p_target_org_id: orgParsed.data,
       p_required_role: 'academic_staff',
+      p_menu_key: 'students',
     })
     if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     if (authorized !== true) {
@@ -553,10 +555,11 @@ export async function bulkImportStudents(
     } = await supabase.auth.getUser()
     if (!currentUser) return { error: 'Bạn chưa đăng nhập.' }
 
-    const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+    const { data: authorized, error: authzError } = await isAuthorizedRpc(supabase, {
       p_user_id: currentUser.id,
       p_target_org_id: orgParsed.data,
       p_required_role: 'academic_staff',
+      p_menu_key: 'students',
     })
     if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     if (authorized !== true) {
@@ -800,10 +803,11 @@ export async function updateStudent(
       return { error: 'Học sinh không tồn tại hoặc ngoài phạm vi của bạn.' }
     }
 
-    const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+    const { data: authorized, error: authzError } = await isAuthorizedRpc(supabase, {
       p_user_id: currentUser.id,
       p_target_org_id: student.org_id,
       p_required_role: 'academic_staff',
+      p_menu_key: 'students',
     })
     if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     if (authorized !== true) {
@@ -862,7 +866,7 @@ export async function deleteStudent(studentId: string): Promise<ActionResult> {
       return { error: 'Học sinh không tồn tại hoặc ngoài phạm vi của bạn.' }
     }
 
-    const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+    const { data: authorized, error: authzError } = await isAuthorizedRpc(supabase, {
       p_user_id: currentUser.id,
       p_target_org_id: student.org_id,
       p_required_role: 'campus_admin',

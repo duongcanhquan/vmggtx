@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 
 // ============================================================
@@ -125,10 +126,11 @@ export async function createAnnouncement(
 
     const supabase = createClient()
     // Double-check org thuộc phạm vi quản lý (không chỉ tin client + RLS)
-    const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+    const { data: authorized, error: authzError } = await isAuthorizedRpc(supabase, {
       p_user_id: auth.userId,
       p_target_org_id: orgId,
       p_required_role: 'academic_staff',
+      p_menu_key: 'announcements',
     })
     if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     if (authorized !== true) {

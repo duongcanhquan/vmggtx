@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 
 // ============================================================
 // QUẢN LÝ GHI DANH (Student 360) - migration 030
@@ -52,10 +53,11 @@ async function authorizeForStudent(studentId: string): Promise<
     .maybeSingle()
   if (!student) return { error: 'Học sinh không tồn tại.' }
 
-  const { data: authorized } = await supabase.rpc('is_authorized', {
+  const { data: authorized } = await isAuthorizedRpc(supabase, {
     p_user_id: user.id,
     p_target_org_id: student.org_id,
     p_required_role: 'academic_staff',
+    p_menu_key: 'students',
   })
   if (authorized !== true) {
     return { error: 'Bạn không có quyền quản lý ghi danh cho học sinh này.' }

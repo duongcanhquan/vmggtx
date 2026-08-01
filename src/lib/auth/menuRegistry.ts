@@ -22,6 +22,7 @@ export type MenuKey =
   | 'attendance'
   | 'staff_ops'
   | 'academic_warnings'
+  | 'teachers'
   | 'teacher_schedule'
   | 'teacher_requests'
   | 'evaluations'
@@ -86,6 +87,13 @@ export const MENU_SECTIONS: MenuSection[] = [
     label: 'Cảnh báo học vụ',
     defaultRoles: ACADEMIC,
     prefixes: ['/academic/warnings'],
+  },
+  {
+    // Danh bạ giảng viên + gán lớp cho giảng viên (admin-side)
+    key: 'teachers',
+    label: 'Hồ sơ Giảng viên (gán lớp)',
+    defaultRoles: ACADEMIC,
+    prefixes: ['/teachers'],
   },
   {
     key: 'teacher_schedule',

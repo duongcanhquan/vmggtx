@@ -14,6 +14,7 @@ import {
   GraduationCap,
   Inbox,
   Loader2,
+  Pencil,
   Printer,
   Receipt,
   ShieldAlert,
@@ -28,7 +29,9 @@ import {
   getStudent360,
   getTransferTargets,
   transferStudentOrg,
+  updateStudentIdentity,
   type Student360,
+  type Student360Profile,
 } from './actions'
 import { EnrollmentManager } from './EnrollmentManager'
 import { FunLoader } from '@/components/shared/FunLoader'
@@ -258,12 +261,15 @@ export default function Student360Page({ params }: { params: { id: string } }) {
             </div>
           )}
         </div>
-        <TransferOrgButton
-          studentId={profile.id}
-          studentName={profile.fullName}
-          currentOrgName={profile.orgName}
-          onDone={() => void load()}
-        />
+        <div className="flex flex-wrap gap-2 sm:flex-col md:flex-row">
+          <EditIdentityButton profile={profile} onDone={() => void load()} />
+          <TransferOrgButton
+            studentId={profile.id}
+            studentName={profile.fullName}
+            currentOrgName={profile.orgName}
+            onDone={() => void load()}
+          />
+        </div>
       </div>
 
       {/* ===== Tabs ===== */}
@@ -616,6 +622,182 @@ export default function Student360Page({ params }: { params: { id: string } }) {
         </div>
       )}
     </div>
+  )
+}
+
+// ============================================================
+// SỬA HỒ SƠ ĐỊNH DANH — Họ tên / SĐT / Địa chỉ / MaSV ngay trên
+// trang 360. Server action kiểm quyền (giáo vụ trở lên hoặc được
+// gán kiêm nhiệm 'students').
+// ============================================================
+function EditIdentityButton({
+  profile,
+  onDone,
+}: {
+  profile: Student360Profile
+  onDone: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [fullName, setFullName] = useState(profile.fullName)
+  const [phone, setPhone] = useState(profile.phone ?? '')
+  const [address, setAddress] = useState(profile.address ?? '')
+  const [masv, setMasv] = useState(profile.masv ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  function openModal() {
+    setFullName(profile.fullName)
+    setPhone(profile.phone ?? '')
+    setAddress(profile.address ?? '')
+    setMasv(profile.masv ?? '')
+    setError(null)
+    setOpen(true)
+  }
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    setError(null)
+    const result = await updateStudentIdentity(profile.id, {
+      fullName,
+      phone,
+      address,
+      masv,
+    })
+    setSaving(false)
+    if (result.error !== undefined) {
+      setError(result.error)
+      return
+    }
+    setOpen(false)
+    onDone()
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={openModal}
+        title="Sửa họ tên, SĐT, địa chỉ, MaSV"
+        className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 self-start rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Pencil className="h-4 w-4" aria-hidden="true" />
+        Sửa hồ sơ
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-identity-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <h2 id="edit-identity-title" className="font-heading text-lg font-bold text-slate-900">
+                Sửa hồ sơ học viên
+              </h2>
+              <button
+                type="button"
+                aria-label="Đóng"
+                onClick={() => setOpen(false)}
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <form onSubmit={submit} className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="edit-id-name" className="mb-1.5 block text-sm font-medium">
+                  Họ tên <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="edit-id-name"
+                  type="text"
+                  required
+                  minLength={2}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="edit-id-masv" className="mb-1.5 block text-sm font-medium">
+                    MaSV
+                  </label>
+                  <input
+                    id="edit-id-masv"
+                    type="text"
+                    maxLength={50}
+                    value={masv}
+                    onChange={(e) => setMasv(e.target.value)}
+                    placeholder="VD: VM-HN-0001"
+                    className="min-h-11 w-full rounded-xl border border-border bg-background px-3 font-mono text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-id-phone" className="mb-1.5 block text-sm font-medium">
+                    Số điện thoại
+                  </label>
+                  <input
+                    id="edit-id-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="VD: 0912345678"
+                    className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="edit-id-address" className="mb-1.5 block text-sm font-medium">
+                  Địa chỉ
+                </label>
+                <input
+                  id="edit-id-address"
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+
+              {error && (
+                <p role="alert" className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700">
+                  {error}
+                </p>
+              )}
+
+              <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-border px-5 text-sm font-medium text-muted-foreground transition-colors hover:bg-indigo-50 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  {saving ? 'Đang lưu…' : 'Lưu hồ sơ'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

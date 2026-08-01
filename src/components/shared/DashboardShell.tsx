@@ -34,6 +34,7 @@ import { OrgTreeSelector } from '@/components/shared/OrgTreeSelector'
 import { UserMenu } from '@/components/shared/UserMenu'
 import { useMyRole } from '@/lib/hooks/useMyRole'
 import { useMyMenuKeys } from '@/lib/hooks/useMyMenuKeys'
+import { useMyMenuGrants } from '@/lib/hooks/useMyMenuGrants'
 import { useMyModuleFlags } from '@/lib/hooks/useMyModuleFlags'
 import type { MenuKey } from '@/lib/auth/menuRegistry'
 import type { Role } from '@/lib/auth/roles'
@@ -136,6 +137,13 @@ const MENU: MenuEntry[] = [
     label: 'Giáo viên',
     icon: Calendar,
     children: [
+      {
+        label: 'Hồ sơ Giảng viên',
+        href: '/teachers',
+        icon: Users,
+        roles: ACADEMIC,
+        menuKey: 'teachers',
+      },
       {
         label: 'Lịch dạy',
         href: '/teacher/schedule',
@@ -280,6 +288,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const role = useMyRole()
   const menuKeys = useMyMenuKeys()
+  const menuGrants = useMyMenuGrants()
   const moduleFlags = useMyModuleFlags()
 
   // Phản hồi TỨC THÌ: spinner trên item vừa bấm, xóa khi pathname đổi.
@@ -294,11 +303,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   // Lọc menu: tầng 1 theo role mặc định + tầng 2 theo ma trận động
   // + tầng 3: module bị Super Admin TẮT (module_flags - 046)
+  // + QUYỀN KIÊM NHIỆM (049): key được gán riêng cho user LUÔN hiện,
+  //   bất kể vai trò mặc định (trừ khi module bị tắt).
   const visibleMenu = useMemo(() => {
     const disabledModules = moduleFlags?.modules ?? []
+    const grants = menuGrants ?? []
     const allowLeaf = (leaf: MenuLeaf) =>
-      canSee(role, leaf.roles) &&
-      grantedByMatrix(role, menuKeys, leaf.menuKey) &&
+      ((canSee(role, leaf.roles) && grantedByMatrix(role, menuKeys, leaf.menuKey)) ||
+        (!!leaf.menuKey && grants.includes(leaf.menuKey))) &&
       !(leaf.menuKey && role !== 'super_admin' && disabledModules.includes(leaf.menuKey))
     const result: MenuEntry[] = []
     for (const entry of baseMenu) {
@@ -310,7 +322,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       }
     }
     return result
-  }, [role, menuKeys, moduleFlags, baseMenu])
+  }, [role, menuKeys, menuGrants, moduleFlags, baseMenu])
 
   // Mục ACTIVE = leaf có href khớp DÀI NHẤT (tránh /students sáng cùng /students/import)
   const activeHref = useMemo(() => {

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import {
   requiredId,
   scheduleSessionSchema,
@@ -196,10 +197,11 @@ async function requireStaffScope(): Promise<
 
   // Double-check theo Ma trận RBAC: phải có cấp bậc >= academic_staff
   // trên chính org của mình
-  const { data: authorized } = await supabase.rpc('is_authorized', {
+  const { data: authorized } = await isAuthorizedRpc(supabase, {
     p_user_id: user.id,
     p_target_org_id: profile.org_id,
     p_required_role: 'academic_staff',
+    p_menu_key: 'staff_ops',
   })
 
   if (authorized !== true) {

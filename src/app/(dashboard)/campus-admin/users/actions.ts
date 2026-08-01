@@ -11,6 +11,12 @@ import {
 } from '@/lib/validation/schemas'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { checkStudentCapacity } from '@/lib/licensing/capacity'
+import {
+  defaultKeysForRole,
+  isMenuKey,
+  type MenuKey,
+} from '@/lib/auth/menuRegistry'
+import type { Role } from '@/lib/auth/roles'
 
 // ============================================================
 // Module Quản lý Nhân sự (Campus Admin)
@@ -524,6 +530,127 @@ export async function resetUserPassword(
     return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
   }
 
+  return {}
+}
+
+// ============================================================
+// QUYỀN KIÊM NHIỆM THEO TỪNG NHÂN SỰ (049 - user_menu_permissions)
+// Quản lý cơ sở gán THÊM hạng mục cho 1 nhân sự cụ thể. Được gán
+// = menu hiện + vào được URL + đọc/ghi được dữ liệu hạng mục đó
+// (tối đa ngang cấp Giáo vụ; các mục quản trị cơ sở vẫn cần role thật).
+// ============================================================
+
+/** Key KHÔNG BAO GIỜ gán kiêm nhiệm được (chỉ Super Admin) */
+const UNGRANTABLE_KEYS: MenuKey[] = ['settings_global']
+
+export type UserGrantData = {
+  /** Key được gán THÊM cho user này */
+  grants: MenuKey[]
+  /** Key user đã có sẵn theo vai trò (hiển thị để phân biệt) */
+  roleKeys: MenuKey[]
+  /** Trần ủy quyền của người gán (campus_admin); null = super_admin không giới hạn */
+  capKeys: MenuKey[] | null
+  targetName: string
+  targetRole: string
+}
+
+/** Đọc quyền kiêm nhiệm hiện có của 1 nhân sự trong phạm vi quản lý */
+export async function getUserGrants(
+  targetUserId: string
+): Promise<{ error: string } | ({ error?: undefined } & UserGrantData)> {
+  const gate = await requireManageableTarget(targetUserId)
+  if (gate.error !== undefined) return { error: gate.error }
+
+  const supabase = createClient()
+
+  const [{ data: row }, { data: me }] = await Promise.all([
+    supabase
+      .from('user_menu_permissions')
+      .select('menu_keys')
+      .eq('user_id', targetUserId)
+      .maybeSingle(),
+    supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', gate.currentUserId)
+      .maybeSingle(),
+  ])
+
+  // Trần ủy quyền: campus_admin chỉ gán được quyền CHÍNH MÌNH đang có
+  let capKeys: MenuKey[] | null = null
+  if (me?.role === 'campus_admin') {
+    const { data: myKeys } = await supabase.rpc('get_my_menu_keys')
+    capKeys = (
+      Array.isArray(myKeys)
+        ? (myKeys as unknown[]).filter(isMenuKey)
+        : defaultKeysForRole('campus_admin')
+    ).filter((key) => !UNGRANTABLE_KEYS.includes(key))
+  }
+
+  return {
+    grants: Array.isArray(row?.menu_keys)
+      ? (row.menu_keys as unknown[]).filter(isMenuKey)
+      : [],
+    roleKeys: defaultKeysForRole(gate.target.role as Role),
+    capKeys,
+    targetName: gate.target.full_name,
+    targetRole: gate.target.role,
+  }
+}
+
+/**
+ * LƯU quyền kiêm nhiệm cho 1 nhân sự. keys rỗng -> gỡ hết (xóa dòng).
+ * Ghi bằng user client -> RLS 049 tự chặn ngoài subtree lần 2.
+ */
+export async function saveUserGrants(
+  targetUserId: string,
+  keys: string[]
+): Promise<UsersActionResult> {
+  const gate = await requireManageableTarget(targetUserId)
+  if (gate.error !== undefined) return { error: gate.error }
+
+  const supabase = createClient()
+  const cleanKeys = keys
+    .filter(isMenuKey)
+    .filter((key) => !UNGRANTABLE_KEYS.includes(key))
+
+  // Trần ủy quyền của campus_admin: không gán được quyền mình không có
+  const { data: me } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', gate.currentUserId)
+    .maybeSingle()
+  if (me?.role === 'campus_admin') {
+    const { data: myKeys } = await supabase.rpc('get_my_menu_keys')
+    const cap: MenuKey[] = Array.isArray(myKeys)
+      ? (myKeys as unknown[]).filter(isMenuKey)
+      : defaultKeysForRole('campus_admin')
+    const outOfCap = cleanKeys.filter((key) => !cap.includes(key))
+    if (outOfCap.length > 0) {
+      return { error: `Bạn không thể gán quyền mình không có: ${outOfCap.join(', ')}` }
+    }
+  }
+
+  if (cleanKeys.length === 0) {
+    const { error } = await supabase
+      .from('user_menu_permissions')
+      .delete()
+      .eq('user_id', targetUserId)
+    if (error) return { error: `Không gỡ được quyền: ${error.message}` }
+  } else {
+    const { error } = await supabase.from('user_menu_permissions').upsert(
+      {
+        user_id: targetUserId,
+        org_id: gate.target.org_id,
+        menu_keys: cleanKeys,
+        updated_by: gate.currentUserId,
+      },
+      { onConflict: 'user_id' }
+    )
+    if (error) return { error: `Không lưu được quyền: ${error.message}` }
+  }
+
+  revalidatePath('/campus-admin/users')
   return {}
 }
 

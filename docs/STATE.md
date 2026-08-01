@@ -3,7 +3,7 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-01 - fix login race cookie + huong dan demo /coso
+**Cập nhật lần cuối**: 2026-08-01 - quyền kiêm nhiệm theo user (049) + /teachers + sửa hồ sơ HS 360
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
@@ -12,9 +12,9 @@
 - "Phó giám đốc" = tài khoản campus_admin gắn vào org con (không có role riêng).
 
 ## Migrations
-- Đã có file: `001 → 045` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
-- ⚠️ **CHƯA chạy trên DB thật: 042, 043, 044, 045 (org slugs /coso)** - user phải chạy tay
-  qua Supabase SQL Editor. Code fail-safe khi RPC/cột chưa tồn tại.
+- Đã có file: `001 → 049` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
+- ⚠️ **CHƯA chạy trên DB thật: 049 (user grants - kiêm nhiệm)** - user chạy tay qua Supabase
+  SQL Editor. Code fail-safe: `isAuthorizedRpc` tự fallback bản 3 tham số; grants coi như rỗng.
 - ⚠️ `scripts/apply-migration.mjs` lỗi "password authentication failed" - DATABASE_URL trong .env sai
   mật khẩu. Muốn tự động hóa phải xin user cập nhật.
 
@@ -33,9 +33,17 @@
   thông báo user_notifications, cảnh báo tâm lý tự động, HDSD tại /hdsd, dashboard kéo-thả
   (user_preferences + global_layout_templates), SmartTable lưu góc nhìn, phân quyền menu động
   (/admin/permissions, menuRegistry, RPC get_my_menu_keys).
+- Kiêm nhiệm (049 - 2026-08-01): `user_menu_permissions` gán quyền BỔ SUNG theo TỪNG user.
+  Modal "Gán quyền kiêm nhiệm" tại /campus-admin/users (trần = quyền của người gán, tối đa mức
+  Giáo vụ ở data layer). Mở đủ 3 tầng: menu (useMyMenuGrants) + middleware (menuGrants trong
+  access state) + data (is_authorized v2 p_menu_key qua helper isAuthorizedRpc + RLS grant_*).
+  049 cũng VÁ BUG: academic_staff trước đây KHÔNG update được profiles học sinh (RLS chặn im lặng).
+- /teachers (mới): danh bạ giảng viên + gán/gỡ lớp (classes.teacher_id), menuKey 'teachers'.
+- Trang 360 học sinh: nút "Sửa hồ sơ" (họ tên/SĐT/địa chỉ/MaSV, check MaSV trùng), hiện MaSV thật.
 
 ## Tồn đọng / việc tiếp theo
-1. Migration 042/043/044/045 chờ user chạy tay (xem trên) — **045 bắt buộc** để `/coso/[slug]` hoạt động.
+1. Migration **049** chờ user chạy tay qua Supabase SQL Editor (bắt buộc để gán quyền kiêm nhiệm
+   + vá bug giáo vụ sửa hồ sơ học sinh).
 2. Production Vercel: set `PARENT_SESSION_SECRET` + `PARENT_MOCK_OTP` (bắt buộc, không còn fallback).
 3. Subdomain DNS per cơ sở (`ten.domain.com`) — sau path `/coso/` (D14 đã chốt path trước).
 4. Backlog: OTP phụ huynh thật (SMS); attendance/payroll/warnings auto-scan (xem WORKLOG audit).

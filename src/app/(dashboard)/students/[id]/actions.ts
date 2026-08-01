@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { requiredId, zodFail } from '@/lib/validation/schemas'
@@ -19,6 +20,8 @@ import { requiredId, zodFail } from '@/lib/validation/schemas'
 export type Student360Profile = {
   id: string
   code: string
+  /** Mã sinh viên chính thức (profiles."MaSV") - null nếu chưa cấp */
+  masv: string | null
   fullName: string
   email: string | null
   phone: string | null
@@ -80,7 +83,7 @@ export async function getStudent360(studentId: string): Promise<Student360Result
     const { data: profile } = await supabase
       .from('profiles')
       .select(
-        'id, full_name, email, phone, address, org_id, custom_metadata, created_at, deleted_at, organizations(name)'
+        'id, full_name, email, phone, address, org_id, custom_metadata, created_at, deleted_at, MaSV, organizations(name)'
       )
       .eq('id', idParsed.data)
       .eq('role', 'student')
@@ -88,10 +91,12 @@ export async function getStudent360(studentId: string): Promise<Student360Result
     if (!profile) return { error: 'Học sinh không tồn tại.', status: 404 }
 
     // ===== CHỐT 403: học sinh phải nằm trong cây org của người xem =====
-    const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+    // p_menu_key: người được gán kiêm nhiệm 'students' (049) cũng xem được
+    const { data: authorized, error: authzError } = await isAuthorizedRpc(supabase, {
       p_user_id: currentUser.id,
       p_target_org_id: profile.org_id,
       p_required_role: 'academic_staff',
+      p_menu_key: 'students',
     })
     if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     if (authorized !== true) {
@@ -305,7 +310,11 @@ export async function getStudent360(studentId: string): Promise<Student360Result
       data: {
         profile: {
           id: profile.id,
-          code: `HV-${profile.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`,
+          // Ưu tiên MaSV chính thức; chưa cấp -> mã tạm từ id
+          code:
+            (profile as { MaSV?: string | null }).MaSV ??
+            `HV-${profile.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`,
+          masv: (profile as { MaSV?: string | null }).MaSV ?? null,
           fullName: profile.full_name,
           email: profile.email,
           phone: profile.phone,
@@ -335,6 +344,90 @@ export async function getStudent360(studentId: string): Promise<Student360Result
 function extractOrgName(org: unknown): string {
   if (Array.isArray(org)) return (org[0] as { name?: string })?.name ?? '—'
   return (org as { name?: string } | null)?.name ?? '—'
+}
+
+// ============================================================
+// SỬA THÔNG TIN ĐỊNH DANH HỌC VIÊN (từ trang 360)
+// Họ tên / SĐT / Địa chỉ / MaSV. Quyền: academic_staff trở lên
+// hoặc được gán kiêm nhiệm 'students' (049).
+// ============================================================
+
+export async function updateStudentIdentity(
+  studentId: string,
+  values: { fullName: string; phone: string; address: string; masv: string }
+): Promise<{ error?: string }> {
+  const idParsed = requiredId('Thiếu ID học sinh.').safeParse(studentId)
+  if (!idParsed.success) return zodFail(idParsed.error)
+
+  const fullName = values.fullName.trim()
+  const phone = values.phone.trim()
+  const address = values.address.trim()
+  const masv = values.masv.trim()
+  if (fullName.length < 2) return { error: 'Họ tên phải có ít nhất 2 ký tự.' }
+  if (masv.length > 50) return { error: 'MaSV tối đa 50 ký tự.' }
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser()
+    if (!currentUser) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { data: student } = await supabase
+      .from('profiles')
+      .select('id, org_id')
+      .eq('id', idParsed.data)
+      .eq('role', 'student')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!student?.org_id) {
+      return { error: 'Học sinh không tồn tại hoặc ngoài phạm vi của bạn.' }
+    }
+
+    const { data: authorized, error: authzError } = await isAuthorizedRpc(supabase, {
+      p_user_id: currentUser.id,
+      p_target_org_id: student.org_id,
+      p_required_role: 'academic_staff',
+      p_menu_key: 'students',
+    })
+    if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
+    if (authorized !== true) {
+      return { error: 'TỪ CHỐI: Bạn không có quyền sửa hồ sơ học sinh của cơ sở này.' }
+    }
+
+    const admin = createAdminClient()
+
+    // MaSV là mã ĐỊNH DANH duy nhất toàn hệ thống - chặn trùng
+    if (masv) {
+      const { data: duplicated } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('MaSV', masv)
+        .neq('id', idParsed.data)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (duplicated) {
+        return { error: `MaSV "${masv}" đã được cấp cho học viên khác.` }
+      }
+    }
+
+    const { error } = await admin
+      .from('profiles')
+      .update({
+        full_name: fullName,
+        phone: phone || null,
+        address: address || null,
+        MaSV: masv || null,
+      })
+      .eq('id', idParsed.data)
+    if (error) return { error: `Không cập nhật được hồ sơ: ${error.message}` }
+
+    revalidatePath(`/students/${idParsed.data}`)
+    revalidatePath('/students')
+    return {}
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Lỗi không xác định.' }
+  }
 }
 
 // ============================================================
@@ -397,7 +490,7 @@ export async function getTransferTargets(studentId: string): Promise<TransferTar
     if (!student?.org_id) return { error: 'Học sinh không tồn tại.' }
 
     // Quyền campus_admin trên org hiện tại của học viên
-    const { data: authorized } = await supabase.rpc('is_authorized', {
+    const { data: authorized } = await isAuthorizedRpc(supabase, {
       p_user_id: currentUser.id,
       p_target_org_id: student.org_id,
       p_required_role: 'campus_admin',
@@ -459,12 +552,12 @@ export async function transferStudentOrg(
 
     // Quyền campus_admin trên CẢ org hiện tại LẪN org đích
     const [{ data: authSource }, { data: authTarget }] = await Promise.all([
-      supabase.rpc('is_authorized', {
+      isAuthorizedRpc(supabase, {
         p_user_id: currentUser.id,
         p_target_org_id: student.org_id,
         p_required_role: 'campus_admin',
       }),
-      supabase.rpc('is_authorized', {
+      isAuthorizedRpc(supabase, {
         p_user_id: currentUser.id,
         p_target_org_id: orgParsed.data,
         p_required_role: 'campus_admin',
