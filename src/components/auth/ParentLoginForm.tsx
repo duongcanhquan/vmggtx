@@ -6,13 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import {
-  HeartHandshake,
-  KeyRound,
-  Loader2,
-  Phone,
-  ShieldCheck,
-} from 'lucide-react'
+import { KeyRound, Loader2, Phone, ShieldCheck } from 'lucide-react'
 import { phoneVNSchema } from '@/lib/validation/schemas'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
 import { parentLogin } from '@/app/(parent-portal)/actions'
@@ -83,7 +77,6 @@ export function ParentLoginForm({ campus }: { campus?: CampusContext }) {
   return (
     <AuthShell
       theme="parent"
-      icon={HeartHandshake}
       badge={campus ? campus.name : 'Dành cho Phụ huynh'}
       title="Sổ Liên Lạc Điện Tử"
       subtitle={

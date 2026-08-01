@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { GraduationCap, Loader2, Lock, LogIn, Mail } from 'lucide-react'
+import { Loader2, Lock, LogIn, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
@@ -158,62 +158,44 @@ export function StaffLoginForm({ campus }: { campus?: CampusContext }) {
   return (
     <AuthShell
       theme="management"
-      icon={GraduationCap}
-      badge={campus ? campus.name : 'Nhà trường · Hệ thống'}
+      badge={campus ? campus.name : undefined}
       title={
         <>
           EDU <span className="text-amber-300">SYSTEM</span>
         </>
       }
-      subtitle={
-        campus
-          ? `Cổng quản trị cơ sở · ${campus.name}`
-          : 'Super Admin đăng nhập tại đây · Cơ sở nên dùng /coso/…'
-      }
+      subtitle={campus ? `Cổng quản trị cơ sở · ${campus.name}` : undefined}
       footer={
-        <>
-          {!campus ? (
+        campus ? (
+          <>
             <p>
-              Quản lý / GV / Học viên / Phụ huynh theo cơ sở:{' '}
+              Bạn là Học viên?{' '}
               <Link
-                href="/coso"
+                href={studentHref}
                 className="font-bold text-white underline-offset-2 hover:underline"
               >
-                chọn cơ sở tại /coso
+                Vào Cổng Học viên
               </Link>
-              {' '}(khuyến nghị). Cổng này vẫn nhận đăng nhập nhân sự nếu cần.
             </p>
-          ) : (
-            <>
-              <p>
-                Bạn là Học viên?{' '}
-                <Link
-                  href={studentHref}
-                  className="font-bold text-white underline-offset-2 hover:underline"
-                >
-                  Vào Cổng Học viên
-                </Link>
-              </p>
-              <p>
-                Phụ huynh?{' '}
-                <Link
-                  href={parentHref}
-                  className="font-bold text-white underline-offset-2 hover:underline"
-                >
-                  Vào Sổ Liên Lạc Điện Tử
-                </Link>
-              </p>
-              <p>
-                <Link
-                  href={`/coso/${campus.slug}`}
-                  className="font-bold text-white/80 underline-offset-2 hover:underline"
-                >
-                  ← Về trang cơ sở
-                </Link>
-              </p>
-            </>
-          )}
-        </>
+            <p>
+              Phụ huynh?{' '}
+              <Link
+                href={parentHref}
+                className="font-bold text-white underline-offset-2 hover:underline"
+              >
+                Vào Sổ Liên Lạc Điện Tử
+              </Link>
+            </p>
+            <p>
+              <Link
+                href={`/coso/${campus.slug}`}
+                className="font-bold text-white/80 underline-offset-2 hover:underline"
+              >
+                ← Về trang cơ sở
+              </Link>
+            </p>
+          </>
+        ) : undefined
       }
     >
       <form onSubmit={handleSubmit(onValid)} noValidate>

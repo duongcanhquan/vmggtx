@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { BookOpenCheck, Loader2, Lock, Mail, Rocket } from 'lucide-react'
+import { BookOpenCheck, Loader2, Lock, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
@@ -145,7 +145,6 @@ export function StudentLoginForm({ campus }: { campus?: CampusContext }) {
   return (
     <AuthShell
       theme="student"
-      icon={Rocket}
       badge={campus ? campus.name : 'Cổng Học viên (toàn hệ thống)'}
       title={
         <>

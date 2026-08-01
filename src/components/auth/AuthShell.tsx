@@ -97,9 +97,95 @@ export const AuthField = forwardRef<
   )
 })
 
+/**
+ * Logo EDU SYSTEM — huy hiệu vàng sang trọng: vòng kép ánh kim,
+ * sách mở (tri thức), ngôi sao tỏa sáng (khát vọng) và nhành
+ * nguyệt quế (thành tựu). Vẽ SVG thuần nên sắc nét mọi kích thước.
+ */
+function EmblemLogo() {
+  return (
+    <span className="mx-auto block h-[84px] w-[84px] drop-shadow-[0_4px_14px_rgba(212,175,55,0.35)]">
+      <svg viewBox="0 0 96 96" role="img" aria-label="EDU SYSTEM">
+        <defs>
+          <linearGradient id="au-gold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fdf0c2" />
+            <stop offset="45%" stopColor="#eecf6d" />
+            <stop offset="100%" stopColor="#b98a2e" />
+          </linearGradient>
+          <radialGradient id="au-glow" cx="50%" cy="42%" r="60%">
+            <stop offset="0%" stopColor="rgba(255,240,190,0.28)" />
+            <stop offset="100%" stopColor="rgba(255,240,190,0)" />
+          </radialGradient>
+        </defs>
+
+        {/* Quầng sáng + vòng kép ánh kim */}
+        <circle cx="48" cy="48" r="46" fill="url(#au-glow)" />
+        <circle
+          cx="48"
+          cy="48"
+          r="42"
+          fill="rgba(255,255,255,0.06)"
+          stroke="url(#au-gold)"
+          strokeWidth="2.5"
+        />
+        <circle
+          cx="48"
+          cy="48"
+          r="36.5"
+          fill="none"
+          stroke="rgba(255,255,255,0.35)"
+          strokeWidth="1"
+        />
+
+        {/* Ngôi sao tri thức + tia sáng */}
+        <path
+          d="M48 17.5l3.3 7 7.6 1.1-5.5 5.3 1.3 7.6L48 34.9l-6.7 3.6 1.3-7.6-5.5-5.3 7.6-1.1z"
+          fill="url(#au-gold)"
+        />
+        <path
+          d="M31 26l3.4 2.4M65 26l-3.4 2.4"
+          stroke="url(#au-gold)"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+
+        {/* Sách mở */}
+        <path
+          d="M27.5 49c7.5-4.2 14-4.2 20.5 0v20c-6.5-4.2-13-4.2-20.5 0z"
+          fill="rgba(255,255,255,0.95)"
+        />
+        <path
+          d="M68.5 49c-7.5-4.2-14-4.2-20.5 0v20c6.5-4.2 13-4.2 20.5 0z"
+          fill="rgba(255,255,255,0.8)"
+        />
+        <path d="M48 49v20" stroke="url(#au-gold)" strokeWidth="2" strokeLinecap="round" />
+        <path
+          d="M32.5 54.5c4.5-1.8 8-1.9 11.5-.6M32.5 59.5c4.5-1.8 8-1.9 11.5-.6M52 53.9c3.5-1.3 7-1.2 11.5.6M52 58.9c3.5-1.3 7-1.2 11.5.6"
+          stroke="rgba(120,90,30,0.4)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          fill="none"
+        />
+
+        {/* Nhành nguyệt quế hai bên */}
+        <path
+          d="M25 64q-5-11 1.5-21M71 64q5-11-1.5-21"
+          stroke="url(#au-gold)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <circle cx="24.2" cy="56" r="1.7" fill="url(#au-gold)" />
+        <circle cx="25.4" cy="48.5" r="1.7" fill="url(#au-gold)" />
+        <circle cx="71.8" cy="56" r="1.7" fill="url(#au-gold)" />
+        <circle cx="70.6" cy="48.5" r="1.7" fill="url(#au-gold)" />
+      </svg>
+    </span>
+  )
+}
+
 export function AuthShell({
   theme,
-  icon: Icon,
   badge,
   title,
   subtitle,
@@ -107,10 +193,9 @@ export function AuthShell({
   footer,
 }: {
   theme: AuthTheme
-  icon: LucideIcon
-  badge: string
+  badge?: string
   title: React.ReactNode
-  subtitle: string
+  subtitle?: string
   children: React.ReactNode
   footer?: React.ReactNode
 }) {
@@ -146,16 +231,16 @@ export function AuthShell({
       <div className="relative w-full max-w-[420px]">
         <div className="rounded-[20px] border-2 border-white/50 bg-white/5 p-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur-[20px] sm:p-10">
           <div className="text-center">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-white/40 bg-white/10 text-white shadow-lg">
-              <Icon className="h-7 w-7" aria-hidden="true" />
-            </span>
-            <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
-              {badge}
-            </span>
+            <EmblemLogo />
+            {badge && (
+              <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
+                {badge}
+              </span>
+            )}
             <h1 className="mt-3 font-heading text-[1.9em] font-bold leading-tight tracking-tight text-white">
               {title}
             </h1>
-            <p className="mt-1.5 text-sm text-white/85">{subtitle}</p>
+            {subtitle && <p className="mt-1.5 text-sm text-white/85">{subtitle}</p>}
           </div>
 
           <div className="mt-2">{children}</div>
