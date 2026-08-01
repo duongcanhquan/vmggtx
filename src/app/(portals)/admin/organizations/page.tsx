@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   BarChart3,
   Building2,
+  ChevronRight,
   ExternalLink,
   GraduationCap,
   Loader2,
@@ -73,6 +74,8 @@ export default function AdminOrganizationsPage() {
   const [createName, setCreateName] = useState('')
   const [createSlug, setCreateSlug] = useState('')
   const [editSlug, setEditSlug] = useState('')
+  // Cây bấm-mới-sổ: Super Admin mặc định chỉ thấy gốc + Đơn vị cấp 1
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -88,6 +91,13 @@ export default function AdminOrganizationsPage() {
     setIsSuperAdmin(result.isSuperAdmin)
     setMyOrgId(result.myOrgId)
     setManageableIds(result.manageableIds)
+    // Super Admin: gập các nhánh bên trong Đơn vị (bấm vào Đơn vị mới sổ ra
+    // để XEM). Admin Đơn vị: mở sẵn toàn bộ cây của mình.
+    setExpandedIds(
+      result.isSuperAdmin
+        ? new Set(result.orgs.filter((org) => org.parent_id === null).map((o) => o.id))
+        : new Set(result.orgs.map((org) => org.id))
+    )
   }, [])
 
   useEffect(() => {
@@ -143,20 +153,36 @@ export default function AdminOrganizationsPage() {
   // Đơn vị NGOÀI cây con (cấp trên hiển thị để vẽ cây) -> chỉ xem
   const inMyScope = (id: string) => manageableIds === null || manageableIds.includes(id)
   const manageableRows = rows.filter((org) => inMyScope(org.id))
+  // [RANH GIỚI CẤP 1 — THEO CẤU TRÚC] gốc hệ thống + con trực tiếp của gốc.
+  // Không dựa cột type vì dữ liệu cũ có thể gắn nhầm 'campus' cho nhánh sâu.
+  const rootIdSet = new Set(tree.map((node) => node.id))
+  const isTopLevel = (node: OrgNode) =>
+    rootIdSet.has(node.id) || (node.parent_id !== null && rootIdSet.has(node.parent_id))
   // Đơn vị (Trường) nằm ở gốc hệ thống; Cơ sở/Trung tâm nằm trong Đơn vị
   const parentOptions =
     createType === 'campus'
-      ? rows.filter((org) => org.type === 'hq' || org.type === 'region')
+      ? rows.filter((org) => org.parent_id === null)
       : manageableRows.filter((org) => org.type === 'campus' || org.type === 'branch')
+
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   function renderNode(node: OrgNode, depth: number): React.ReactNode {
     const counts = countById.get(node.id)
     const hasChildren = node.children.length > 0
+    const isExpanded = expandedIds.has(node.id)
     const isMyRoot = node.id === myOrgId
     const isDeleting = deletingId === node.id
-    // [RANH GIỚI] Super Admin không thao tác trên Cơ sở/Trung tâm
-    // BÊN TRONG Đơn vị của khách — chỉ Admin Đơn vị được sửa nhánh dưới.
-    const superViewOnly = isSuperAdmin && node.type === 'branch'
+    // [RANH GIỚI CẤP 1 — THEO CẤU TRÚC] Super Admin chỉ thao tác gốc hệ thống
+    // + Đơn vị cấp 1 (con trực tiếp của gốc). MỌI nhánh sâu hơn — dù dữ liệu
+    // cũ gắn type gì — đều do Admin Đơn vị quản lý, Super Admin chỉ xem.
+    const superViewOnly = isSuperAdmin && !isTopLevel(node)
     const canTouch = canManage && inMyScope(node.id) && !superViewOnly
     return (
       <div key={node.id}>
@@ -164,6 +190,23 @@ export default function AdminOrganizationsPage() {
           className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-indigo-50/50"
           style={{ marginLeft: depth * 20 }}
         >
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={() => toggleExpand(node.id)}
+              title={isExpanded ? 'Thu gọn nhánh con' : `Xem ${node.children.length} nhánh con`}
+              aria-label={isExpanded ? `Thu gọn ${node.name}` : `Mở rộng ${node.name}`}
+              aria-expanded={isExpanded}
+              className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronRight
+                className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                aria-hidden="true"
+              />
+            </button>
+          ) : (
+            <span className="h-6 w-6 shrink-0" aria-hidden="true" />
+          )}
           <Building2 className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
           <span className="min-w-0 truncate font-medium text-slate-900">{node.name}</span>
           <span
@@ -216,9 +259,15 @@ export default function AdminOrganizationsPage() {
           </span>
 
           {/* Thao tác: hồ sơ / quản lý admin / thêm con / sửa / xóa - CHỈ trong phạm vi */}
+          {hasChildren && !isExpanded && (
+            <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-500">
+              {node.children.length} nhánh con
+            </span>
+          )}
           {canTouch && (
             <span className="flex shrink-0 items-center gap-1">
-              {node.type === 'campus' && (
+              {(node.type === 'campus' ||
+                (node.parent_id !== null && rootIdSet.has(node.parent_id))) && (
                 <button
                   type="button"
                   onClick={() => router.push(`/admin/organizations/${node.id}`)}
@@ -298,7 +347,7 @@ export default function AdminOrganizationsPage() {
             </span>
           )}
         </div>
-        {node.children.map((child) => renderNode(child as OrgNode, depth + 1))}
+        {isExpanded && node.children.map((child) => renderNode(child as OrgNode, depth + 1))}
       </div>
     )
   }

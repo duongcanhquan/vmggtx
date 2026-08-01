@@ -43,6 +43,12 @@ KHÔNG được làm:
 - Không tạo nhân viên/giáo viên/học sinh (trừ tạo Admin Đơn vị đầu tiên).
 - Không cấu hình nghiệp vụ (mã học viên, biểu phí, mẫu đơn... là cá nhân hóa của Đơn vị).
 
+> **CÁCH XÁC ĐỊNH "CẤP 1" (từ 2026-08-01): THEO CẤU TRÚC CÂY, không theo cột `type`.**
+> Đơn vị cấp 1 = con TRỰC TIẾP của gốc hệ thống. Mọi node sâu hơn — kể cả khi dữ liệu
+> cũ còn gắn nhầm `type='campus'` — Super Admin CHỈ XEM (bấm vào Đơn vị mới sổ nhánh con).
+> Quy tắc này được chặn ở cả server actions (update/delete/create org) lẫn UI, và các
+> trang Tổng quan / Module & Gói dịch vụ chỉ liệt kê Đơn vị cấp 1.
+
 ### Tầng 2 — ADMIN ĐƠN VỊ (giám đốc, "toàn quyền trong nhà mình")
 
 Toàn quyền TRONG CÂY của Đơn vị mình, TRONG PHẠM VI gói module được gán:

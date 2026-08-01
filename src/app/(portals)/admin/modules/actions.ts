@@ -86,12 +86,11 @@ export async function getModuleCenterData(): Promise<ModuleCenterData> {
 
     const admin = createAdminClient()
 
-    // 1. Cơ sở + license (module đã cấp) — chạy song song với flags
+    // 1. Đơn vị cấp 1 + license (module đã cấp) — chạy song song với flags
     const [orgsRes, licensesRes, flagsRes] = await Promise.all([
       admin
         .from('organizations')
-        .select('id, name, type')
-        .eq('type', 'campus')
+        .select('id, name, type, parent_id')
         .is('deleted_at', null)
         .order('name'),
       admin.from('tenant_licenses').select('org_id, module_keys'),
@@ -111,11 +110,18 @@ export async function getModuleCenterData(): Promise<ModuleCenterData> {
       licenseByOrg.set(row.org_id, (row.module_keys as string[]) ?? [])
     }
 
-    const campuses = (orgsRes.data ?? []).map((org) => ({
-      id: org.id,
-      name: org.name,
-      licenseModules: licenseByOrg.get(org.id) ?? null,
-    }))
+    // [RANH GIỚI CẤP 1] Super Admin chỉ cấp gói/module cho ĐƠN VỊ CẤP 1
+    // (con trực tiếp của gốc hệ thống — theo cấu trúc cây, không theo type).
+    // Nhánh cấp 2-3 thừa hưởng gói của Đơn vị mẹ, KHÔNG hiện ở đây.
+    const allOrgs = orgsRes.data ?? []
+    const rootIds = new Set(allOrgs.filter((org) => !org.parent_id).map((org) => org.id))
+    const campuses = allOrgs
+      .filter((org) => org.parent_id !== null && rootIds.has(org.parent_id))
+      .map((org) => ({
+        id: org.id,
+        name: org.name,
+        licenseModules: licenseByOrg.get(org.id) ?? null,
+      }))
 
     const disabledFlags: ModuleFlagRow[] = (flagsRes.data ?? []).map((row) => ({
       orgId: row.org_id ?? null,

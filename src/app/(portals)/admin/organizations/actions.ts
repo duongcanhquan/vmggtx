@@ -176,6 +176,29 @@ function inScope(auth: Exclude<OrgManagerAuth, { error: string }>, orgId: string
   return auth.subtreeIds === null || auth.subtreeIds.includes(orgId)
 }
 
+/**
+ * [RANH GIỚI CẤP 1 — THEO CẤU TRÚC CÂY, KHÔNG THEO CỘT type]
+ * Super Admin CHỈ thao tác: gốc hệ thống + con TRỰC TIẾP của gốc
+ * (= Đơn vị khách hàng, cấp 1). Nhánh cấp 2-3 dù dữ liệu cũ có gắn
+ * nhầm type 'campus' vẫn là việc của Admin Đơn vị — Super Admin chỉ xem.
+ */
+async function isTopLevelForSuper(org: {
+  parent_id?: string | null
+}): Promise<boolean> {
+  const parentId = org.parent_id ?? null
+  if (parentId === null) return true // chính gốc hệ thống
+  const admin = createAdminClient()
+  const { data: parent } = await admin
+    .from('organizations')
+    .select('parent_id')
+    .eq('id', parentId)
+    .maybeSingle()
+  return (parent?.parent_id ?? null) === null // cha là gốc -> cấp 1
+}
+
+const SUPER_LEVEL_ERROR =
+  'TỪ CHỐI: Super Admin chỉ quản lý ĐƠN VỊ CẤP 1 (khách hàng). Các nhánh bên trong do Admin của Đơn vị đó tự tổ chức — bạn chỉ xem.'
+
 const orgNameSchema = z
   .string({ required_error: 'Vui lòng nhập tên đơn vị.' })
   .trim()
@@ -306,8 +329,9 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
         error: 'Không tạo Đơn vị lồng trong Đơn vị khác. Bên trong Đơn vị chỉ tạo Cơ sở / Trung tâm.',
       }
     }
-    if (parsed.data.type === 'campus' && parent.type !== 'hq' && parent.type !== 'region') {
-      return { error: 'Đơn vị (Trường) mới phải nằm ở cấp gốc hệ thống.' }
+    // [CẤU TRÚC] Đơn vị khách hàng (cấp 1) phải nằm NGAY DƯỚI gốc hệ thống
+    if (parsed.data.type === 'campus' && parent.parent_id !== null) {
+      return { error: 'Đơn vị (Trường) mới phải nằm ngay dưới gốc hệ thống.' }
     }
     if (parentTier >= 3) {
       return {
@@ -391,19 +415,15 @@ export async function updateOrganization(formData: FormData): Promise<ActionResu
     const admin = createAdminClient()
     const { data: target } = await admin
       .from('organizations')
-      .select('id, type, slug')
+      .select('id, type, slug, parent_id')
       .eq('id', parsed.data.orgId)
       .is('deleted_at', null)
       .maybeSingle()
     if (!target) return { error: 'Đơn vị không tồn tại hoặc đã bị xóa.' }
 
-    // [RANH GIỚI] Super Admin không sửa Cơ sở/Trung tâm BÊN TRONG Đơn vị
-    // của khách hàng — đó là quyền của Admin Đơn vị. Super Admin chỉ xem.
-    if (auth.role === 'super_admin' && target.type === 'branch') {
-      return {
-        error:
-          'TỪ CHỐI: Cơ sở / Trung tâm bên trong Đơn vị do Admin Đơn vị quản lý. Super Admin chỉ quản lý cấp Đơn vị (Trường).',
-      }
+    // [RANH GIỚI CẤP 1] Super Admin chỉ sửa gốc hệ thống + Đơn vị cấp 1
+    if (auth.role === 'super_admin' && !(await isTopLevelForSuper(target))) {
+      return { error: SUPER_LEVEL_ERROR }
     }
 
     const nextType = (parsed.data.type && target.type !== 'hq'
@@ -471,20 +491,17 @@ export async function deleteOrganization(orgId: string): Promise<ActionResult> {
     const admin = createAdminClient()
     const { data: target } = await admin
       .from('organizations')
-      .select('id, name, type')
+      .select('id, name, type, parent_id')
       .eq('id', orgId)
       .is('deleted_at', null)
       .maybeSingle()
     if (!target) return { error: 'Đơn vị không tồn tại hoặc đã bị xóa.' }
-    if (target.type === 'hq') {
-      return { error: 'Không thể xóa Trụ sở chính.' }
+    if (target.type === 'hq' || target.parent_id === null) {
+      return { error: 'Không thể xóa gốc hệ thống.' }
     }
-    // [RANH GIỚI] Super Admin không xóa Cơ sở/Trung tâm bên trong Đơn vị
-    if (auth.role === 'super_admin' && target.type === 'branch') {
-      return {
-        error:
-          'TỪ CHỐI: Cơ sở / Trung tâm bên trong Đơn vị do Admin Đơn vị quản lý. Super Admin chỉ quản lý cấp Đơn vị (Trường).',
-      }
+    // [RANH GIỚI CẤP 1] Super Admin chỉ xóa Đơn vị cấp 1
+    if (auth.role === 'super_admin' && !(await isTopLevelForSuper(target))) {
+      return { error: SUPER_LEVEL_ERROR }
     }
 
     // AN TOÀN DỮ LIỆU: chặn xóa khi còn đơn vị con / học viên / lớp học

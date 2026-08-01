@@ -171,8 +171,13 @@ export async function getLicenseAdminData(): Promise<LicenseAdminData> {
       })
     }
 
+    // [RANH GIỚI CẤP 1] Đơn vị khách hàng = CON TRỰC TIẾP của gốc hệ thống
+    // (theo CẤU TRÚC cây, không theo cột type — dữ liệu cũ có thể gắn nhầm
+    // type 'campus' cho nhánh sâu). Nhánh cấp 2-3 KHÔNG hiện ở đây:
+    // đó là việc của Admin Đơn vị.
+    const rootIds = new Set(orgs.filter((org) => !org.parent_id).map((org) => org.id))
     const campuses: CampusLicenseRow[] = orgs
-      .filter((org) => org.type === 'campus')
+      .filter((org) => org.parent_id !== null && rootIds.has(org.parent_id))
       .map((org) => ({
         id: org.id,
         name: org.name,
@@ -182,8 +187,9 @@ export async function getLicenseAdminData(): Promise<LicenseAdminData> {
         license: licenseByOrg.get(org.id) ?? null,
       }))
 
+    // Đơn vị mới luôn nằm ngay dưới gốc hệ thống
     const parentOptions = orgs
-      .filter((org) => org.type === 'hq' || org.type === 'region')
+      .filter((org) => !org.parent_id)
       .map((org) => ({ id: org.id, name: org.name, type: org.type }))
 
     return { campuses, parentOptions, migrationMissing }
@@ -316,13 +322,14 @@ export async function provisionCampus(
     } else {
       const { data: parent } = await admin
         .from('organizations')
-        .select('id, type')
+        .select('id, type, parent_id')
         .eq('id', parentId)
         .is('deleted_at', null)
         .maybeSingle()
       if (!parent) return { error: 'Đơn vị cha không tồn tại hoặc đã xóa.' }
-      if (parent.type !== 'hq' && parent.type !== 'region') {
-        return { error: 'Cơ sở mới chỉ được gắn dưới Trụ sở hoặc Cụm/Vùng.' }
+      // [RANH GIỚI CẤP 1] Đơn vị khách hàng luôn nằm NGAY DƯỚI gốc hệ thống
+      if (parent.parent_id !== null) {
+        return { error: 'Đơn vị (khách hàng) mới phải nằm ngay dưới gốc hệ thống.' }
       }
     }
 

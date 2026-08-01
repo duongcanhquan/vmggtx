@@ -125,8 +125,11 @@ async function loadSuperOverview(): Promise<{
     (licensesRes.data ?? []).map((row) => [row.org_id as string, row])
   )
 
+  // [RANH GIỚI CẤP 1] Đơn vị khách hàng = con TRỰC TIẾP của gốc hệ thống
+  // (theo cấu trúc cây — nhánh cấp 2-3 gộp vào subtree của Đơn vị mẹ)
+  const rootOrgIds = new Set(orgs.filter((org) => !org.parent_id).map((org) => org.id))
   const units: UnitRow[] = orgs
-    .filter((org) => org.type === 'campus')
+    .filter((org) => org.parent_id !== null && rootOrgIds.has(org.parent_id))
     .map((org) => {
       const ids = subtreeIds(org.id)
       const license = licenseByOrg.get(org.id)
