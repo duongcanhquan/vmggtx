@@ -7,26 +7,27 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
+  Building2,
   BookOpenCheck,
-  GraduationCap,
   HeartHandshake,
   Loader2,
   Lock,
-  LogIn,
   Mail,
+  Rocket,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
 import { AuthShell } from '@/components/auth/AuthShell'
-import { resolveLoginEmail } from './actions'
+import { resolveLoginEmail } from '@/app/login/actions'
 
 // ============================================================
-// CỔNG ĐĂNG NHẬP NHÀ TRƯỜNG & GIẢNG VIÊN (/login)
+// CỔNG ĐĂNG NHẬP HỌC VIÊN (/student/login) - TÁCH RIÊNG khỏi
+// cổng quản lý (/login) và cổng phụ huynh (/parent/login) để
+// sau này mỗi cổng chạy TÊN MIỀN RIÊNG.
 //
-// TÁCH CỔNG: học viên KHÔNG đăng nhập tại đây - nếu tài khoản
-// role=student đăng nhập, hệ thống đăng xuất ngay và mời sang
-// Cổng Học viên (/student/login). Phụ huynh dùng /parent/login.
-// Mỗi cổng độc lập để sau này chạy TÊN MIỀN RIÊNG.
+// Chỉ tài khoản role=student (và super_admin để kiểm tra hệ
+// thống) được vào. Nhân sự/giảng viên đăng nhập nhầm sẽ được
+// mời sang cổng quản lý.
 // ============================================================
 
 const loginFormSchema = z.object({
@@ -42,7 +43,7 @@ const loginFormSchema = z.object({
 type LoginFormValues = z.infer<typeof loginFormSchema>
 
 const inputClass =
-  'min-h-12 w-full rounded-xl border border-slate-200 bg-white/90 pl-10 pr-3.5 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
+  'min-h-12 w-full rounded-xl border border-slate-200 bg-white/90 pl-10 pr-3.5 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500'
 const inputErrorClass = 'border-red-400 focus-visible:ring-red-400'
 
 function FieldError({ message }: { message?: string }) {
@@ -54,7 +55,6 @@ function FieldError({ message }: { message?: string }) {
   )
 }
 
-/** Đọc role từ JWT claims, fallback bảng profiles */
 async function resolveRoleAfterLogin(
   supabase: ReturnType<typeof createClient>,
   accessToken: string | undefined,
@@ -67,7 +67,7 @@ async function resolveRoleAfterLogin(
       const payload = JSON.parse(json) as Record<string, unknown>
       if (isRole(payload.user_role)) return payload.user_role
     } catch {
-      /* JWT không có claim -> fallback profiles */
+      /* fallback profiles */
     }
   }
   if (!userId) return null
@@ -80,7 +80,7 @@ async function resolveRoleAfterLogin(
   return isRole(profile?.role) ? profile.role : null
 }
 
-export default function LoginPage() {
+export default function StudentLoginPage() {
   const router = useRouter()
   const [serverError, setServerError] = useState<string | null>(null)
   const [wrongPortal, setWrongPortal] = useState(false)
@@ -100,14 +100,12 @@ export default function LoginPage() {
     setServerError(null)
     setWrongPortal(false)
 
-    // 1. Email/SĐT → email Auth
     const resolved = await resolveLoginEmail(values.identifier)
     if (resolved.error !== undefined) {
       setServerError(resolved.error)
       return
     }
 
-    // 2. Đăng nhập Supabase
     const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithPassword({
       email: resolved.email,
@@ -122,49 +120,48 @@ export default function LoginPage() {
       return
     }
 
-    // 3. TÁCH CỔNG: học viên không dùng cổng quản lý
+    // TÁCH CỔNG: chỉ học viên (super_admin được phép để kiểm tra)
     const role = await resolveRoleAfterLogin(
       supabase,
       data.session?.access_token,
       data.user?.id
     )
-    if (role === 'student') {
+    if (role !== 'student' && role !== 'super_admin') {
       await supabase.auth.signOut()
       setWrongPortal(true)
       setServerError(
-        'Đây là cổng dành cho Nhà trường & Giảng viên. Học viên vui lòng đăng nhập tại Cổng Học viên.'
+        'Đây là Cổng Học viên. Tài khoản của bạn thuộc khối Nhà trường/Giảng viên - vui lòng dùng cổng quản lý.'
       )
       return
     }
 
-    // 4. Điều hướng thông minh theo role
-    router.replace(getHomePathForRole(role))
+    router.replace(role === 'super_admin' ? getHomePathForRole(role) : '/portal')
     router.refresh()
   }
 
   return (
     <AuthShell
-      theme="management"
-      icon={GraduationCap}
-      badge="Nhà trường · Giảng viên"
+      theme="student"
+      icon={Rocket}
+      badge="Cổng Học viên"
       title={
         <>
-          GDTX <span className="text-indigo-700">ERP</span>
+          Học tập <span className="text-emerald-700">mỗi ngày</span>
         </>
       }
-      subtitle="Hệ thống quản trị giáo dục thường xuyên đa cơ sở"
+      subtitle="Bài giảng · Bài tập · Kiểm tra · Gia sư AI đồng hành"
       footer={
         <div className="space-y-2 text-sm">
           <Link
-            href="/student/login"
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/15 px-4 py-2.5 font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+            href="/login"
+            className="flex items-center justify-center gap-2 rounded-xl border border-white/50 bg-white/20 px-4 py-2.5 font-semibold text-white backdrop-blur transition-colors hover:bg-white/30"
           >
-            <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
-            Bạn là Học viên? Vào Cổng Học viên
+            <Building2 className="h-4 w-4" aria-hidden="true" />
+            Nhân sự / Giảng viên? Vào cổng quản lý
           </Link>
           <Link
             href="/parent/login"
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/15 px-4 py-2.5 font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+            className="flex items-center justify-center gap-2 rounded-xl border border-white/50 bg-white/20 px-4 py-2.5 font-semibold text-white backdrop-blur transition-colors hover:bg-white/30"
           >
             <HeartHandshake className="h-4 w-4" aria-hidden="true" />
             Phụ huynh? Vào Sổ Liên Lạc Điện Tử
@@ -174,7 +171,10 @@ export default function LoginPage() {
     >
       <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
         <div>
-          <label htmlFor="identifier" className="mb-1.5 block text-sm font-semibold text-slate-700">
+          <label
+            htmlFor="student-identifier"
+            className="mb-1.5 block text-sm font-semibold text-slate-700"
+          >
             Email hoặc số điện thoại
           </label>
           <div className="relative">
@@ -183,10 +183,10 @@ export default function LoginPage() {
               aria-hidden="true"
             />
             <input
-              id="identifier"
+              id="student-identifier"
               type="text"
               autoComplete="username"
-              placeholder="email@gdtx.edu.vn hoặc 090…"
+              placeholder="Email hoặc SĐT đã đăng ký với trường"
               aria-invalid={!!errors.identifier}
               className={`${inputClass} ${errors.identifier ? inputErrorClass : ''}`}
               {...register('identifier')}
@@ -196,7 +196,10 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-700">
+          <label
+            htmlFor="student-password"
+            className="mb-1.5 block text-sm font-semibold text-slate-700"
+          >
             Mật khẩu
           </label>
           <div className="relative">
@@ -205,7 +208,7 @@ export default function LoginPage() {
               aria-hidden="true"
             />
             <input
-              id="password"
+              id="student-password"
               type="password"
               autoComplete="current-password"
               placeholder="••••••••"
@@ -225,11 +228,11 @@ export default function LoginPage() {
             <p>{serverError}</p>
             {wrongPortal && (
               <Link
-                href="/student/login"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                href="/login"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700"
               >
-                <BookOpenCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                Sang Cổng Học viên
+                <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Sang cổng quản lý
               </Link>
             )}
           </div>
@@ -238,14 +241,14 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-800 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-900/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-600 px-4 text-sm font-bold text-white shadow-lg shadow-emerald-900/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
-            <LogIn className="h-4 w-4" aria-hidden="true" />
+            <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
           )}
-          {isSubmitting ? 'Đang đăng nhập…' : 'Đăng nhập'}
+          {isSubmitting ? 'Đang đăng nhập…' : 'Vào lớp học'}
         </button>
       </form>
     </AuthShell>

@@ -157,6 +157,29 @@ function computePayroll(
 }
 
 /**
+ * Lấy tập session_id CÓ ÍT NHẤT 1 record điểm danh (không xóa mềm).
+ * Chia lô 200 id/query để tránh vượt giới hạn URL của PostgREST.
+ */
+async function fetchAttendedSessionIds(
+  supabase: ReturnType<typeof createClient>,
+  sessionIds: string[]
+): Promise<{ error: string } | { error?: undefined; ids: Set<string> }> {
+  const ids = new Set<string>()
+  const CHUNK = 200
+  for (let i = 0; i < sessionIds.length; i += CHUNK) {
+    const chunk = sessionIds.slice(i, i + CHUNK)
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('session_id')
+      .in('session_id', chunk)
+      .is('deleted_at', null)
+    if (error) return { error: `Lỗi đối chiếu điểm danh: ${error.message}` }
+    for (const row of data ?? []) ids.add(row.session_id)
+  }
+  return { ids }
+}
+
+/**
  * [CHỐNG N+1] Tính lương HÀNG LOẠT cho nhiều giáo viên với đúng 2 query
  * (+ 1 lần resolve thuế mặc định cho mỗi org có hợp đồng thiếu thuế):
  *   1. Toàn bộ hợp đồng active của danh sách GV (1 query .in())
@@ -216,7 +239,7 @@ export async function calculateTeacherPayrollBatch(
       .order('created_at', { ascending: false }),
     supabase
       .from('class_sessions')
-      .select('teacher_id')
+      .select('id, teacher_id')
       .in('teacher_id', teacherIds)
       .in('org_id', orgIds)
       .eq('status', options?.sessionStatus ?? 'completed')
@@ -243,9 +266,28 @@ export async function calculateTeacherPayrollBatch(
     if (!contractByTeacher.has(tid)) contractByTeacher.set(tid, row)
   }
 
+  // [AUDIT CROSS-MODULE] Lương THẬT chỉ trả cho buổi 'completed' CÓ
+  // record điểm danh (giáo viên thực sự đứng lớp và chốt sổ). Buổi bị
+  // đánh completed "chay" không điểm danh -> KHÔNG tính tiền.
+  // Chế độ dự báo ('scheduled') là tương lai nên bỏ qua check này.
+  const sessions = (sessionsRes.data ?? []) as { id: string; teacher_id: string }[]
+  let payableSessions = sessions
+  if ((options?.sessionStatus ?? 'completed') === 'completed' && sessions.length > 0) {
+    const attendedIds = await fetchAttendedSessionIds(
+      supabase,
+      sessions.map((s) => s.id)
+    )
+    if (attendedIds.error !== undefined) {
+      const fail = { error: attendedIds.error }
+      for (const id of teacherIds) results.set(id, fail)
+      return results
+    }
+    payableSessions = sessions.filter((s) => attendedIds.ids.has(s.id))
+  }
+
   // Đếm tiết dạy theo giáo viên
   const hoursByTeacher = new Map<string, number>()
-  for (const session of sessionsRes.data ?? []) {
+  for (const session of payableSessions) {
     hoursByTeacher.set(
       session.teacher_id,
       (hoursByTeacher.get(session.teacher_id) ?? 0) + 1
@@ -359,15 +401,16 @@ export async function calculateTeacherPayroll(
   }
 
   // ===== BƯỚC 1b: Tổng số tiết ĐÃ DẠY trong tháng =====
-  // Chỉ đếm class_sessions status='completed' (giáo viên đã chốt điểm danh)
+  // Chỉ đếm class_sessions status='completed' VÀ có record điểm danh
+  // (buổi completed "chay" không điểm danh -> không tính tiền).
   // [ĐA TẦNG] Bắt buộc lọc org_id: chỉ đếm tiết dạy TRONG cơ sở trả lương
   // (giáo viên có thể dạy nhiều chi nhánh - cơ sở khác tự trả phần của họ).
   const monthStart = new Date(year, month - 1, 1).toISOString()
   const monthEnd = new Date(year, month, 1).toISOString()
 
-  const { count, error: sessionError } = await supabase
+  const { data: sessionRows, error: sessionError } = await supabase
     .from('class_sessions')
-    .select('id', { count: 'exact', head: true })
+    .select('id')
     .eq('teacher_id', teacherId)
     .in('org_id', orgIds)
     .eq('status', 'completed')
@@ -376,7 +419,15 @@ export async function calculateTeacherPayroll(
     .is('deleted_at', null)
   if (sessionError) return { error: `Lỗi đếm tiết dạy: ${sessionError.message}` }
 
-  const totalHoursTaught = count ?? 0
+  let totalHoursTaught = 0
+  if ((sessionRows ?? []).length > 0) {
+    const attended = await fetchAttendedSessionIds(
+      supabase,
+      (sessionRows ?? []).map((s) => s.id)
+    )
+    if (attended.error !== undefined) return { error: attended.error }
+    totalHoursTaught = (sessionRows ?? []).filter((s) => attended.ids.has(s.id)).length
+  }
 
   // [CẤU HÌNH ĐỘNG] Hợp đồng KHÔNG ghi rõ thuế -> dùng tax_rate_default
   // phân giải qua settingsResolver (Cơ sở -> Cụm -> HQ -> default 10%).

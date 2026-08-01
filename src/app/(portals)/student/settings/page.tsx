@@ -32,7 +32,7 @@ export default function StudentSettingsPage() {
           data: { user },
         } = await supabase.auth.getUser()
         if (!user) {
-          router.replace('/login')
+          router.replace('/student/login')
           return
         }
         const { data: profile } = await supabase
@@ -72,7 +72,7 @@ export default function StudentSettingsPage() {
     setSigningOut(true)
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.replace('/login')
+    router.replace('/student/login')
     router.refresh()
   }
 

@@ -28,6 +28,12 @@ export default function ParentPortalLayout({
   const pathname = usePathname()
   const isLogin = pathname === '/parent/login' || pathname === '/login'
 
+  // Trang đăng nhập: full-screen kính mờ (AuthShell tự lo nền),
+  // không bó trong khung điện thoại.
+  if (isLogin) {
+    return <>{children}</>
+  }
+
   return (
     <div className="flex min-h-dvh justify-center bg-slate-100">
       {/* Khung điện thoại: max 480px, căn giữa trên desktop */}

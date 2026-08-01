@@ -123,8 +123,42 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
 ]
 
 /** Đường dẫn công khai — không bắt session */
-const PUBLIC_EXACT = new Set(['/login', '/unauthorized', '/parent/login'])
+const PUBLIC_EXACT = new Set([
+  '/login',
+  '/student/login',
+  '/unauthorized',
+  '/parent/login',
+])
 const PUBLIC_PREFIXES = ['/evaluations']
+
+/**
+ * TÁCH CỔNG ĐĂNG NHẬP (mỗi cổng sẵn sàng chạy tên miền riêng):
+ * khu vực học viên → /student/login; còn lại → /login (quản lý).
+ * (Phụ huynh dùng cookie HMAC riêng, các trang parent tự xử lý.)
+ */
+const STUDENT_AREA_PREFIXES = [
+  '/student',
+  '/portal',
+  '/learn',
+  '/grades',
+  '/schedule',
+  '/tuition',
+  '/assistant',
+]
+
+/** Khu vực Sổ Liên Lạc Phụ huynh (xác thực bằng cookie HMAC riêng) */
+const PARENT_AREA_PREFIXES = ['/parent', '/dashboard']
+
+function isParentArea(pathname: string): boolean {
+  return PARENT_AREA_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
+}
+
+function loginPathFor(pathname: string): string {
+  if (isParentArea(pathname)) return '/parent/login'
+  return STUDENT_AREA_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
+    ? '/student/login'
+    : '/login'
+}
 
 /**
  * So khớp prefix THEO SEGMENT: '/student' khớp '/student' và '/student/...'
@@ -200,8 +234,11 @@ export async function middleware(request: NextRequest) {
 
   // ===== 1. Public paths =====
   if (isPublicPath(pathname)) {
-    // Đã đăng nhập mà vào /login → đẩy về portal đúng role
-    if (session && (pathname === '/login' || pathname === '/')) {
+    // Đã đăng nhập mà vào trang login → đẩy về portal đúng role
+    if (
+      session &&
+      (pathname === '/login' || pathname === '/student/login' || pathname === '/')
+    ) {
       const role = await resolveRole()
       if (role) {
         return redirectTo(request, getHomePathForRole(role))
@@ -236,7 +273,7 @@ export async function middleware(request: NextRequest) {
   const rule = ROUTE_RULES.find((r) => matchesPrefix(pathname, r.prefix))
   if (rule) {
     if (!session) {
-      return redirectTo(request, '/login')
+      return redirectTo(request, loginPathFor(pathname))
     }
     const role = await resolveRole()
     if (!role || !rule.allowedRoles.includes(role)) {
@@ -248,9 +285,18 @@ export async function middleware(request: NextRequest) {
 
   // ===== 4. Các trang app còn lại (dashboard modules…) — chỉ cần session =====
   // Không trong PUBLIC và không khớp rule cụ thể (vd: /classes, /students,
-  // /finance, /portal, /dashboard parent…). Chưa login → /login.
+  // /finance, /portal, /dashboard parent…). Chưa login → đúng cổng khu vực.
   if (!session) {
-    return redirectTo(request, '/login')
+    // Phụ huynh KHÔNG có session Supabase - xác thực bằng cookie HMAC
+    // `parent_session` (server component tự verify chữ ký). Có cookie
+    // -> cho qua; không có -> về cổng đăng nhập phụ huynh.
+    if (isParentArea(pathname)) {
+      if (request.cookies.get('parent_session')?.value) {
+        return response
+      }
+      return redirectTo(request, '/parent/login')
+    }
+    return redirectTo(request, loginPathFor(pathname))
   }
 
   // Đối tác doanh nghiệp chỉ được ở trong không gian /b2b

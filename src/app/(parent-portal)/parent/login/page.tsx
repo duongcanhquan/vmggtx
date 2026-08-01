@@ -1,18 +1,29 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { GraduationCap, KeyRound, Loader2, Phone, ShieldCheck } from 'lucide-react'
+import {
+  BookOpenCheck,
+  Building2,
+  HeartHandshake,
+  KeyRound,
+  Loader2,
+  Phone,
+  ShieldCheck,
+} from 'lucide-react'
 import { phoneVNSchema } from '@/lib/validation/schemas'
+import { AuthShell } from '@/components/auth/AuthShell'
 import { parentLogin } from '../../actions'
 
 // ============================================================
-// Đăng nhập Phụ huynh bằng SỐ ĐIỆN THOẠI (mock OTP).
-// Route: /parent/login (đã dời khỏi /login để nhường chỗ cho
-// Login chung của Smart Auth Routing).
+// CỔNG ĐĂNG NHẬP PHỤ HUYNH (/parent/login) - Sổ Liên Lạc Điện Tử.
+// TÁCH RIÊNG hoàn toàn khỏi cổng quản lý (/login) và cổng học
+// viên (/student/login) - xác thực bằng SĐT + OTP (cookie HMAC
+// riêng, không dùng Supabase Auth) -> sẵn sàng chạy tên miền riêng.
 // ============================================================
 
 const loginSchema = z.object({
@@ -26,7 +37,7 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>
 
 const inputClass =
-  'min-h-12 w-full rounded-xl border border-border bg-surface px-3.5 text-base text-foreground shadow-sm placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  'min-h-12 w-full rounded-xl border border-slate-200 bg-white/90 px-3.5 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400'
 const inputErrorClass = 'border-red-400 focus-visible:ring-red-400'
 
 function FieldError({ message }: { message?: string }) {
@@ -83,27 +94,45 @@ export default function ParentLoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center px-6 py-10">
-      <div className="mb-8 text-center">
-        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg">
-          <GraduationCap className="h-8 w-8" aria-hidden="true" />
-        </span>
-        <h1 className="mt-4 font-heading text-2xl font-bold tracking-tight">
-          Sổ Liên Lạc Điện Tử
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Dành cho Phụ huynh · GDTX ERP
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-5">
+    <AuthShell
+      theme="parent"
+      icon={HeartHandshake}
+      badge="Dành cho Phụ huynh"
+      title="Sổ Liên Lạc Điện Tử"
+      subtitle="Đồng hành cùng con mỗi ngày · Điểm số, lịch học, nhận xét từ thầy cô"
+      footer={
+        <div className="space-y-2 text-sm">
+          <Link
+            href="/student/login"
+            className="flex items-center justify-center gap-2 rounded-xl border border-white/50 bg-white/20 px-4 py-2.5 font-semibold text-white backdrop-blur transition-colors hover:bg-white/30"
+          >
+            <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
+            Học viên? Vào Cổng Học viên
+          </Link>
+          <Link
+            href="/login"
+            className="flex items-center justify-center gap-2 rounded-xl border border-white/50 bg-white/20 px-4 py-2.5 font-semibold text-white backdrop-blur transition-colors hover:bg-white/30"
+          >
+            <Building2 className="h-4 w-4" aria-hidden="true" />
+            Nhân sự / Giảng viên? Vào cổng quản lý
+          </Link>
+          <p className="text-xs text-white/90">
+            SĐT demo: <span className="font-bold">0901234567</span>
+          </p>
+        </div>
+      }
+    >
+      <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
         <div>
-          <label htmlFor="parent-phone" className="mb-1.5 block text-sm font-medium">
-            Số điện thoại đã đăng ký
+          <label
+            htmlFor="parent-phone"
+            className="mb-1.5 block text-sm font-semibold text-slate-700"
+          >
+            Số điện thoại đã đăng ký với nhà trường
           </label>
           <div className="relative">
             <Phone
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
               aria-hidden="true"
             />
             <input
@@ -113,7 +142,7 @@ export default function ParentLoginPage() {
               placeholder="VD: 0901234567"
               disabled={step === 'otp'}
               aria-invalid={!!errors.phone}
-              className={`${inputClass} pl-10 disabled:bg-slate-50 disabled:text-muted-foreground ${
+              className={`${inputClass} pl-10 disabled:bg-slate-100 disabled:text-slate-500 ${
                 errors.phone ? inputErrorClass : ''
               }`}
               {...register('phone')}
@@ -126,7 +155,7 @@ export default function ParentLoginPage() {
           <button
             type="button"
             onClick={handleRequestOtp}
-            className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 px-4 text-sm font-bold text-white shadow-lg shadow-rose-900/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           >
             <KeyRound className="h-4 w-4" aria-hidden="true" />
             Gửi mã OTP
@@ -134,7 +163,10 @@ export default function ParentLoginPage() {
         ) : (
           <>
             <div>
-              <label htmlFor="parent-otp" className="mb-1.5 block text-sm font-medium">
+              <label
+                htmlFor="parent-otp"
+                className="mb-1.5 block text-sm font-semibold text-slate-700"
+              >
                 Mã OTP (6 số)
               </label>
               <input
@@ -151,28 +183,26 @@ export default function ParentLoginPage() {
                 {...register('otp')}
               />
               <FieldError message={errors.otp?.message} />
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Demo: nhập 6 chữ số bất kỳ.
-              </p>
+              <p className="mt-1.5 text-xs text-slate-500">Demo: nhập 6 chữ số bất kỳ.</p>
             </div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 px-4 text-sm font-bold text-white shadow-lg shadow-rose-900/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
                 <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               )}
-              {submitting ? 'Đang xác thực…' : 'Đăng nhập'}
+              {submitting ? 'Đang xác thực…' : 'Vào Sổ Liên Lạc'}
             </button>
 
             <button
               type="button"
               onClick={() => setStep('phone')}
-              className="mx-auto block cursor-pointer text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mx-auto block cursor-pointer text-sm font-medium text-slate-500 transition-colors duration-150 hover:text-orange-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
             >
               Đổi số điện thoại khác
             </button>
@@ -182,22 +212,12 @@ export default function ParentLoginPage() {
         {serverError && (
           <p
             role="alert"
-            className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700"
+            className="rounded-xl border border-rose-200 bg-rose-50/90 px-3.5 py-2.5 text-sm text-rose-700"
           >
             {serverError}
           </p>
         )}
       </form>
-
-      <p className="mt-6 text-center text-xs text-muted-foreground">
-        Nhân sự / Giáo viên / Học sinh?{' '}
-        <a href="/login" className="font-semibold text-primary hover:underline">
-          Đăng nhập chung
-        </a>
-      </p>
-      <p className="mt-2 text-center text-xs text-muted-foreground">
-        SĐT demo: <span className="font-semibold">0901234567</span>
-      </p>
-    </div>
+    </AuthShell>
   )
 }
