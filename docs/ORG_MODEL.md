@@ -98,6 +98,28 @@ Thực thi: middleware (chặn URL) + menu (ẩn mục) + RLS (chặn dữ liệ
 | G7 | Super Admin CHỈ thao tác cấp Đơn vị — Cơ sở/Trung tâm bên trong CHỈ XEM (Admin Đơn vị tự tổ chức) | ✅ XONG (2026-08-01) — chặn cả server (create/update/delete từ chối `branch` với super_admin) lẫn UI (badge "Admin Đơn vị quản lý · chỉ xem", ẩn nút thêm nhánh con) |
 | G8 | Trang Tổng quan Super Admin tại `/admin` | ✅ XONG — số Đơn vị, tổng HV/GV, bảng license: gói, hạn dùng (cảnh báo hết hạn/≤30 ngày), trạng thái, link Hồ sơ Đơn vị |
 | G9 | Gộp "Phân quyền Module" (`/admin/licenses`) vào "Module & Gói dịch vụ" (`/admin/modules`) — luồng CHỌN ĐƠN VỊ TRƯỚC rồi quản lý gói + ghép/gỡ/bật/tắt module | ✅ XONG — `/admin/licenses` redirect sang `/admin/modules`; wizard khởi tạo Đơn vị + sửa gói + tạm ngưng đều ở một trang |
+| G10 | Tái cấu trúc dữ liệu demo theo đúng mô hình: KHÁCH HÀNG = Đơn vị gốc (campus, có slug + license), mọi nhánh dưới = branch | ⚠️ Migration `048_org_tree_restructure.sql` đã viết — CẦN CHẠY trong Supabase SQL Editor. Root cũ ("TRƯỜNG CAO ĐẲNG VIỆT MỸ") đổi thành "Hệ thống"; tạo Đơn vị khách hàng mang tên cũ; region/campus lá → branch; rebuild ltree path; gộp license lên Đơn vị |
+| G11 | URL phân cấp theo tên miền khách hàng | ✅ XONG — `/coso/[khach-hang]/[co-so]/[nhanh]` (catch-all, breadcrumb đầy đủ, vẫn 1 cổng login/Đơn vị). Subdomain `khachhang.abzxyz.com` → rewrite `/` về `/coso/khachhang` khi đặt env `NEXT_PUBLIC_ROOT_DOMAIN` |
+
+---
+
+## 4b. SƠ ĐỒ TÊN MIỀN / URL (chốt 2026-08-01)
+
+```
+Hôm nay (path-based):
+  abzxyz.com/coso/khach-hang                → landing Đơn vị (khách hàng)
+  abzxyz.com/coso/khach-hang/login          → 1 cổng login duy nhất của Đơn vị
+  abzxyz.com/coso/khach-hang/co-so-1        → landing Cơ sở 1 (breadcrumb, cùng cổng login)
+  abzxyz.com/coso/khach-hang/co-so-1/nhanh-1→ landing Nhánh 1 (tối đa 4 đoạn)
+
+Tương lai (subdomain, bật bằng env NEXT_PUBLIC_ROOT_DOMAIN=abzxyz.com):
+  khachhang.abzxyz.com                      → tự rewrite về /coso/khachhang
+  khachhang.abzxyz.com/coso/khach-hang/co-so-1 → như trên
+```
+
+- Slug: `campus` = cổng chính; `branch` = mã đường dẫn con (giữ slug khi hạ cấp).
+- Đăng nhập LUÔN qua cổng của Đơn vị — hệ thống tự nhận diện người dùng
+  thuộc cơ sở/nhánh nào (org_id trong hồ sơ), không cần cổng riêng mỗi nhánh.
 
 ---
 

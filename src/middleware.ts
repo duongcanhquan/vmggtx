@@ -383,6 +383,26 @@ function redirectTo(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // ============================================================
+  // [TÊN MIỀN KHÁCH HÀNG] khachhang.abzxyz.com -> /coso/khachhang
+  // Bật bằng env NEXT_PUBLIC_ROOT_DOMAIN=abzxyz.com (chưa đặt = tắt).
+  // Chỉ rewrite TRANG GỐC '/' của subdomain về landing của Đơn vị đó;
+  // các đường dẫn khác (login, dashboard…) hoạt động bình thường trên
+  // chính subdomain vì cookie phiên gắn theo host.
+  // ============================================================
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN
+  if (rootDomain && pathname === '/') {
+    const host = (request.headers.get('host') ?? '').split(':')[0]
+    if (host.endsWith(`.${rootDomain}`)) {
+      const sub = host.slice(0, -(rootDomain.length + 1))
+      if (sub && sub !== 'www' && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(sub)) {
+        const url = request.nextUrl.clone()
+        url.pathname = `/coso/${sub}`
+        return NextResponse.rewrite(url)
+      }
+    }
+  }
+
   // Static / API AI chat không đi qua matcher này (xem config)
 
   let response = NextResponse.next({ request })

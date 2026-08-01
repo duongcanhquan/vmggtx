@@ -101,6 +101,57 @@ export async function getPublicCampusBySlug(
   }
 }
 
+export type PublicBranchChain = {
+  campus: PublicCampus
+  /** Chuỗi nhánh từ cao xuống thấp khớp với từng đoạn URL */
+  chain: { id: string; name: string; slug: string }[]
+}
+
+/**
+ * URL PHÂN CẤP /coso/[khach-hang]/[co-so]/[nhanh]/…
+ * Phân giải từng đoạn: đoạn i phải là org có slug = đoạn i và là CON
+ * (trực tiếp hoặc gián tiếp qua node không slug? KHÔNG — phải trực tiếp)
+ * của node trước đó. Sai bất kỳ đoạn nào -> null (trang gọi notFound).
+ */
+export async function getPublicBranchChain(
+  campusSlug: string,
+  segments: string[]
+): Promise<{ data: PublicBranchChain | null; error?: string }> {
+  if (segments.length === 0 || segments.length > 4) {
+    return { data: null }
+  }
+  for (const segment of segments) {
+    if (!orgSlugSchema.safeParse(segment).success) return { data: null }
+  }
+
+  const { campus, error } = await getPublicCampusBySlug(campusSlug)
+  if (!campus) return { data: null, error }
+
+  try {
+    const admin = createAdminClient()
+    const chain: { id: string; name: string; slug: string }[] = []
+    let parentId = campus.id
+    for (const segment of segments) {
+      const { data: node } = await admin
+        .from('organizations')
+        .select('id, name, slug')
+        .eq('parent_id', parentId)
+        .eq('slug', segment)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (!node?.slug) return { data: null }
+      chain.push({ id: node.id, name: node.name, slug: node.slug })
+      parentId = node.id
+    }
+    return { data: { campus, chain } }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Lỗi không xác định.',
+    }
+  }
+}
+
 /**
  * Sau khi đăng nhập: xác nhận user thuộc cây cơ sở (super_admin luôn được).
  * Truyền `userId` từ client (sau signIn) để KHÔNG phụ thuộc cookie session
