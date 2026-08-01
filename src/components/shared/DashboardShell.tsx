@@ -505,7 +505,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-screen-2xl flex-1 p-4 sm:p-6 xl:px-8">
+        {/* Full-width: tận dụng toàn bộ màn hình desktop, không lề trống */}
+        <main className="w-full flex-1 p-4 sm:p-6 xl:px-8">
           {children}
         </main>
       </div>

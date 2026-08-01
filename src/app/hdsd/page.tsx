@@ -202,7 +202,7 @@ export default function HdsdPage() {
             <GraduationCap className="h-7 w-7" aria-hidden="true" />
           </span>
           <h1 className="font-heading text-3xl font-bold tracking-tight text-stone-100 sm:text-4xl">
-            GDTX <span className="text-gold-gradient">ERP</span>
+            EDU <span className="text-gold-gradient">SYSTEM</span>
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base text-stone-300 sm:text-lg">
             Hệ thống quản lý giáo dục <strong className="text-[#e5c369]">đa cơ sở</strong> tích hợp{' '}

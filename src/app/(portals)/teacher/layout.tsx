@@ -16,6 +16,7 @@ import {
   TicketCheck,
 } from 'lucide-react'
 import { QuickAttendanceButton } from '@/components/shared/QuickAttendanceButton'
+import { UserMenu } from '@/components/shared/UserMenu'
 
 // ============================================================
 // Layout TEACHER PORTAL (/teacher/*) — TABLET-FIRST.
@@ -51,7 +52,7 @@ export default function TeacherPortalLayout({
     <div className="flex min-h-dvh flex-col bg-background">
       {/* ===== Header: brand + Điểm danh nhanh ===== */}
       <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             href="/teacher"
             className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -61,7 +62,7 @@ export default function TeacherPortalLayout({
             </span>
             <span className="min-w-0">
               <span className="block font-heading text-base font-bold leading-tight tracking-tight">
-                GDTX <span className="text-primary">ERP</span>
+                EDU <span className="text-primary">SYSTEM</span>
               </span>
               <span className="hidden text-[11px] font-semibold uppercase tracking-widest text-muted-foreground sm:block">
                 Teacher Portal
@@ -69,13 +70,16 @@ export default function TeacherPortalLayout({
             </span>
           </Link>
 
-          <QuickAttendanceButton />
+          <div className="flex items-center gap-2">
+            <QuickAttendanceButton />
+            <UserMenu />
+          </div>
         </div>
 
         {/* ===== Top Navigation (tablet-first, cuộn ngang nếu chật) ===== */}
         <nav
           aria-label="Menu giáo viên"
-          className="mx-auto w-full max-w-7xl overflow-x-auto px-2 sm:px-4"
+          className="w-full overflow-x-auto px-2 sm:px-4"
         >
           <ul className="flex min-w-max items-center gap-1 pb-2">
             {TEACHER_MENU.map((item) => {
@@ -115,7 +119,8 @@ export default function TeacherPortalLayout({
         </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>
+      {/* Full-width: tận dụng toàn bộ màn hình desktop */}
+      <main className="w-full flex-1 p-4 sm:p-6">{children}</main>
     </div>
   )
 }
