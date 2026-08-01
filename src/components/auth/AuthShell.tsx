@@ -1,3 +1,4 @@
+import { forwardRef } from 'react'
 import type { LucideIcon } from 'lucide-react'
 
 // ============================================================
@@ -45,20 +46,23 @@ export const authBtnClass =
 /**
  * Ô nhập GẠCH CHÂN + LABEL NỔI + ICON PHẢI theo mẫu (.input-box).
  * Label nổi lên khi focus hoặc đã có nội dung (peer-placeholder-shown).
+ *
+ * BẮT BUỘC forwardRef: react-hook-form cần ref trỏ thẳng vào <input>
+ * để đọc giá trị trình duyệt TỰ ĐIỀN (autofill). Thiếu ref → autofill
+ * xong bấm Đăng nhập vẫn báo "Vui lòng nhập email…".
  */
-export function AuthField({
-  id,
-  label,
-  icon: Icon,
-  error,
-  className = '',
-  ...inputProps
-}: {
-  id: string
-  label: string
-  icon: LucideIcon
-  error?: string
-} & React.InputHTMLAttributes<HTMLInputElement>) {
+export const AuthField = forwardRef<
+  HTMLInputElement,
+  {
+    id: string
+    label: string
+    icon: LucideIcon
+    error?: string
+  } & React.InputHTMLAttributes<HTMLInputElement>
+>(function AuthField(
+  { id, label, icon: Icon, error, className = '', ...inputProps },
+  ref
+) {
   return (
     <div className="my-7">
       <div
@@ -67,6 +71,7 @@ export function AuthField({
         }`}
       >
         <input
+          ref={ref}
           id={id}
           placeholder=" "
           aria-invalid={!!error}
@@ -90,7 +95,7 @@ export function AuthField({
       )}
     </div>
   )
-}
+})
 
 export function AuthShell({
   theme,
