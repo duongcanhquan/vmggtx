@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   AlarmClock,
@@ -16,6 +17,7 @@ import {
   Paperclip,
   PlayCircle,
   Send,
+  Sparkles,
   X,
   XCircle,
 } from 'lucide-react'
@@ -24,8 +26,10 @@ import {
   getLearnDownloadUrl,
   getQuizForTaking,
   presignSubmissionUpload,
+  setLessonCompleted,
   submitAssignment,
   submitQuiz,
+  trackLessonView,
   type LearnAssignment,
   type LearnData,
   type LearnLesson,
@@ -76,6 +80,24 @@ export function LearnClient({ data }: { data: LearnData }) {
   const [assignmentOpen, setAssignmentOpen] = useState<LearnAssignment | null>(null)
   const [quizOpen, setQuizOpen] = useState<LearnQuiz | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  /** Ghi đè cục bộ tiến độ (đã xem / hoàn thành) để badge cập nhật ngay */
+  const [progressOverride, setProgressOverride] = useState<
+    Record<string, { viewed: boolean; completedAt: string | null }>
+  >({})
+
+  function lessonProgress(l: LearnLesson) {
+    return progressOverride[l.id] ?? { viewed: l.viewed, completedAt: l.completedAt }
+  }
+
+  function openLesson(l: LearnLesson) {
+    setLessonOpen(l)
+    // Ghi nhận "đã xem" (fire-and-forget) + cập nhật badge ngay
+    setProgressOverride((prev) => ({
+      ...prev,
+      [l.id]: { viewed: true, completedAt: lessonProgress(l).completedAt },
+    }))
+    void trackLessonView(l.id)
+  }
 
   const cls = useMemo(
     () => data.classes.find((c) => c.classId === classId) ?? data.classes[0],
@@ -141,30 +163,66 @@ export function LearnClient({ data }: { data: LearnData }) {
         })}
       </div>
 
+      {/* Gia sư AI của lớp đang chọn */}
+      <Link
+        href={`/classes/${cls.classId}/tutor`}
+        className="flex items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50 p-3.5 shadow-sm transition-colors hover:bg-violet-100"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white">
+          <Sparkles className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-violet-800">Gia sư AI - hỏi về bài giảng</span>
+          <span className="block truncate text-xs text-violet-600">
+            AI trả lời dựa trên bài giảng và tài liệu của lớp {cls.className}
+          </span>
+        </span>
+      </Link>
+
       {/* ===== BÀI HỌC ===== */}
       {tab === 'lessons' &&
         (cls.lessons.length === 0 ? (
           <EmptyBox label="Chưa có bài học nào." />
         ) : (
           <div className="space-y-2.5">
-            {cls.lessons.map((l) => (
-              <button
-                key={l.id}
-                onClick={() => setLessonOpen(l)}
-                className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left shadow-sm transition-colors hover:border-primary/40"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                  {l.video_url ? <PlayCircle className="h-5 w-5" /> : <BookOpenCheck className="h-5 w-5" />}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-bold">{l.title}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {fmtDate(l.created_at)}
-                    {l.attachments.length > 0 && ` · ${l.attachments.length} file`}
+            {cls.lessons.map((l) => {
+              const p = lessonProgress(l)
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => openLesson(l)}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left shadow-sm transition-colors hover:border-primary/40"
+                >
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                      p.completedAt
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'bg-indigo-50 text-indigo-600'
+                    }`}
+                  >
+                    {l.video_url ? <PlayCircle className="h-5 w-5" /> : <BookOpenCheck className="h-5 w-5" />}
                   </span>
-                </span>
-              </button>
-            ))}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold">{l.title}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {fmtDate(l.created_at)}
+                      {l.attachments.length > 0 && ` · ${l.attachments.length} file`}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                      p.completedAt
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : p.viewed
+                          ? 'bg-sky-100 text-sky-700'
+                          : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {p.completedAt ? 'Hoàn thành' : p.viewed ? 'Đã xem' : 'Chưa học'}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         ))}
 
@@ -266,6 +324,20 @@ export function LearnClient({ data }: { data: LearnData }) {
       {lessonOpen && (
         <LessonViewer
           lesson={lessonOpen}
+          classId={cls.classId}
+          completedAt={lessonProgress(lessonOpen).completedAt}
+          onToggleComplete={async (completed) => {
+            const res = await setLessonCompleted(lessonOpen.id, completed)
+            if ('error' in res) {
+              notify('error', res.error)
+              return
+            }
+            setProgressOverride((prev) => ({
+              ...prev,
+              [lessonOpen.id]: { viewed: true, completedAt: res.completedAt },
+            }))
+            if (completed) notify('success', 'Đã đánh dấu học xong. Cố gắng phát huy nhé!')
+          }}
           onClose={() => setLessonOpen(null)}
           onDownload={(f) => void handleDownload('lesson', lessonOpen.id, f)}
         />
@@ -358,14 +430,21 @@ function Sheet({
 
 function LessonViewer({
   lesson,
+  classId,
+  completedAt,
+  onToggleComplete,
   onClose,
   onDownload,
 }: {
   lesson: LearnLesson
+  classId: string
+  completedAt: string | null
+  onToggleComplete: (completed: boolean) => Promise<void>
   onClose: () => void
   onDownload: (f: AttachmentMeta) => void
 }) {
   const embed = lesson.video_url ? toEmbedUrl(lesson.video_url) : null
+  const [toggling, setToggling] = useState(false)
   return (
     <Sheet title={lesson.title} onClose={onClose}>
       <div className="space-y-4">
@@ -408,6 +487,36 @@ function LessonViewer({
             ))}
           </div>
         )}
+
+        {/* Hỏi Gia sư AI về bài này + đánh dấu hoàn thành */}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href={`/classes/${classId}/tutor`}
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 text-sm font-bold text-violet-700 hover:bg-violet-100"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" /> Hỏi Gia sư AI về bài này
+          </Link>
+          <button
+            onClick={async () => {
+              setToggling(true)
+              await onToggleComplete(!completedAt)
+              setToggling(false)
+            }}
+            disabled={toggling}
+            className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-bold disabled:opacity-50 ${
+              completedAt
+                ? 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                : 'bg-primary text-primary-foreground hover:opacity-90'
+            }`}
+          >
+            {toggling ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+            )}
+            {completedAt ? 'Đã học xong (bấm để bỏ)' : 'Đánh dấu đã học xong'}
+          </button>
+        </div>
       </div>
     </Sheet>
   )

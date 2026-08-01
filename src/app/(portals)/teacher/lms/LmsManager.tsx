@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   BookOpenCheck,
+  BrainCircuit,
   CheckCircle2,
   ClipboardList,
   Download,
@@ -16,7 +17,9 @@ import {
   Pencil,
   Plus,
   Send,
+  Sparkles,
   Trash2,
+  Users,
   X,
   XCircle,
 } from 'lucide-react'
@@ -26,6 +29,7 @@ import {
   deleteLesson,
   deleteQuiz,
   getClassLmsData,
+  getClassProgress,
   getQuizQuestions,
   getQuizResults,
   getSubmissions,
@@ -38,24 +42,32 @@ import {
   setQuizPublished,
   syncScoresToGradebook,
   type ClassLmsData,
+  type ClassProgress,
   type LmsAssignment,
   type LmsLesson,
   type LmsQuiz,
   type QuizResultRow,
   type SubmissionRow,
 } from './actions'
+import {
+  generateLessonDraft,
+  generateQuizDraft,
+  getLessonRagStatus,
+  indexLessonToRAG,
+} from './ai-actions'
 
 // ============================================================
 // LMS Giáo viên - client. 3 tab: Bài giảng / Bài tập / Kiểm tra.
 // ============================================================
 
 type ClassOption = { id: string; name: string; orgName: string | null }
-type Tab = 'lessons' | 'assignments' | 'quizzes'
+type Tab = 'lessons' | 'assignments' | 'quizzes' | 'progress'
 
 const TABS: { id: Tab; label: string; icon: typeof BookOpenCheck }[] = [
   { id: 'lessons', label: 'Bài giảng', icon: BookOpenCheck },
   { id: 'assignments', label: 'Bài tập', icon: ClipboardList },
   { id: 'quizzes', label: 'Kiểm tra', icon: FileQuestion },
+  { id: 'progress', label: 'Theo dõi', icon: Users },
 ]
 
 function fmtDate(iso: string | null): string {
@@ -82,6 +94,8 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
   const [submissionsFor, setSubmissionsFor] = useState<LmsAssignment | null>(null)
   const [resultsFor, setResultsFor] = useState<LmsQuiz | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  /** lessonId -> số chunk đã nạp vào RAG (bài AI đã học) */
+  const [ragStatus, setRagStatus] = useState<Record<string, number>>({})
 
   const notify = useCallback((type: 'success' | 'error', message: string) => {
     setToast({ type, message })
@@ -91,15 +105,26 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
   const reload = useCallback(async () => {
     if (!classId) return
     setLoading(true)
-    const result = await getClassLmsData(classId)
+    const [result, rag] = await Promise.all([getClassLmsData(classId), getLessonRagStatus(classId)])
     if ('error' in result && result.error) {
       notify('error', result.error)
       setData(null)
     } else {
       setData(result as ClassLmsData)
     }
+    setRagStatus(rag)
     setLoading(false)
   }, [classId, notify])
+
+  /** "Cho AI học" bài giảng: nạp nội dung vào kho RAG của Gia sư AI */
+  async function handleTeachAI(lesson: LmsLesson) {
+    setBusyId(`rag-${lesson.id}`)
+    const res = await indexLessonToRAG(classId, lesson.id)
+    setBusyId(null)
+    if ('error' in res) return notify('error', res.error)
+    setRagStatus((prev) => ({ ...prev, [lesson.id]: res.chunkCount }))
+    notify('success', `AI đã học bài "${lesson.title}" (${res.chunkCount} đoạn kiến thức). Gia sư AI sẽ trả lời học viên dựa trên bài này.`)
+  }
 
   useEffect(() => {
     void reload()
@@ -205,7 +230,7 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
                   <div key={lesson.id} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h3 className="truncate font-heading text-base font-bold">{lesson.title}</h3>
                           <span
                             className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
@@ -216,6 +241,11 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
                           >
                             {lesson.status === 'published' ? 'Đã phát hành' : 'Nháp'}
                           </span>
+                          {ragStatus[lesson.id] > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700">
+                              <BrainCircuit className="h-3 w-3" aria-hidden="true" /> AI đã học
+                            </span>
+                          )}
                         </div>
                         {lesson.description && (
                           <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{lesson.description}</p>
@@ -236,6 +266,23 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
                         )}
                       </div>
                       <div className="flex shrink-0 gap-1.5">
+                        <button
+                          onClick={() => void handleTeachAI(lesson)}
+                          disabled={busyId === `rag-${lesson.id}` || !lesson.content}
+                          title={
+                            lesson.content
+                              ? 'Cho Gia sư AI học nội dung bài này (RAG) để trả lời học viên'
+                              : 'Bài chưa có phần Nội dung để AI học'
+                          }
+                          className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-violet-200 bg-violet-50 px-3 text-xs font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-40"
+                        >
+                          {busyId === `rag-${lesson.id}` ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <BrainCircuit className="h-3.5 w-3.5" />
+                          )}
+                          {ragStatus[lesson.id] > 0 ? 'AI học lại' : 'Cho AI học'}
+                        </button>
                         <IconBtn title={lesson.status === 'published' ? 'Chuyển về nháp' : 'Phát hành'} busy={busyId === lesson.id} onClick={() => void togglePublishLesson(lesson)}>
                           {lesson.status === 'published' ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </IconBtn>
@@ -425,6 +472,9 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
               )}
             </section>
           )}
+
+          {/* ===== TAB THEO DÕI HỌC TẬP ===== */}
+          {tab === 'progress' && <ProgressPanel classId={classId} onError={(m) => notify('error', m)} />}
         </>
       )}
 
@@ -460,6 +510,7 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
       {quizEditing !== null && (
         <QuizModal
           classId={classId}
+          lessons={data?.lessons ?? []}
           quiz={quizEditing === 'new' ? null : quizEditing}
           onClose={() => setQuizEditing(null)}
           onSaved={() => {
@@ -597,6 +648,8 @@ function LessonModal({
   const [attachments, setAttachments] = useState<AttachmentMeta[]>(lesson.attachments ?? [])
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [aiNotes, setAiNotes] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleFiles(files: FileList | null) {
@@ -606,6 +659,20 @@ function LessonModal({
     setUploading(false)
     if ('error' in res) return onError(res.error)
     setAttachments([...attachments, ...res.attachments])
+  }
+
+  /** AI soạn nháp bài giảng từ chủ đề (dùng ô Tiêu đề làm chủ đề) */
+  async function handleAICompose() {
+    if (title.trim().length < 3) {
+      return onError('Nhập chủ đề vào ô Tiêu đề trước (VD: "Hàm số bậc hai") rồi bấm AI soạn bài.')
+    }
+    setAiBusy(true)
+    const res = await generateLessonDraft({ classId, topic: title.trim(), audience: '', notes: aiNotes.trim() })
+    setAiBusy(false)
+    if ('error' in res) return onError(res.error)
+    setTitle(res.draft.title)
+    setDescription(res.draft.description)
+    setContent(res.draft.content)
   }
 
   async function handleSave() {
@@ -629,9 +696,34 @@ function LessonModal({
     <ModalShell title={lesson.id ? 'Sửa bài giảng' : 'Soạn bài giảng'} onClose={onClose} wide>
       <div className="space-y-3">
         <div>
-          <label className={labelCls}>Tiêu đề *</label>
+          <label className={labelCls}>Tiêu đề / Chủ đề *</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} placeholder="VD: Bài 5 - Hàm số bậc hai" />
         </div>
+
+        {/* AI soạn bài giảng */}
+        <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={aiNotes}
+              onChange={(e) => setAiNotes(e.target.value)}
+              className="min-w-0 flex-1 rounded-xl border border-violet-200 bg-surface px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="Yêu cầu thêm cho AI (tùy chọn): VD nhiều ví dụ thực tế, học viên mất gốc..."
+            />
+            <button
+              type="button"
+              onClick={() => void handleAICompose()}
+              disabled={aiBusy}
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 text-xs font-bold text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {aiBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              AI soạn bài
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] text-violet-700">
+            Nhập chủ đề vào ô Tiêu đề rồi bấm - AI tự soạn mục tiêu, kiến thức, ví dụ và bài tập. Bạn duyệt lại trước khi phát hành.
+          </p>
+        </div>
+
         <div>
           <label className={labelCls}>Mô tả ngắn</label>
           <input value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} />
@@ -801,12 +893,14 @@ type DraftQuestion = { question: string; options: string[]; correctIndex: number
 
 function QuizModal({
   classId,
+  lessons,
   quiz,
   onClose,
   onSaved,
   onError,
 }: {
   classId: string
+  lessons: LmsLesson[]
   quiz: LmsQuiz | null
   onClose: () => void
   onSaved: () => void
@@ -819,6 +913,36 @@ function QuizModal({
     { question: '', options: ['', ''], correctIndex: 0, points: 1 },
   ])
   const [saving, setSaving] = useState(false)
+  const [aiLessonId, setAiLessonId] = useState('')
+  const [aiCount, setAiCount] = useState(5)
+  const [aiBusy, setAiBusy] = useState(false)
+
+  /** AI tạo câu hỏi từ bài giảng đã chọn hoặc từ tiêu đề đề kiểm tra */
+  async function handleAIQuestions() {
+    if (!aiLessonId && title.trim().length < 3) {
+      return onError('Chọn bài giảng nguồn hoặc nhập Tiêu đề (chủ đề) trước khi tạo câu hỏi bằng AI.')
+    }
+    setAiBusy(true)
+    const res = await generateQuizDraft({
+      classId,
+      lessonId: aiLessonId || undefined,
+      topic: title.trim(),
+      count: aiCount,
+    })
+    setAiBusy(false)
+    if ('error' in res) return onError(res.error)
+    const generated: DraftQuestion[] = res.questions.map((q) => ({
+      question: q.question,
+      options: q.options,
+      correctIndex: q.correctIndex,
+      points: q.points,
+    }))
+    // Thay câu hỏi trống mặc định, còn lại thì nối thêm vào cuối
+    setQuestions((prev) => {
+      const kept = prev.filter((q) => q.question.trim() !== '')
+      return [...kept, ...generated]
+    })
+  }
 
   // Sửa đề cũ -> nạp câu hỏi hiện có
   useEffect(() => {
@@ -893,6 +1017,47 @@ function QuizModal({
         <div>
           <label className={labelCls}>Mô tả</label>
           <input value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} />
+        </div>
+
+        {/* AI tạo câu hỏi */}
+        <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={aiLessonId}
+              onChange={(e) => setAiLessonId(e.target.value)}
+              className="min-w-0 flex-1 rounded-xl border border-violet-200 bg-surface px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Bài giảng nguồn cho AI"
+            >
+              <option value="">— Ra đề theo Tiêu đề (chủ đề) —</option>
+              {lessons.map((l) => (
+                <option key={l.id} value={l.id}>
+                  Từ bài giảng: {l.title}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={aiCount}
+              onChange={(e) => setAiCount(Math.min(20, Math.max(1, Number(e.target.value) || 5)))}
+              className="w-16 rounded-xl border border-violet-200 bg-surface px-2 py-2 text-sm"
+              aria-label="Số câu hỏi AI tạo"
+              title="Số câu hỏi"
+            />
+            <button
+              type="button"
+              onClick={() => void handleAIQuestions()}
+              disabled={aiBusy}
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 text-xs font-bold text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {aiBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              AI tạo câu hỏi
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] text-violet-700">
+            Chọn bài giảng để AI ra đề bám sát nội dung đã dạy. Câu hỏi tạo ra có thể sửa/xóa trước khi lưu.
+          </p>
         </div>
 
         {/* Câu hỏi */}
@@ -1132,6 +1297,128 @@ function SubmissionsModal({
         </div>
       )}
     </ModalShell>
+  )
+}
+
+/**
+ * Tab "Theo dõi": ma trận học viên × (bài giảng đã xem / bài tập đã
+ * nộp / đề đã làm) + % hoạt động. Học viên chưa học gì nổi bật đỏ.
+ */
+function ProgressPanel({ classId, onError }: { classId: string; onError: (m: string) => void }) {
+  const [progress, setProgress] = useState<ClassProgress | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    void (async () => {
+      const res = await getClassProgress(classId)
+      if ('error' in res) {
+        onError(res.error)
+        setProgress(null)
+      } else {
+        setProgress(res)
+      }
+      setLoading(false)
+    })()
+    // onError là arrow prop đổi mỗi render cha -> không đưa vào deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+      </div>
+    )
+  }
+  if (!progress) return <EmptyBox label="Không tải được dữ liệu theo dõi." />
+  if (progress.students.length === 0) return <EmptyBox label="Lớp chưa có học viên ghi danh." />
+
+  const totalLessons = progress.lessons.length
+  const totalAssignments = progress.assignments.length
+  const totalQuizzes = progress.quizzes.length
+  const inactive = progress.students.filter((s) => s.engagement === 0).length
+
+  return (
+    <section className="space-y-3">
+      {!progress.progressAvailable && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
+          Chưa chạy migration 039 (lms_lesson_progress) - tạm thời chỉ theo dõi được bài nộp và lượt làm kiểm tra, chưa theo dõi được lượt xem bài giảng.
+        </p>
+      )}
+
+      {/* Thẻ tổng quan */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Học viên', value: progress.students.length, cls: 'text-primary' },
+          { label: 'Bài giảng phát hành', value: totalLessons, cls: 'text-indigo-600' },
+          { label: 'Bài tập / Đề KT', value: `${totalAssignments} / ${totalQuizzes}`, cls: 'text-emerald-600' },
+          { label: 'Chưa học gì', value: inactive, cls: inactive > 0 ? 'text-rose-600' : 'text-emerald-600' },
+        ].map((c) => (
+          <div key={c.label} className="rounded-2xl border border-border bg-surface p-3.5 shadow-sm">
+            <p className="text-[11px] font-bold text-muted-foreground">{c.label}</p>
+            <p className={`mt-0.5 font-heading text-2xl font-bold ${c.cls}`}>{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Bảng chi tiết */}
+      <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-sm">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead>
+            <tr className="border-b border-border bg-slate-50 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <th className="px-4 py-3">Học viên</th>
+              <th className="px-3 py-3 text-center">Xem bài giảng</th>
+              <th className="px-3 py-3 text-center">Nộp bài tập</th>
+              <th className="px-3 py-3 text-center">Làm kiểm tra</th>
+              <th className="px-4 py-3">Mức độ học tập</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {progress.students.map((s) => (
+              <tr key={s.studentId} className={s.engagement === 0 ? 'bg-rose-50/50' : ''}>
+                <td className="px-4 py-3">
+                  <span className="font-semibold">{s.studentName}</span>
+                  {s.engagement === 0 && (
+                    <span className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                      Chưa học
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-3 text-center tabular-nums">
+                  <span className={s.lessonsViewed < totalLessons ? 'text-amber-700' : 'text-emerald-700'}>
+                    {s.lessonsViewed}/{totalLessons}
+                  </span>
+                </td>
+                <td className="px-3 py-3 text-center tabular-nums">
+                  <span className={s.assignmentsSubmitted < totalAssignments ? 'text-amber-700' : 'text-emerald-700'}>
+                    {s.assignmentsSubmitted}/{totalAssignments}
+                  </span>
+                </td>
+                <td className="px-3 py-3 text-center tabular-nums">
+                  <span className={s.quizzesDone < totalQuizzes ? 'text-amber-700' : 'text-emerald-700'}>
+                    {s.quizzesDone}/{totalQuizzes}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-full max-w-36 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className={`h-full rounded-full ${
+                          s.engagement >= 70 ? 'bg-emerald-500' : s.engagement >= 30 ? 'bg-amber-500' : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${s.engagement}%` }}
+                      />
+                    </div>
+                    <span className="w-10 text-right text-xs font-bold tabular-nums">{s.engagement}%</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }
 

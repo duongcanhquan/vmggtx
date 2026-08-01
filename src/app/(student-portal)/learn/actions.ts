@@ -45,6 +45,9 @@ export type LearnLesson = {
   video_url: string | null
   attachments: AttachmentMeta[]
   created_at: string
+  /** Tiến độ của TÔI với bài này (migration 039) */
+  viewed: boolean
+  completedAt: string | null
 }
 
 export type LearnAssignment = {
@@ -139,6 +142,15 @@ export async function getMyLearnData(): Promise<LearnData | { error: string }> {
           .eq('student_id', user.id),
       ])
 
+    // Tiến độ xem bài giảng của TÔI (bảng 039 có thể chưa migrate -> bỏ qua)
+    const progressRes = await supabase
+      .from('lms_lesson_progress')
+      .select('lesson_id, completed_at')
+      .eq('student_id', user.id)
+    const progressByLesson = new Map(
+      (progressRes.error ? [] : progressRes.data ?? []).map((p) => [p.lesson_id, p])
+    )
+
     const submissionByAssignment = new Map(
       (submissionsRes.data ?? []).map((s) => [s.assignment_id, s])
     )
@@ -151,15 +163,20 @@ export async function getMyLearnData(): Promise<LearnData | { error: string }> {
         className: cls.name,
         lessons: (lessonsRes.data ?? [])
           .filter((l) => l.class_id === cls.id)
-          .map((l) => ({
-            id: l.id,
-            title: l.title,
-            description: l.description,
-            content: l.content,
-            video_url: l.video_url,
-            attachments: (l.attachments ?? []) as AttachmentMeta[],
-            created_at: l.created_at,
-          })),
+          .map((l) => {
+            const progress = progressByLesson.get(l.id)
+            return {
+              id: l.id,
+              title: l.title,
+              description: l.description,
+              content: l.content,
+              video_url: l.video_url,
+              attachments: (l.attachments ?? []) as AttachmentMeta[],
+              created_at: l.created_at,
+              viewed: Boolean(progress),
+              completedAt: progress?.completed_at ?? null,
+            }
+          }),
         assignments: (assignmentsRes.data ?? [])
           .filter((a) => a.class_id === cls.id)
           .map((a) => {
@@ -584,5 +601,108 @@ export async function submitQuiz(
     return { score }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Lỗi nộp bài kiểm tra.' }
+  }
+}
+
+// ---------- 6. Tiến độ học bài giảng (migration 039) ----------
+
+/**
+ * Ghi nhận TÔI đã mở xem bài giảng (gọi khi học viên mở LessonViewer).
+ * RLS: chỉ insert/update được dòng của chính mình với bài giảng đã
+ * phát hành của lớp mình ghi danh. Lỗi (bảng chưa migrate) -> bỏ qua êm.
+ */
+export async function trackLessonView(lessonId: string): Promise<void> {
+  try {
+    if (!z.string().uuid().safeParse(lessonId).success) return
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    // RLS học viên chỉ thấy bài published của lớp mình -> đây là check quyền
+    const { data: lesson } = await supabase
+      .from('lms_lessons')
+      .select('id, org_id')
+      .eq('id', lessonId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!lesson) return
+
+    const { data: existing } = await supabase
+      .from('lms_lesson_progress')
+      .select('id, view_count')
+      .eq('lesson_id', lessonId)
+      .eq('student_id', user.id)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase
+        .from('lms_lesson_progress')
+        .update({
+          last_viewed_at: new Date().toISOString(),
+          view_count: existing.view_count + 1,
+        })
+        .eq('id', existing.id)
+    } else {
+      await supabase.from('lms_lesson_progress').insert({
+        org_id: lesson.org_id,
+        lesson_id: lessonId,
+        student_id: user.id,
+      })
+    }
+  } catch {
+    // theo dõi tiến độ không được phép làm hỏng trải nghiệm học
+  }
+}
+
+/** Học viên tự đánh dấu "Đã học xong" / bỏ đánh dấu bài giảng */
+export async function setLessonCompleted(
+  lessonId: string,
+  completed: boolean
+): Promise<{ error: string } | { completedAt: string | null }> {
+  try {
+    if (!z.string().uuid().safeParse(lessonId).success)
+      return { error: 'Bài giảng không hợp lệ.' }
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn cần đăng nhập.' }
+
+    const { data: lesson } = await supabase
+      .from('lms_lessons')
+      .select('id, org_id')
+      .eq('id', lessonId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!lesson) return { error: 'Không tìm thấy bài giảng.' }
+
+    const completedAt = completed ? new Date().toISOString() : null
+
+    const { data: existing } = await supabase
+      .from('lms_lesson_progress')
+      .select('id')
+      .eq('lesson_id', lessonId)
+      .eq('student_id', user.id)
+      .maybeSingle()
+
+    const { error } = existing
+      ? await supabase
+          .from('lms_lesson_progress')
+          .update({ completed_at: completedAt, last_viewed_at: new Date().toISOString() })
+          .eq('id', existing.id)
+      : await supabase.from('lms_lesson_progress').insert({
+          org_id: lesson.org_id,
+          lesson_id: lessonId,
+          student_id: user.id,
+          completed_at: completedAt,
+        })
+    if (error) return { error: 'Không lưu được tiến độ (hệ thống chưa cập nhật bảng tiến độ).' }
+
+    revalidatePath('/learn')
+    return { completedAt }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lỗi lưu tiến độ.' }
   }
 }

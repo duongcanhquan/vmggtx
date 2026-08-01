@@ -843,3 +843,164 @@ export async function syncScoresToGradebook(
     return { error: e instanceof Error ? e.message : 'Lỗi đồng bộ điểm.' }
   }
 }
+
+// ---------- 8. Theo dõi học tập (ai học / ai không học) ----------
+export type StudentProgressRow = {
+  studentId: string
+  studentName: string
+  /** lessonId -> { viewCount, completed } */
+  lessons: Record<string, { viewCount: number; completed: boolean }>
+  /** assignmentId -> { submitted, score } */
+  assignments: Record<string, { submitted: boolean; score: number | null }>
+  /** quizId -> { done, score } */
+  quizzes: Record<string, { done: boolean; score: number | null }>
+  lessonsViewed: number
+  assignmentsSubmitted: number
+  quizzesDone: number
+  /** % hoạt động tổng (0-100) */
+  engagement: number
+}
+
+export type ClassProgress = {
+  progressAvailable: boolean
+  lessons: { id: string; title: string }[]
+  assignments: { id: string; title: string }[]
+  quizzes: { id: string; title: string }[]
+  students: StudentProgressRow[]
+}
+
+/**
+ * Ma trận theo dõi học tập: mỗi học viên đã XEM bài giảng nào, NỘP
+ * bài tập nào, LÀM đề nào. Học viên không có hoạt động nào -> giáo
+ * viên nhìn thấy ngay để nhắc nhở (kiểm soát học / không học).
+ */
+export async function getClassProgress(
+  classId: string
+): Promise<{ error: string } | ClassProgress> {
+  try {
+    const auth = await authorizeClass(classId)
+    if (auth.error !== undefined) return { error: auth.error }
+    const { supabase } = auth
+
+    const [enrollRes, lessonsRes, assignmentsRes, quizzesRes] = await Promise.all([
+      supabase
+        .from('enrollments')
+        .select('student_id, profiles!enrollments_student_id_fkey(full_name)')
+        .eq('class_id', classId)
+        .is('deleted_at', null),
+      supabase
+        .from('lms_lessons')
+        .select('id, title')
+        .eq('class_id', classId)
+        .eq('status', 'published')
+        .is('deleted_at', null)
+        .order('created_at'),
+      supabase
+        .from('lms_assignments')
+        .select('id, title')
+        .eq('class_id', classId)
+        .is('deleted_at', null)
+        .order('created_at'),
+      supabase
+        .from('lms_quizzes')
+        .select('id, title')
+        .eq('class_id', classId)
+        .eq('is_published', true)
+        .is('deleted_at', null)
+        .order('created_at'),
+    ])
+
+    const lessons = (lessonsRes.data ?? []).map((l) => ({ id: l.id, title: l.title }))
+    const assignments = (assignmentsRes.data ?? []).map((a) => ({ id: a.id, title: a.title }))
+    const quizzes = (quizzesRes.data ?? []).map((q) => ({ id: q.id, title: q.title }))
+    const lessonIds = lessons.map((l) => l.id)
+    const assignmentIds = assignments.map((a) => a.id)
+    const quizIds = quizzes.map((q) => q.id)
+
+    // Tiến độ xem bài (migration 039 có thể chưa chạy -> báo mềm)
+    let progressAvailable = true
+    let progressRows: { lesson_id: string; student_id: string; view_count: number; completed_at: string | null }[] = []
+    if (lessonIds.length > 0) {
+      const { data, error } = await supabase
+        .from('lms_lesson_progress')
+        .select('lesson_id, student_id, view_count, completed_at')
+        .in('lesson_id', lessonIds)
+      if (error) progressAvailable = false
+      else progressRows = data ?? []
+    }
+
+    const [subsRes, attemptsRes] = await Promise.all([
+      assignmentIds.length > 0
+        ? supabase
+            .from('lms_submissions')
+            .select('assignment_id, student_id, score')
+            .in('assignment_id', assignmentIds)
+            .is('deleted_at', null)
+        : Promise.resolve({ data: [] as { assignment_id: string; student_id: string; score: number | null }[] }),
+      quizIds.length > 0
+        ? supabase
+            .from('lms_quiz_attempts')
+            .select('quiz_id, student_id, score, submitted_at')
+            .in('quiz_id', quizIds)
+        : Promise.resolve({ data: [] as { quiz_id: string; student_id: string; score: number | null; submitted_at: string | null }[] }),
+    ])
+
+    const totalItems = lessons.length + assignments.length + quizzes.length
+
+    const students: StudentProgressRow[] = (enrollRes.data ?? []).map((e) => {
+      const name =
+        (e.profiles as unknown as { full_name: string } | null)?.full_name ?? 'Học viên'
+      const lessonMap: StudentProgressRow['lessons'] = {}
+      for (const p of progressRows) {
+        if (p.student_id === e.student_id) {
+          lessonMap[p.lesson_id] = { viewCount: p.view_count, completed: p.completed_at !== null }
+        }
+      }
+      const assignmentMap: StudentProgressRow['assignments'] = {}
+      for (const s of subsRes.data ?? []) {
+        if (s.student_id === e.student_id) {
+          assignmentMap[s.assignment_id] = {
+            submitted: true,
+            score: s.score === null ? null : Number(s.score),
+          }
+        }
+      }
+      const quizMap: StudentProgressRow['quizzes'] = {}
+      for (const a of attemptsRes.data ?? []) {
+        if (a.student_id === e.student_id) {
+          quizMap[a.quiz_id] = {
+            done: a.submitted_at !== null,
+            score: a.score === null ? null : Number(a.score),
+          }
+        }
+      }
+
+      const lessonsViewed = Object.keys(lessonMap).length
+      const assignmentsSubmitted = Object.keys(assignmentMap).length
+      const quizzesDone = Object.values(quizMap).filter((q) => q.done).length
+      const engagement =
+        totalItems === 0
+          ? 0
+          : Math.round(((lessonsViewed + assignmentsSubmitted + quizzesDone) / totalItems) * 100)
+
+      return {
+        studentId: e.student_id,
+        studentName: name,
+        lessons: lessonMap,
+        assignments: assignmentMap,
+        quizzes: quizMap,
+        lessonsViewed,
+        assignmentsSubmitted,
+        quizzesDone,
+        engagement,
+      }
+    })
+
+    // Học viên ít hoạt động nhất lên đầu để GV nhắc nhở ngay
+    students.sort((a, b) => a.engagement - b.engagement)
+
+    return { progressAvailable, lessons, assignments, quizzes, students }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lỗi tải dữ liệu theo dõi.' }
+  }
+}
