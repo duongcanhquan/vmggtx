@@ -384,7 +384,11 @@ export async function parentLogout(): Promise<void> {
 export async function getParentStudent(): Promise<ParentStudent | null> {
   const studentId = getSessionStudentId()
   if (!studentId) return null
-  if (studentId === DEMO_STUDENT_ID) return MOCK_STUDENT
+  // Demo cookie chi dung o NODE_ENV!=production (login 0901234567); production khong fake HS.
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return null
+    return MOCK_STUDENT
+  }
 
   try {
     const supabase = admin()
@@ -434,7 +438,13 @@ export async function getParentStudent(): Promise<ParentStudent | null> {
 /** Chuyên cần: cộng dồn từ view vw_student_attendance_stats */
 export async function getAttendanceSummary(): Promise<AttendanceSummary> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_ATTENDANCE
+  if (!studentId) return { total: 0, present: 0, excused: 0, unexcused: 0, presentRate: 0 }
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') {
+      return { total: 0, present: 0, excused: 0, unexcused: 0, presentRate: 0 }
+    }
+    return MOCK_ATTENDANCE
+  }
 
   try {
     const supabase = admin()
@@ -455,23 +465,29 @@ export async function getAttendanceSummary(): Promise<AttendanceSummary> {
       unexcused,
       presentRate: total > 0 ? Math.round((present / total) * 100) : 100,
     }
-  } catch {
-    return MOCK_ATTENDANCE
+  } catch (e) {
+    console.error('[parent] getAttendanceSummary', e)
+    return { total: 0, present: 0, excused: 0, unexcused: 0, presentRate: 0 }
   }
 }
 
 /** 3 cột điểm mới nhất */
 export async function getRecentGrades(): Promise<RecentGrade[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_GRADES
+  if (!studentId) return []
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return []
+    return MOCK_GRADES
+  }
 
   try {
     const supabase = admin()
     const { data, error } = await supabase
       .from('grades')
-      .select('id, score, created_at, assessments(name, classes(name))')
+      .select('id, score, created_at, assessments!inner(name, classes(name), deleted_at)')
       .eq('student_id', studentId)
       .is('deleted_at', null)
+      .is('assessments.deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(3)
     if (error) throw error
@@ -494,15 +510,20 @@ export async function getRecentGrades(): Promise<RecentGrade[]> {
         created_at: row.created_at,
       }
     })
-  } catch {
-    return MOCK_GRADES
+  } catch (e) {
+    console.error('[parent] getRecentGrades', e)
+    return []
   }
 }
 
 /** Các buổi học 7 ngày tới (qua enrollments) */
 export async function getWeekSessions(): Promise<WeekSession[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_WEEK
+  if (!studentId) return []
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return []
+    return MOCK_WEEK
+  }
 
   try {
     const supabase = admin()
@@ -540,8 +561,9 @@ export async function getWeekSessions(): Promise<WeekSession[]> {
         end_time: row.end_time,
       }
     })
-  } catch {
-    return MOCK_WEEK
+  } catch (e) {
+    console.error('[parent] getWeekSessions', e)
+    return []
   }
 }
 
@@ -554,7 +576,11 @@ export async function getWeekSessions(): Promise<WeekSession[]> {
  */
 export async function getParentNotices(): Promise<ParentNotice[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_NOTICES
+  if (!studentId) return []
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return []
+    return MOCK_NOTICES
+  }
 
   try {
     const supabase = admin()
@@ -577,11 +603,12 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
         .limit(20),
       supabase
         .from('grades')
-        .select('id, note, created_at, assessments(name, classes(name))')
+        .select('id, note, created_at, assessments!inner(name, classes(name), deleted_at)')
         .eq('student_id', studentId)
         .not('note', 'is', null)
         .neq('note', '')
         .is('deleted_at', null)
+        .is('assessments.deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(20),
       supabase
@@ -768,25 +795,31 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
 
     notices.sort((a, b) => (a.date < b.date ? 1 : -1))
     return notices.length > 0 ? notices : []
-  } catch {
-    return MOCK_NOTICES
+  } catch (e) {
+    console.error('[parent] getParentNotices', e)
+    return []
   }
 }
 
 /** Sổ điểm đầy đủ nhóm theo lớp (tab Sổ điểm) */
 export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_GRADE_REPORT
+  if (!studentId) return []
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return []
+    return MOCK_GRADE_REPORT
+  }
 
   try {
     const supabase = admin()
     const { data, error } = await supabase
       .from('grades')
       .select(
-        'score, assessments(name, weight, assessment_types(weight), classes(name))'
+        'score, assessments!inner(name, weight, assessment_types(weight), classes(name), deleted_at)'
       )
       .eq('student_id', studentId)
       .is('deleted_at', null)
+      .is('assessments.deleted_at', null)
     if (error) throw error
 
     const byClass = new Map<string, ParentGradeReport>()
@@ -832,8 +865,9 @@ export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
           : null
     }
     return Array.from(byClass.values())
-  } catch {
-    return MOCK_GRADE_REPORT
+  } catch (e) {
+    console.error('[parent] getParentGradeReport', e)
+    return []
   }
 }
 
@@ -891,8 +925,19 @@ const MOCK_TUITION: ParentTuition = {
 }
 
 export async function getParentTuition(): Promise<ParentTuition> {
+  const emptyTuition: ParentTuition = {
+    invoices: [],
+    totalAmount: 0,
+    totalPaid: 0,
+    totalRemaining: 0,
+    overdueRemaining: 0,
+  }
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_TUITION
+  if (!studentId) return emptyTuition
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return emptyTuition
+    return MOCK_TUITION
+  }
 
   try {
     const supabase = admin()
@@ -974,29 +1019,7 @@ export async function getParentInsights(): Promise<{
   const studentId = getSessionStudentId()
   if (!studentId) return { data: empty, loadError: 'Chưa đăng nhập phụ huynh.' }
   if (studentId === DEMO_STUDENT_ID) {
-    return {
-      data: {
-        presentRate: 92,
-        totalSessions: 24,
-        unexcused: 1,
-        avgScore: 8.2,
-        gradeTrend: [
-          { label: 'Kiểm tra 1', score: 7.5 },
-          { label: 'Kiểm tra 2', score: 8 },
-          { label: 'Giữa kỳ', score: 8.5 },
-          { label: 'Cuối kỳ', score: 9 },
-        ],
-        attendanceBars: [
-          { label: 'T2', present: 2, absent: 0 },
-          { label: 'T3', present: 1, absent: 1 },
-          { label: 'T4', present: 2, absent: 0 },
-          { label: 'T5', present: 2, absent: 0 },
-          { label: 'T6', present: 1, absent: 0 },
-        ],
-        openWarnings: 0,
-      },
-      loadError: null,
-    }
+    return { data: empty, loadError: 'Tai khoan demo — khong co du lieu that.' }
   }
 
   try {
@@ -1008,9 +1031,10 @@ export async function getParentInsights(): Promise<{
         .eq('student_id', studentId),
       supabase
         .from('grades')
-        .select('score, created_at, assessments(name)')
+        .select('score, created_at, assessments!inner(name, deleted_at)')
         .eq('student_id', studentId)
         .is('deleted_at', null)
+        .is('assessments.deleted_at', null)
         .order('created_at', { ascending: true })
         .limit(12),
       supabase

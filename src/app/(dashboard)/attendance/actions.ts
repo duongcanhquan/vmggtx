@@ -39,6 +39,8 @@ export type DiaryNotes = {
 }
 
 export type SessionRoster = {
+  orgId: string
+  classId: string
   className: string
   startTime: string
   endTime: string
@@ -110,7 +112,7 @@ export async function getTodaySessions(
     })
     return { data: rows, demo: false }
   } catch {
-    return { data: [], demo: true }
+    return { data: [], demo: false }
   }
 }
 
@@ -217,6 +219,8 @@ export async function getSessionRoster(
 
     return {
       roster: {
+        orgId: session.org_id as string,
+        classId: session.class_id as string,
         className,
         startTime: session.start_time as string,
         endTime: session.end_time as string,
@@ -395,8 +399,8 @@ export async function submitAttendance(
       }
     }
 
-    // Tự động quét cảnh báo chuyên cần (max_absence_warning) — không chặn UI
-    void scanAttendanceWarningsAdmin(session.org_id).then((r) => {
+    // Tự động quét cảnh báo chuyên cần — truyền sessionId để GV buổi được phép
+    void scanAttendanceWarningsAdmin(session.org_id, { sessionId }).then((r) => {
       if (r.error !== undefined) {
         console.error('[attendance] auto early-warning:', r.error)
       }

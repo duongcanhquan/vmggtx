@@ -41,6 +41,8 @@ export const SETTING_DEFAULTS = {
   behavior_alert_threshold: -15,
   grading_locked_days: 7,
   require_manager_approval_for_refunds: true,
+  /** LMS: GV phải gửi duyệt trước khi HV thấy bài giảng (054) */
+  require_lesson_approval: true,
 } as const satisfies Record<string, string | number | boolean>
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS

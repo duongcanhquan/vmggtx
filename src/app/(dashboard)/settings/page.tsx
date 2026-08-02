@@ -397,6 +397,13 @@ export default function SettingsPage() {
                   min={0}
                   max={90}
                 />
+                <ToggleSwitch
+                  id="set-lesson-approval"
+                  label="Bài giảng LMS phải được Giáo vụ duyệt"
+                  description="Bật: GV gửi duyệt → Giáo vụ duyệt tại /staff/lms-approval trước khi học viên thấy. Tắt: GV tự phát hành."
+                  checked={config.require_lesson_approval ?? true}
+                  onChange={(v) => patch('require_lesson_approval', v)}
+                />
               </>
             )}
 

@@ -157,3 +157,21 @@
 - MenuKey reports + /reports cockpit + academic + exams (Recharts bento).
 - /teacher/insights, /parent/insights; ReportKpiTile + ReportCharts.
 - Overview doanh thu = payments that; moduleCatalog reports. Build exit 0.
+
+## 2026-08-02 | ra soat hoc vu + AI academic_assist (D20)
+- Bo MOCK catch parent portal; import fail-closed khi mat DB; auth scan canh bao.
+- createAssessment + UI so diem; softDeleteAssessment; payroll completed.
+- Copilot taskType academic_assist + AcademicAiAssist (warnings/grades/diary).
+- Enrollment active + deleted_at; bo banner demo staff/teacher/attendance.
+
+## 2026-08-02 | fix bug hoc vu sau D20
+- Parent MOCK chi dev; production demo cookie -> empty/null.
+- softDeleteAssessment cascade soft-delete grades; loc assessments.deleted_at.
+- scanAttendanceWarningsAdmin: academic_staff HOAC GV sessionId.
+- loadError UI staff/classes + teacher/schedule; tutor enrollment active.
+
+## 2026-08-02 | LMS ho tro giang day + duyet bai (D21)
+- Migration 054: status pending_review/rejected + cot duyet; enrollment active.
+- Teacher LMS: Gui duyet, badge trang thai; staff /staff/lms-approval.
+- AI assistant -> luu nhap LMS; gate lesson_plan; soft-delete RAG chunks.
+- Setting require_lesson_approval; menuRegistry + DashboardShell + check-db.

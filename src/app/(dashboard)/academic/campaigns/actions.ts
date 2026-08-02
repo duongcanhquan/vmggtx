@@ -189,6 +189,7 @@ export async function getCampaignDetail(campaignId: string): Promise<CampaignDet
         .from('enrollments')
         .select('class_id')
         .in('class_id', classIds)
+        .eq('status', 'active')
         .is('deleted_at', null)
       for (const enrollment of enrollments ?? []) {
         enrolledByClass.set(

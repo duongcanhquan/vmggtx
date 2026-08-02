@@ -94,8 +94,8 @@ type AttendanceTarget = {
 export default function TeacherSchedulePage() {
   const [weekStart, setWeekStart] = useState(() => getMondayISO(new Date()))
   const [sessions, setSessions] = useState<TeachingSession[]>([])
-  const [isDemo, setIsDemo] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [target, setTarget] = useState<AttendanceTarget | null>(null)
   const [loadingStudents, setLoadingStudents] = useState(false)
@@ -106,7 +106,7 @@ export default function TeacherSchedulePage() {
     setLoading(true)
     const result = await getMyWeekSessions(weekStart)
     setSessions(result.data)
-    setIsDemo(result.demo)
+    setLoadError(result.loadError ?? null)
     setLoading(false)
   }, [weekStart])
 
@@ -212,9 +212,9 @@ export default function TeacherSchedulePage() {
         </div>
       </div>
 
-      {isDemo && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị lịch demo (chưa đăng nhập).
+      {loadError && (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          Không tải được lịch dạy: {loadError}
         </p>
       )}
 

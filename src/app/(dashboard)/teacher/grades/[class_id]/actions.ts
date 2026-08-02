@@ -28,6 +28,8 @@ export type GradebookStudent = {
 export type Gradebook = {
   classId: string
   className: string
+  /** org_id lớp — dùng cho AI academic_assist */
+  orgIdForAi: string
   assessments: Assessment[]
   students: GradebookStudent[]
   /** key = `${assessmentId}:{studentId}` -> điểm */
@@ -48,6 +50,7 @@ function emptyGradebook(
   classId: string,
   opts?: {
     className?: string
+    orgIdForAi?: string
     canLock?: boolean
     isLocked?: boolean
     loadError?: string | null
@@ -56,6 +59,7 @@ function emptyGradebook(
   return {
     classId,
     className: opts?.className ?? '',
+    orgIdForAi: opts?.orgIdForAi ?? '',
     assessments: [],
     students: [],
     grades: {},
@@ -194,6 +198,7 @@ export async function getGradebook(classId: string): Promise<Gradebook> {
       return {
         classId,
         className: cls.name,
+        orgIdForAi: cls.org_id,
         assessments,
         students,
         grades,
@@ -240,6 +245,7 @@ export async function getGradebook(classId: string): Promise<Gradebook> {
     return {
       classId,
       className: cls.name,
+      orgIdForAi: cls.org_id,
       assessments,
       students,
       grades,
@@ -330,6 +336,7 @@ export async function updateGrade(
       .from('classes')
       .select('org_id, teacher_id')
       .eq('id', classId)
+      .is('deleted_at', null)
       .maybeSingle()
     if (!cls) return { error: 'Không tìm thấy lớp.' }
 
@@ -384,6 +391,173 @@ export async function updateGrade(
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Lỗi lưu điểm.',
+    }
+  }
+}
+
+/**
+ * Tạo cột điểm (bài kiểm tra) cho lớp.
+ * GV chủ nhiệm hoặc Giáo vụ+; chặn khi sổ đã khóa.
+ */
+export async function createAssessment(
+  classId: string,
+  input: { name: string; weight?: number; maxScore?: number }
+): Promise<GradeActionResult & { id?: string }> {
+  const name = (input.name ?? '').trim()
+  if (!classId || !name) return { error: 'Thiếu tên bài kiểm tra.' }
+  if (name.length > 120) return { error: 'Tên bài tối đa 120 ký tự.' }
+
+  const weight = Number(input.weight ?? 1)
+  const maxScore = Number(input.maxScore ?? 10)
+  if (!Number.isFinite(weight) || weight <= 0 || weight > 100) {
+    return { error: 'Hệ số phải từ 0.01 đến 100.' }
+  }
+  if (!Number.isFinite(maxScore) || maxScore <= 0 || maxScore > 1000) {
+    return { error: 'Điểm tối đa phải từ 0.01 đến 1000.' }
+  }
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { data: cls } = await supabase
+      .from('classes')
+      .select('id, org_id, teacher_id')
+      .eq('id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!cls) return { error: 'Không tìm thấy lớp.' }
+
+    const { data: staffOk } = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: cls.org_id,
+      p_required_role: 'academic_staff',
+    })
+    if (cls.teacher_id !== user.id && staffOk !== true) {
+      return { error: 'Bạn không có quyền thêm cột điểm lớp này.' }
+    }
+
+    const { data: result } = await supabase
+      .from('class_results')
+      .select('lock_status, is_locked')
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (result?.lock_status === 'locked' || result?.is_locked === true) {
+      return { error: 'Sổ điểm đã chốt — không thể thêm bài kiểm tra.' }
+    }
+
+    const { data: dup } = await supabase
+      .from('assessments')
+      .select('id')
+      .eq('class_id', classId)
+      .eq('name', name)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (dup) return { error: `Đã có bài kiểm tra tên «${name}».` }
+
+    const { data: created, error } = await supabase
+      .from('assessments')
+      .insert({
+        org_id: cls.org_id,
+        class_id: classId,
+        name,
+        weight,
+        max_score: maxScore,
+      })
+      .select('id')
+      .single()
+
+    if (error || !created) {
+      return { error: error?.message ?? 'Không tạo được bài kiểm tra.' }
+    }
+
+    revalidatePath(`/teacher/grades/${classId}`)
+    return { id: created.id }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Lỗi tạo bài kiểm tra.',
+    }
+  }
+}
+
+/** Soft-delete cột điểm + soft-delete grades gắn cột (chỉ khi sổ chưa khóa). */
+export async function softDeleteAssessment(
+  classId: string,
+  assessmentId: string
+): Promise<GradeActionResult> {
+  if (!classId || !assessmentId) return { error: 'Thiếu thông tin.' }
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { data: cls } = await supabase
+      .from('classes')
+      .select('id, org_id, teacher_id')
+      .eq('id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!cls) return { error: 'Không tìm thấy lớp.' }
+
+    const { data: staffOk } = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: cls.org_id,
+      p_required_role: 'academic_staff',
+    })
+    if (cls.teacher_id !== user.id && staffOk !== true) {
+      return { error: 'Bạn không có quyền xóa cột điểm lớp này.' }
+    }
+
+    const { data: result } = await supabase
+      .from('class_results')
+      .select('lock_status, is_locked')
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (result?.lock_status === 'locked' || result?.is_locked === true) {
+      return { error: 'Sổ điểm đã chốt — không thể xóa bài kiểm tra.' }
+    }
+
+    const { data: assessment } = await supabase
+      .from('assessments')
+      .select('id, class_id')
+      .eq('id', assessmentId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!assessment || assessment.class_id !== classId) {
+      return { error: 'Bài kiểm tra không thuộc lớp này.' }
+    }
+
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('assessments')
+      .update({ deleted_at: now, updated_at: now })
+      .eq('id', assessmentId)
+    if (error) return { error: error.message }
+
+    // Soft-delete điểm gắn cột — tránh GPA/cảnh báo còn dùng điểm mồ côi
+    const { error: gradesErr } = await supabase
+      .from('grades')
+      .update({ deleted_at: now, updated_at: now })
+      .eq('assessment_id', assessmentId)
+      .is('deleted_at', null)
+    if (gradesErr) {
+      return {
+        error: `Đã ẩn bài kiểm tra nhưng không ẩn được điểm: ${gradesErr.message}`,
+      }
+    }
+
+    revalidatePath(`/teacher/grades/${classId}`)
+    return {}
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Lỗi xóa bài kiểm tra.',
     }
   }
 }

@@ -20,7 +20,7 @@ export const SETTING_GROUPS: {
   {
     key: 'academic',
     label: 'Học vụ',
-    fields: ['max_absence_warning', 'grading_locked_days'],
+    fields: ['max_absence_warning', 'grading_locked_days', 'require_lesson_approval'],
   },
   {
     key: 'communication',

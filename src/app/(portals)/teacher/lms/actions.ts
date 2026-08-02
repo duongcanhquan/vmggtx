@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveSetting } from '@/lib/utils/settingsResolver'
 import {
   buildObjectKey,
   isAllowedMimeType,
@@ -32,6 +34,8 @@ const attachmentSchema = z.object({
   type: z.string().max(150),
 })
 
+export type LessonStatus = 'draft' | 'pending_review' | 'published' | 'rejected'
+
 export type LmsLesson = {
   id: string
   title: string
@@ -39,8 +43,11 @@ export type LmsLesson = {
   content: string | null
   video_url: string | null
   attachments: AttachmentMeta[]
-  status: 'draft' | 'published'
+  status: LessonStatus
   created_at: string
+  submitted_at?: string | null
+  reviewed_at?: string | null
+  review_note?: string | null
 }
 
 export type LmsAssignment = {
@@ -70,6 +77,10 @@ export type ClassLmsData = {
   className: string
   orgId: string
   r2Ready: boolean
+  /** Org setting: bắt buộc gửi duyệt trước khi HV thấy */
+  requireApproval: boolean
+  /** GVCN không tự publish khi requireApproval; Giáo vụ+ thì được */
+  canDirectPublish: boolean
   lessons: LmsLesson[]
   assignments: LmsAssignment[]
   quizzes: LmsQuiz[]
@@ -118,20 +129,59 @@ async function authorizeClass(classId: string): Promise<ClassAuth> {
   return { supabase, user, cls }
 }
 
+async function isAcademicStaffOnOrg(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  orgId: string
+): Promise<boolean> {
+  const { data } = await supabase.rpc('is_authorized', {
+    p_user_id: userId,
+    p_target_org_id: orgId,
+    p_required_role: 'academic_staff',
+  })
+  return data === true
+}
+
 // ---------- 1. Danh sách lớp + dữ liệu LMS ----------
 export async function getClassLmsData(classId: string): Promise<ClassLmsData | { error: string }> {
   try {
     const auth = await authorizeClass(classId)
     if (auth.error !== undefined) return { error: auth.error }
-    const { supabase, cls } = auth
+    const { supabase, cls, user } = auth
 
-    const [lessonsRes, assignmentsRes, quizzesRes] = await Promise.all([
-      supabase
+    const { value: requireApproval } = await resolveSetting(
+      'require_lesson_approval',
+      cls.org_id
+    )
+    const staffOk = await isAcademicStaffOnOrg(supabase, user.id, cls.org_id)
+
+    // Cột duyệt (054) có thể chưa migrate -> fallback select cơ bản
+    let lessons: LmsLesson[] = []
+    const fullLessons = await supabase
+      .from('lms_lessons')
+      .select(
+        'id, title, description, content, video_url, attachments, status, created_at, submitted_at, reviewed_at, review_note'
+      )
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    if (fullLessons.error) {
+      const basic = await supabase
         .from('lms_lessons')
         .select('id, title, description, content, video_url, attachments, status, created_at')
         .eq('class_id', classId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+      if (basic.error) return { error: `Không tải bài giảng: ${basic.error.message}` }
+      lessons = (basic.data ?? []).map((row) => ({
+        ...(row as LmsLesson),
+        status: (row.status as LessonStatus) ?? 'draft',
+      }))
+    } else {
+      lessons = (fullLessons.data ?? []) as LmsLesson[]
+    }
+
+    const [assignmentsRes, quizzesRes] = await Promise.all([
       supabase
         .from('lms_assignments')
         .select('id, title, instructions, attachments, due_at, max_score, allow_late, lms_submissions(id, score)')
@@ -151,7 +201,9 @@ export async function getClassLmsData(classId: string): Promise<ClassLmsData | {
       className: cls.name,
       orgId: cls.org_id,
       r2Ready: isR2Configured(),
-      lessons: (lessonsRes.data ?? []) as LmsLesson[],
+      requireApproval: Boolean(requireApproval),
+      canDirectPublish: !requireApproval || staffOk,
+      lessons,
       assignments: (assignmentsRes.data ?? []).map((a) => ({
         id: a.id,
         title: a.title,
@@ -234,14 +286,17 @@ export async function getTeacherDownloadUrl(input: {
         .select('attachments')
         .eq('id', input.recordId)
         .eq('class_id', input.classId)
+        .is('deleted_at', null)
         .maybeSingle()
       attachments = (row?.attachments ?? []) as AttachmentMeta[]
     } else {
       const { data: row } = await supabase
         .from('lms_submissions')
-        .select('attachments, lms_assignments!inner(class_id)')
+        .select('attachments, lms_assignments!inner(class_id, deleted_at)')
         .eq('id', input.recordId)
         .eq('lms_assignments.class_id', input.classId)
+        .is('deleted_at', null)
+        .is('lms_assignments.deleted_at', null)
         .maybeSingle()
       attachments = (row?.attachments ?? []) as AttachmentMeta[]
     }
@@ -270,7 +325,9 @@ const lessonSchema = z.object({
     .optional()
     .or(z.literal('')),
   attachments: z.array(attachmentSchema).max(10).default([]),
-  status: z.enum(['draft', 'published']).default('draft'),
+  status: z
+    .enum(['draft', 'pending_review', 'published', 'rejected'])
+    .default('draft'),
 })
 
 export async function saveLesson(input: z.infer<typeof lessonSchema>): Promise<ActionResult> {
@@ -283,7 +340,26 @@ export async function saveLesson(input: z.infer<typeof lessonSchema>): Promise<A
     if (auth.error !== undefined) return { error: auth.error }
     const { supabase, user, cls } = auth
 
-    const payload = {
+    const { value: requireApproval } = await resolveSetting(
+      'require_lesson_approval',
+      cls.org_id
+    )
+    const staffOk = await isAcademicStaffOnOrg(supabase, user.id, cls.org_id)
+
+    let status = parsed.data.status
+    // GV không được tự publish khi org bắt buộc duyệt
+    if (status === 'published' && requireApproval && !staffOk) {
+      return {
+        error:
+          'Cơ sở yêu cầu Giáo vụ duyệt bài giảng. Hãy bấm «Gửi duyệt» thay vì phát hành trực tiếp.',
+      }
+    }
+    if (status === 'pending_review' && !parsed.data.id) {
+      // tạo mới: lưu draft trước, gửi duyệt riêng
+      status = 'draft'
+    }
+
+    const payload: Record<string, unknown> = {
       org_id: cls.org_id,
       class_id: cls.id,
       title: parsed.data.title,
@@ -291,7 +367,7 @@ export async function saveLesson(input: z.infer<typeof lessonSchema>): Promise<A
       content: parsed.data.content || null,
       video_url: parsed.data.videoUrl || null,
       attachments: parsed.data.attachments,
-      status: parsed.data.status,
+      status,
     }
 
     const { error } = parsed.data.id
@@ -299,14 +375,155 @@ export async function saveLesson(input: z.infer<typeof lessonSchema>): Promise<A
           .from('lms_lessons')
           .update(payload)
           .eq('id', parsed.data.id)
-          .eq('class_id', cls.id) // chặn di chuyển bài sang lớp khác
+          .eq('class_id', cls.id)
+          .is('deleted_at', null)
       : await supabase.from('lms_lessons').insert({ ...payload, created_by: user.id })
-    if (error) return { error: 'Không lưu được bài giảng: ' + error.message }
+    if (error) {
+      // DB chưa 054: status pending_review/rejected bị check constraint
+      if (/lms_lessons_status_check|pending_review|rejected/i.test(error.message)) {
+        return {
+          error:
+            'CSDL chưa hỗ trợ duyệt bài giảng — chạy migration 054_lms_lesson_approval.sql.',
+        }
+      }
+      return { error: 'Không lưu được bài giảng: ' + error.message }
+    }
 
     revalidatePath('/teacher/lms')
+    revalidatePath('/staff/lms-approval')
     return {}
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Lỗi lưu bài giảng.' }
+  }
+}
+
+/** GV gửi bài giảng lên hàng chờ Giáo vụ duyệt */
+export async function submitLessonForReview(
+  classId: string,
+  lessonId: string
+): Promise<ActionResult> {
+  try {
+    const auth = await authorizeClass(classId)
+    if (auth.error !== undefined) return { error: auth.error }
+    const { supabase, cls } = auth
+
+    const { data: lesson } = await supabase
+      .from('lms_lessons')
+      .select('id, status, title, content')
+      .eq('id', lessonId)
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!lesson) return { error: 'Không tìm thấy bài giảng.' }
+    if (lesson.status === 'published') {
+      return { error: 'Bài đã phát hành — không cần gửi duyệt.' }
+    }
+    if (lesson.status === 'pending_review') {
+      return { error: 'Bài đang chờ duyệt.' }
+    }
+    if (!(lesson.content ?? '').trim() && !(lesson.title ?? '').trim()) {
+      return { error: 'Bài giảng trống — hãy soạn nội dung trước khi gửi duyệt.' }
+    }
+
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('lms_lessons')
+      .update({
+        status: 'pending_review',
+        submitted_at: now,
+        review_note: null,
+        reviewed_by: null,
+        reviewed_at: null,
+      })
+      .eq('id', lessonId)
+      .eq('class_id', cls.id)
+    if (error) {
+      if (/lms_lessons_status_check|pending_review|column/i.test(error.message)) {
+        return {
+          error:
+            'CSDL chưa hỗ trợ duyệt bài giảng — chạy migration 054_lms_lesson_approval.sql.',
+        }
+      }
+      return { error: error.message }
+    }
+
+    revalidatePath('/teacher/lms')
+    revalidatePath('/staff/lms-approval')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lỗi gửi duyệt.' }
+  }
+}
+
+/** Giáo vụ duyệt → published (+ optional auto RAG index không block) */
+export async function approveLesson(
+  classId: string,
+  lessonId: string,
+  note?: string
+): Promise<ActionResult> {
+  try {
+    const auth = await authorizeClass(classId)
+    if (auth.error !== undefined) return { error: auth.error }
+    const { supabase, user, cls } = auth
+    const staffOk = await isAcademicStaffOnOrg(supabase, user.id, cls.org_id)
+    if (!staffOk) return { error: 'Chỉ Giáo vụ / Admin được duyệt bài giảng.' }
+
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('lms_lessons')
+      .update({
+        status: 'published',
+        reviewed_by: user.id,
+        reviewed_at: now,
+        review_note: (note ?? '').trim().slice(0, 500) || null,
+      })
+      .eq('id', lessonId)
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+    if (error) return { error: error.message }
+
+    revalidatePath('/teacher/lms')
+    revalidatePath('/staff/lms-approval')
+    revalidatePath('/learn')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lỗi duyệt bài giảng.' }
+  }
+}
+
+export async function rejectLesson(
+  classId: string,
+  lessonId: string,
+  note: string
+): Promise<ActionResult> {
+  const reason = note.trim()
+  if (reason.length < 3) return { error: 'Vui lòng ghi lý do từ chối (ít nhất 3 ký tự).' }
+  try {
+    const auth = await authorizeClass(classId)
+    if (auth.error !== undefined) return { error: auth.error }
+    const { supabase, user, cls } = auth
+    const staffOk = await isAcademicStaffOnOrg(supabase, user.id, cls.org_id)
+    if (!staffOk) return { error: 'Chỉ Giáo vụ / Admin được từ chối bài giảng.' }
+
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('lms_lessons')
+      .update({
+        status: 'rejected',
+        reviewed_by: user.id,
+        reviewed_at: now,
+        review_note: reason.slice(0, 500),
+      })
+      .eq('id', lessonId)
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+    if (error) return { error: error.message }
+
+    revalidatePath('/teacher/lms')
+    revalidatePath('/staff/lms-approval')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lỗi từ chối bài giảng.' }
   }
 }
 
@@ -314,16 +531,137 @@ export async function deleteLesson(classId: string, lessonId: string): Promise<A
   try {
     const auth = await authorizeClass(classId)
     if (auth.error !== undefined) return { error: auth.error }
+    const now = new Date().toISOString()
     const { error } = await auth.supabase
       .from('lms_lessons')
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ deleted_at: now })
       .eq('id', lessonId)
       .eq('class_id', classId)
     if (error) return { error: error.message }
+
+    // Soft-delete RAG chunks gắn bài
+    try {
+      const admin = createAdminClient()
+      await admin
+        .from('lesson_materials')
+        .update({ deleted_at: now })
+        .eq('org_id', auth.cls.org_id)
+        .eq('class_id', classId)
+        .eq('metadata->>lesson_id', lessonId)
+        .is('deleted_at', null)
+    } catch {
+      // bỏ qua nếu admin/RAG chưa sẵn
+    }
+
     revalidatePath('/teacher/lms')
+    revalidatePath('/staff/lms-approval')
     return {}
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Lỗi xóa bài giảng.' }
+  }
+}
+
+/** Hàng chờ duyệt cho Giáo vụ (subtree org đang chọn) */
+export async function getPendingLessonsForOrg(orgId: string): Promise<{
+  data: {
+    id: string
+    title: string
+    class_id: string
+    class_name: string
+    org_id: string
+    teacher_name: string
+    submitted_at: string | null
+    created_at: string
+  }[]
+  loadError?: string | null
+}> {
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { data: [], loadError: 'Bạn chưa đăng nhập.' }
+
+    const staffOk = await isAcademicStaffOnOrg(supabase, user.id, orgId)
+    if (!staffOk) {
+      return { data: [], loadError: 'Chỉ Giáo vụ / Admin xem hàng chờ duyệt.' }
+    }
+
+    const { data: orgIds } = await supabase.rpc('get_descendant_org_ids', {
+      root_id: orgId,
+    })
+    const ids: string[] = orgIds ?? [orgId]
+
+    const { data, error } = await supabase
+      .from('lms_lessons')
+      .select('id, title, class_id, org_id, submitted_at, created_at, classes(name, teacher_id)')
+      .in('org_id', ids)
+      .eq('status', 'pending_review')
+      .is('deleted_at', null)
+      .order('submitted_at', { ascending: true, nullsFirst: false })
+
+    if (error) {
+      if (/pending_review|submitted_at|status/i.test(error.message)) {
+        return {
+          data: [],
+          loadError:
+            'CSDL chưa có quy trình duyệt — chạy migration 054_lms_lesson_approval.sql.',
+        }
+      }
+      return { data: [], loadError: error.message }
+    }
+
+    const teacherIds = [
+      ...new Set(
+        (data ?? [])
+          .map((row) => {
+            const cls = row.classes as
+              | { name?: string; teacher_id?: string | null }
+              | { name?: string; teacher_id?: string | null }[]
+              | null
+            const c = Array.isArray(cls) ? cls[0] : cls
+            return c?.teacher_id ?? null
+          })
+          .filter((id): id is string => Boolean(id))
+      ),
+    ]
+    const teacherNames = new Map<string, string>()
+    if (teacherIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', teacherIds)
+        .is('deleted_at', null)
+      for (const p of profiles ?? []) {
+        teacherNames.set(p.id, p.full_name)
+      }
+    }
+
+    return {
+      data: (data ?? []).map((row) => {
+        const cls = row.classes as
+          | { name?: string; teacher_id?: string | null }
+          | { name?: string; teacher_id?: string | null }[]
+          | null
+        const c = Array.isArray(cls) ? cls[0] : cls
+        const tid = c?.teacher_id ?? null
+        return {
+          id: row.id,
+          title: row.title,
+          class_id: row.class_id,
+          class_name: c?.name ?? '—',
+          org_id: row.org_id,
+          teacher_name: (tid && teacherNames.get(tid)) || '—',
+          submitted_at: row.submitted_at,
+          created_at: row.created_at,
+        }
+      }),
+    }
+  } catch (e) {
+    return {
+      data: [],
+      loadError: e instanceof Error ? e.message : 'Lỗi tải hàng chờ duyệt.',
+    }
   }
 }
 
@@ -887,6 +1225,7 @@ export async function getClassProgress(
         .from('enrollments')
         .select('student_id, profiles!enrollments_student_id_fkey(full_name)')
         .eq('class_id', classId)
+        .eq('status', 'active')
         .is('deleted_at', null),
       supabase
         .from('lms_lessons')

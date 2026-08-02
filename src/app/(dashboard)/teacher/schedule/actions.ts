@@ -28,64 +28,6 @@ export type SessionStudent = {
   status: 'present' | 'excused' | 'absent' | null
 }
 
-// ---------- MOCK: lịch demo trải trên nhiều chi nhánh ----------
-function buildMockWeek(weekStartISO: string): TeachingSession[] {
-  const monday = new Date(`${weekStartISO}T00:00:00`)
-
-  const at = (dayOffset: number, hour: number, durationHours: number) => {
-    const start = new Date(monday)
-    start.setDate(start.getDate() + dayOffset)
-    start.setHours(hour, 0, 0, 0)
-    const end = new Date(start)
-    end.setHours(start.getHours() + durationHours)
-    return { start: start.toISOString(), end: end.toISOString() }
-  }
-
-  const s1 = at(0, 18, 2) // Thứ 2
-  const s2 = at(2, 18, 2) // Thứ 4
-  const s3 = at(3, 8, 3) // Thứ 5
-  const s4 = at(5, 14, 2) // Thứ 7
-
-  return [
-    {
-      id: 'mock-s1',
-      class_id: 'mock-c1',
-      class_name: 'Toán 12A - Ôn thi THPT',
-      org_name: 'Chi nhánh Cầu Giấy',
-      room: 'P.301',
-      start_time: s1.start,
-      end_time: s1.end,
-    },
-    {
-      id: 'mock-s2',
-      class_id: 'mock-c1',
-      class_name: 'Toán 12A - Ôn thi THPT',
-      org_name: 'Chi nhánh Cầu Giấy',
-      room: 'P.301',
-      start_time: s2.start,
-      end_time: s2.end,
-    },
-    {
-      id: 'mock-s3',
-      class_id: 'mock-c9',
-      class_name: 'Toán 11 - Nâng cao',
-      org_name: 'Chi nhánh Đống Đa',
-      room: 'P.105',
-      start_time: s3.start,
-      end_time: s3.end,
-    },
-    {
-      id: 'mock-s4',
-      class_id: 'mock-c12',
-      class_name: 'Luyện đề Toán - Cấp tốc',
-      org_name: 'Cơ sở Hà Nội 2',
-      room: 'Hội trường A',
-      start_time: s4.start,
-      end_time: s4.end,
-    },
-  ]
-}
-
 /**
  * Lịch dạy trong 1 tuần của giáo viên đang đăng nhập.
  * Query theo teacher_id = auth.uid(), KHÔNG lọc org_id: gom mọi buổi
@@ -94,6 +36,7 @@ function buildMockWeek(weekStartISO: string): TeachingSession[] {
 export async function getMyWeekSessions(weekStartISO: string): Promise<{
   data: TeachingSession[]
   demo: boolean
+  loadError?: string | null
 }> {
   const weekStart = new Date(`${weekStartISO}T00:00:00`)
   const weekEnd = new Date(weekStart)
@@ -106,7 +49,7 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return { data: buildMockWeek(weekStartISO), demo: true }
+      return { data: [], demo: false, loadError: 'Bạn chưa đăng nhập.' }
     }
 
     const { data, error } = await supabase
@@ -121,7 +64,7 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
       .order('start_time')
 
     if (error || !data) {
-      return { data: buildMockWeek(weekStartISO), demo: true }
+      return { data: [], demo: false, loadError: error?.message || 'Không tải được lịch dạy.' }
     }
 
     const rows: TeachingSession[] = data.map((row) => {
@@ -138,8 +81,12 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
       }
     })
     return { data: rows, demo: false }
-  } catch {
-    return { data: buildMockWeek(weekStartISO), demo: true }
+  } catch (e) {
+    return {
+      data: [],
+      demo: false,
+      loadError: e instanceof Error ? e.message : 'Lỗi tải lịch dạy.',
+    }
   }
 }
 

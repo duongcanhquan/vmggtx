@@ -33,11 +33,6 @@ import { FunLoader } from '@/components/shared/FunLoader'
 // của Staff; server thậm chí không đọc org_id từ form.
 // ============================================================
 
-const MOCK_TEACHERS = [
-  { id: 'mock-t1', full_name: 'Phạm Quang Huy' },
-  { id: 'mock-t2', full_name: 'Lê Minh Anh' },
-]
-
 function formatDate(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('vi-VN', {
@@ -61,22 +56,24 @@ export default function StaffClassesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const loadClasses = useCallback(async () => {
     setLoading(true)
     const result = await getStaffClasses()
     setClasses(result.data)
+    setLoadError(result.loadError ?? null)
     setLoading(false)
   }, [])
 
   useEffect(() => {
     getStaffContext().then(async (ctx) => {
       setContext(ctx)
-      if (ctx.demo) {
-        setTeachers(MOCK_TEACHERS)
-      } else {
+      if (ctx.orgId) {
         const result = await getTeachersInOrg(ctx.orgId)
-        setTeachers(result.data.length > 0 ? result.data : MOCK_TEACHERS)
+        setTeachers(result.data)
+      } else {
+        setTeachers([])
       }
     })
     loadClasses()
@@ -166,11 +163,14 @@ export default function StaffClassesPage() {
           <p className="text-sm text-indigo-900">
             Phạm vi thao tác:{' '}
             <span className="font-semibold">{context.orgName}</span>
-            {context.demo && (
-              <span className="ml-1 text-indigo-600">(dữ liệu demo)</span>
-            )}
           </p>
         </div>
+      )}
+
+      {loadError && (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          Không tải được danh sách lớp: {loadError}
+        </p>
       )}
 
       {/* ===== Bảng lớp học ===== */}
@@ -181,7 +181,9 @@ export default function StaffClassesPage() {
           <div className="flex flex-col items-center gap-2 p-12 text-center">
             <BookOpen className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              Chi nhánh chưa có lớp học nào.
+              {loadError
+                ? 'Không có dữ liệu để hiển thị.'
+                : 'Chi nhánh chưa có lớp học nào.'}
             </p>
           </div>
         ) : (

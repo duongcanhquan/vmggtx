@@ -99,6 +99,7 @@ export async function getMyLearnData(): Promise<LearnData | { error: string }> {
       .from('enrollments')
       .select('class_id, classes(id, name)')
       .eq('student_id', user.id)
+      .eq('status', 'active')
       .is('deleted_at', null)
 
     const classRows = (enrollments ?? [])

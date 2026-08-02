@@ -3,8 +3,7 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-02 - Hub bao cao theo role (D17) + bo MOCK
-  doanh thu overview; build sạch
+**Cập nhật lần cuối**: 2026-08-02 - LMS duyet bai giang + AI ho tro day (D21)
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
@@ -13,9 +12,10 @@
 - "Phó giám đốc" = tài khoản campus_admin gắn vào org con (không có role riêng).
 
 ## Migrations
-- Đã có file: `001 → 051` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
-- ⚠️ **CHƯA chạy trên DB thật: 049, 050, 051** — user chạy tay qua Supabase SQL Editor.
-  - 049 fail-safe; 050 thiếu → đăng nhập PH báo chạy migration; 051 thiếu → upload logo báo thiếu cột.
+- Đã có file: `001 → 051`, **054** + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
+- ⚠️ **CHƯA chạy trên DB thật: 049, 050, 051, 054** — user chạy tay qua Supabase SQL Editor.
+  - 049 fail-safe; 050 thiếu → đăng nhập PH báo chạy migration; 051 thiếu → upload logo báo thiếu cột;
+    **054 thiếu → gửi duyệt bài giảng LMS báo chạy migration.**
 - ⚠️ `scripts/apply-migration.mjs` lỗi "password authentication failed" - DATABASE_URL trong .env sai
   mật khẩu. Muốn tự động hóa phải xin user cập nhật.
 
@@ -50,15 +50,23 @@
 - **Báo cáo (D17)**: MenuKey `reports` → `/reports` (ops cockpit), `/reports/academic`,
   `/reports/exams`; GV `/teacher/insights`; PH `/parent/insights`. Recharts + bento KPI.
   Overview «Doanh thu đã thu» = tổng payments (không MOCK).
+- **Học vụ cứng (D20)**: parent/staff/teacher không MOCK khi lỗi; import fail-closed;
+  `scanAttendanceWarningsAdmin` bắt buộc auth; `createAssessment` trên sổ điểm;
+  AI `academic_assist` (warnings / gradebook / sổ đầu bài). Payroll chỉ buổi `completed`.
+- **LMS dạy học (D21)**: duyệt bài giảng (`require_lesson_approval`); `/staff/lms-approval`;
+  AI giáo án → nháp LMS; RAG chỉ bài published; enrollment active cho /learn.
 
 ## Tồn đọng / việc tiếp theo
-1. Migration **049 / 050 / 051** chờ user chạy tay qua Supabase SQL Editor (**P0 ops**).
+1. Migration **049 / 050 / 051 / 054** chờ user chạy tay qua Supabase SQL Editor (**P0 ops**).
    UI parent_accounts cần **050**; thiếu 050 → card báo lỗi / login PH báo thiếu bảng.
+   **054** = duyệt bài giảng LMS.
 2. Production Vercel: set `PARENT_SESSION_SECRET` (+ `PARENT_MOCK_OTP` nếu còn OTP).
 3. License: phụ huynh CHƯA bị chặn khi cơ sở hết hạn (chấp nhận được).
 4. Subdomain DNS per cơ sở — sau path `/coso/` (D14).
 5. Tùy chọn: `R2_PUBLIC_BASE_URL` cho CDN logo.
-6. P2 (sau): wizard «Mở lớp» hàng loạt; điểm hành vi cá nhân; export PDF/CSV báo cáo.
+6. P2 (sau): wizard «Mở lớp» hàng loạt; điểm hành vi cá nhân; export PDF/CSV báo cáo;
+   apply AI diary thẳng vào form (hiện copy từ stream).
+7. P1 payroll: unique `(org_id,teacher_id,month,year)` partial — tránh GV đa cơ sở ghi đè.
 
 ## Cổng /coso/[slug]/login
 - Gốc `/login` = landing marketing; `/login/admin` = form nhân sự (icon sách ẩn).

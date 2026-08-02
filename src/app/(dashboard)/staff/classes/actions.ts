@@ -41,48 +41,6 @@ export type StaffClassRow = {
 
 export type StaffActionResult = { error: string } | { error?: undefined }
 
-// ---------- MOCK cho chế độ demo ----------
-const MOCK_CONTEXT: StaffContext = {
-  userId: null,
-  orgId: 'org-cn-caugiay',
-  orgName: 'Chi nhánh Cầu Giấy',
-  fullName: 'Trần Thị Hồng Nhung (Giáo vụ)',
-  demo: true,
-}
-
-const MOCK_CLASSES: StaffClassRow[] = [
-  {
-    id: 'mock-c1',
-    name: 'Toán 12A - Ôn thi THPT',
-    teacher_id: 'mock-t1',
-    teacher_name: 'Phạm Quang Huy',
-    start_date: '2026-07-01',
-    end_date: '2026-12-20',
-    session_count: 24,
-    max_students: 35,
-  },
-  {
-    id: 'mock-c2',
-    name: 'Tiếng Anh B1 - Tối T3/T5',
-    teacher_id: 'mock-t2',
-    teacher_name: 'Lê Minh Anh',
-    start_date: '2026-08-01',
-    end_date: '2026-11-30',
-    session_count: 16,
-    max_students: 20,
-  },
-  {
-    id: 'mock-c3',
-    name: 'Vật lý 11 - Cơ bản',
-    teacher_id: null,
-    teacher_name: 'Chưa gán',
-    start_date: '2026-09-01',
-    end_date: null,
-    session_count: 0,
-    max_students: null,
-  },
-]
-
 /**
  * Ngữ cảnh của Staff đang đăng nhập: org_id + tên chi nhánh.
  * Đây chính là giá trị bị KHÓA CỨNG trên form tạo lớp.
@@ -94,7 +52,15 @@ export async function getStaffContext(): Promise<StaffContext> {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) return MOCK_CONTEXT
+    if (!user) {
+      return {
+        userId: null,
+        orgId: null,
+        orgName: '—',
+        fullName: '—',
+        demo: false,
+      }
+    }
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -103,7 +69,15 @@ export async function getStaffContext(): Promise<StaffContext> {
       .is('deleted_at', null)
       .maybeSingle()
 
-    if (!profile?.org_id) return MOCK_CONTEXT
+    if (!profile?.org_id) {
+      return {
+        userId: user.id,
+        orgId: null,
+        orgName: '—',
+        fullName: profile?.full_name || '—',
+        demo: false,
+      }
+    }
 
     const org = profile.organizations as { name: string } | { name: string }[] | null
     return {
@@ -114,7 +88,13 @@ export async function getStaffContext(): Promise<StaffContext> {
       demo: false,
     }
   } catch {
-    return MOCK_CONTEXT
+    return {
+      userId: null,
+      orgId: null,
+      orgName: '—',
+      fullName: '—',
+      demo: false,
+    }
   }
 }
 
@@ -122,11 +102,12 @@ export async function getStaffContext(): Promise<StaffContext> {
 export async function getStaffClasses(): Promise<{
   data: StaffClassRow[]
   demo: boolean
+  loadError?: string | null
 }> {
   try {
     const context = await getStaffContext()
-    if (context.demo || !context.orgId) {
-      return { data: MOCK_CLASSES, demo: true }
+    if (!context.orgId) {
+      return { data: [], demo: false, loadError: 'Chưa đăng nhập hoặc thiếu org.' }
     }
 
     const supabase = createClient()
@@ -140,7 +121,7 @@ export async function getStaffClasses(): Promise<{
       .order('created_at', { ascending: false })
 
     if (error || !data) {
-      return { data: MOCK_CLASSES, demo: true }
+      return { data: [], demo: false, loadError: error?.message || 'Không tải được danh sách lớp.' }
     }
 
     const rows: StaffClassRow[] = data.map((row) => {
@@ -160,8 +141,12 @@ export async function getStaffClasses(): Promise<{
       }
     })
     return { data: rows, demo: false }
-  } catch {
-    return { data: MOCK_CLASSES, demo: true }
+  } catch (e) {
+    return {
+      data: [],
+      demo: false,
+      loadError: e instanceof Error ? e.message : 'Lỗi tải danh sách lớp.',
+    }
   }
 }
 
