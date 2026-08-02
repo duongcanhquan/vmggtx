@@ -13,14 +13,25 @@ import { zodFail, type ActionResult } from '@/lib/validation/schemas'
 // ============================================================
 
 const identifierSchema = z
-  .string({ required_error: 'Vui lòng nhập email hoặc số điện thoại.' })
+  .string({ required_error: 'Vui lòng nhập email, mã học viên hoặc số điện thoại.' })
   .trim()
-  .min(3, 'Vui lòng nhập email hoặc số điện thoại.')
+  .min(2, 'Vui lòng nhập email, mã học viên hoặc số điện thoại.')
   .max(160, 'Thông tin đăng nhập quá dài.')
 
 export type ResolveLoginResult =
   | { error: string }
   | { error?: undefined; email: string }
+
+async function emailFromProfileId(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string
+): Promise<ResolveLoginResult> {
+  const { data: userData, error } = await admin.auth.admin.getUserById(profileId)
+  if (error || !userData.user?.email) {
+    return { error: 'Tài khoản chưa gắn email — vui lòng đăng nhập bằng email.' }
+  }
+  return { email: userData.user.email }
+}
 
 export async function resolveLoginEmail(identifier: string): Promise<ResolveLoginResult> {
   const parsed = identifierSchema.safeParse(identifier)
@@ -37,32 +48,62 @@ export async function resolveLoginEmail(identifier: string): Promise<ResolveLogi
 
   // Số điện thoại VN (10 số, bắt đầu 0)
   const digits = value.replace(/\D/g, '')
-  if (!/^0\d{9}$/.test(digits)) {
-    return { error: 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0.' }
+  if (/^0\d{9}$/.test(digits)) {
+    try {
+      const admin = createAdminClient()
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('phone', digits)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (!profile) {
+        return { error: 'Không tìm thấy tài khoản với số điện thoại này.' }
+      }
+      return emailFromProfileId(admin, profile.id)
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error && /SERVICE_ROLE|SECRET_KEY/i.test(error.message)
+            ? 'Máy chủ thiếu SUPABASE_SERVICE_ROLE_KEY — hãy dùng email.'
+            : error instanceof Error
+              ? error.message
+              : 'Không xác định được tài khoản.',
+      }
+    }
   }
 
+  // Mã học viên (MaSV) — VD VM24-0001
   try {
     const admin = createAdminClient()
-    const { data: profile } = await admin
+    const masv = value.toUpperCase()
+    const { data: byExact } = await admin
       .from('profiles')
       .select('id')
-      .eq('phone', digits)
+      .eq('role', 'student')
+      .eq('MaSV', masv)
       .is('deleted_at', null)
       .maybeSingle()
-    if (!profile) {
-      return { error: 'Không tìm thấy tài khoản với số điện thoại này.' }
-    }
+    if (byExact) return emailFromProfileId(admin, byExact.id)
 
-    const { data: userData, error } = await admin.auth.admin.getUserById(profile.id)
-    if (error || !userData.user?.email) {
-      return { error: 'Tài khoản chưa gắn email — vui lòng đăng nhập bằng email.' }
+    // Thử khớp không phân biệt hoa thường qua ilike exact
+    const { data: byIlike } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('role', 'student')
+      .ilike('MaSV', value)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (byIlike) return emailFromProfileId(admin, byIlike.id)
+
+    return {
+      error: 'Không tìm thấy học viên với mã / SĐT này. Thử email hoặc mã học viên (MaSV).',
     }
-    return { email: userData.user.email }
   } catch (error) {
     return {
       error:
         error instanceof Error && /SERVICE_ROLE|SECRET_KEY/i.test(error.message)
-          ? 'Máy chủ thiếu SUPABASE_SERVICE_ROLE_KEY — đăng nhập bằng SĐT tạm thời không dùng được. Hãy dùng email.'
+          ? 'Máy chủ thiếu SUPABASE_SERVICE_ROLE_KEY — hãy dùng email.'
           : error instanceof Error
             ? error.message
             : 'Không xác định được tài khoản.',

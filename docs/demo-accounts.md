@@ -20,12 +20,14 @@ Gói BASIC của Thăng Long **không có**: Kho tri thức AI (`ai_kb`), Tài s
 
 ## Cách đăng nhập
 
-| Ai | URL |
-|---|---|
-| **Super Admin** (toàn hệ thống) | `/login` |
-| **Quản lý / GV / nhân sự** | `/coso/{slug-khách-hàng}` → Đăng nhập (VD `/coso/viet-my`) |
-| **Học viên** | `/coso/{slug}/student/login` |
-| **Phụ huynh** | `/coso/{slug}/parent/login` |
+| Ai | URL | Cách nhập |
+|---|---|---|
+| **Super Admin** | `/login/admin` | Email + mật khẩu |
+| **Quản lý / GV** | `/coso/{slug}/login` — tab Nhà trường | Email/SĐT + mật khẩu |
+| **Học viên** | `/coso/{slug}/login?tab=family` — Học viên | MaSV hoặc email + mật khẩu |
+| **Phụ huynh** | `?tab=family&who=parent` — Phụ huynh | Email + mật khẩu (cần migration **050**) |
+
+Email PH demo (sau 050): `parent.vm240001@gdtx-demo.edu.vn` (MaSV bỏ dấu `-`). Mật khẩu chung `Demo@123456`.
 
 ## Danh sách tài khoản (75 — mật khẩu chung `Demo@123456`)
 

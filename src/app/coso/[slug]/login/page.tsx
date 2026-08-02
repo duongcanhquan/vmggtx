@@ -6,13 +6,12 @@ export const dynamic = 'force-dynamic'
 
 type Props = {
   params: { slug: string }
-  searchParams: { tab?: string }
+  searchParams: { tab?: string; who?: string }
 }
 
 /**
- * CỔNG ĐĂNG NHẬP DUY NHẤT của cơ sở — 2 phần trong 1 trang:
- * - Nhà trường (mặc định)
- * - Gia đình (?tab=family): 1 form chung, email = Học viên · SĐT = Phụ huynh
+ * Cổng đăng nhập cơ sở — 2 phần: Nhà trường | Gia đình
+ * (Gia đình: Học viên MaSV/email+pass · Phụ huynh email+pass)
  */
 export default async function CampusLoginPage({ params, searchParams }: Props) {
   const { campus } = await getPublicCampusBySlug(params.slug)
@@ -21,6 +20,7 @@ export default async function CampusLoginPage({ params, searchParams }: Props) {
     <CampusLoginTabs
       campus={campus}
       initialTab={searchParams.tab === 'family' ? 'family' : 'staff'}
+      initialWho={searchParams.who === 'parent' ? 'parent' : 'student'}
     />
   )
 }

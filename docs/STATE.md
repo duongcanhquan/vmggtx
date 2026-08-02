@@ -3,8 +3,8 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-02 - Landing: knowledge river chạy mọi trang; ảnh chỉ hero;
-  điểm nhấn tính năng; chapter tech/gradient; typography lớn
+**Cập nhật lần cuối**: 2026-08-02 - Cổng /coso → thẳng login; AuthField UI mới;
+  Gia đình: HV MaSV/email+pass, PH email+pass (050 parent_accounts)
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
@@ -13,9 +13,9 @@
 - "Phó giám đốc" = tài khoản campus_admin gắn vào org con (không có role riêng).
 
 ## Migrations
-- Đã có file: `001 → 049` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
-- ⚠️ **CHƯA chạy trên DB thật: 049 (user grants - kiêm nhiệm)** - user chạy tay qua Supabase
-  SQL Editor. Code fail-safe: `isAuthorizedRpc` tự fallback bản 3 tham số; grants coi như rỗng.
+- Đã có file: `001 → 050` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
+- ⚠️ **CHƯA chạy trên DB thật: 049 (user grants)** và **050 (parent_accounts)** — user chạy tay
+  qua Supabase SQL Editor. 049 fail-safe; 050 thiếu → đăng nhập PH báo chạy migration.
 - ⚠️ `scripts/apply-migration.mjs` lỗi "password authentication failed" - DATABASE_URL trong .env sai
   mật khẩu. Muốn tự động hóa phải xin user cập nhật.
 
@@ -47,13 +47,14 @@
    + vá bug giáo vụ sửa hồ sơ học sinh).
 2. Production Vercel: set `PARENT_SESSION_SECRET` + `PARENT_MOCK_OTP` (bắt buộc, không còn fallback).
 3. Subdomain DNS per cơ sở (`ten.domain.com`) — sau path `/coso/` (D14 đã chốt path trước).
-4. Backlog: OTP phụ huynh thật (SMS); attendance/payroll/warnings auto-scan (xem WORKLOG audit).
+4. Backlog: UI quản lý tài khoản phụ huynh; OTP SMS (legacy); attendance/payroll auto-scan.
 5. License: phụ huynh CHƯA bị chặn khi cơ sở hết hạn (chấp nhận được).
 6. Login lỗi production: kiểm tra env Supabase + JWT hook 006; dùng `/coso/{slug}/login` sau khi có slug.
 
 ## Cổng /coso/[slug] (mới - 2026-08-01)
 - Gốc `/login` = landing marketing; `/login/admin` = form nhân sự (icon sách ẩn);
-  hub `/coso` chọn cơ sở; `/coso/{slug}` = cổng cơ sở.
+  hub `/coso` → thẳng `/coso/{slug}/login` (bỏ màn chọn trung gian).
+  Login 2 tab: Nhà trường | Gia đình (Học viên MaSV/email+pass · Phụ huynh email+pass).
 - `organizations.slug` + RPC `get_public_campus_by_slug` / `list_public_campuses`.
 - Wizard tạo cơ sở hiện link đầy đủ để gửi admin cơ sở.
 

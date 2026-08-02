@@ -6,26 +6,21 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { KeyRound, Loader2, Phone, ShieldCheck } from 'lucide-react'
-import { phoneVNSchema } from '@/lib/validation/schemas'
+import { BookOpenCheck, Loader2, Lock, Mail } from 'lucide-react'
 import { AuthShell, AuthField, authBtnClass } from '@/components/auth/AuthShell'
-import { parentLogin } from '@/app/(parent-portal)/actions'
+import { parentLoginWithPassword } from '@/app/(parent-portal)/actions'
+import { campusLoginPath } from '@/lib/utils/orgSlug'
+import { rememberLoginPortal } from '@/lib/auth/loginPortal'
 import type { CampusContext } from '@/components/auth/StaffLoginForm'
 
 const loginSchema = z.object({
-  phone: phoneVNSchema,
-  otp: z
-    .string()
-    .trim()
-    .regex(/^\d{6}$/, 'Mã OTP phải gồm đúng 6 chữ số.'),
+  email: z.string().trim().email('Email không hợp lệ.'),
+  password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự.'),
 })
 
 type LoginValues = z.infer<typeof loginSchema>
 
-/**
- * Form đăng nhập Phụ huynh — /parent/login và tab "Gia đình" của cổng cơ sở.
- * `embedded` = chỉ render FORM (không AuthShell) để nhúng vào cổng tab chung.
- */
+/** Form phụ huynh standalone — email + mật khẩu → cookie parent_session */
 export function ParentLoginForm({
   campus,
   embedded = false,
@@ -34,114 +29,78 @@ export function ParentLoginForm({
   embedded?: boolean
 }) {
   const router = useRouter()
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
-    trigger,
     formState: { errors },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     mode: 'onBlur',
-    reValidateMode: 'onChange',
-    defaultValues: { phone: '', otp: '' },
+    defaultValues: { email: '', password: '' },
   })
-
-  async function handleRequestOtp() {
-    const valid = await trigger('phone')
-    if (!valid) return
-    setServerError(null)
-    setStep('otp')
-  }
 
   async function onValid(values: LoginValues) {
     setSubmitting(true)
     setServerError(null)
-
     const formData = new FormData()
-    formData.set('phone', values.phone)
-    formData.set('otp', values.otp)
+    formData.set('email', values.email)
+    formData.set('password', values.password)
     if (campus) formData.set('campusOrgId', campus.id)
 
-    const result = await parentLogin(formData)
+    const result = await parentLoginWithPassword(formData)
     setSubmitting(false)
-
     if (result.error !== undefined) {
       setServerError(result.error)
       return
     }
+    rememberLoginPortal(
+      campus ? campusLoginPath(campus.slug, 'parent') : '/parent/login'
+    )
     router.push('/dashboard')
     router.refresh()
   }
 
   const formEl = (
     <form onSubmit={handleSubmit(onValid)} noValidate>
-        <AuthField
-          id="parent-phone"
-          label="Số điện thoại đã đăng ký với nhà trường"
-          icon={Phone}
-          type="tel"
-          inputMode="numeric"
-          autoComplete="tel"
-          disabled={step === 'otp'}
-          error={errors.phone?.message}
-          className={step === 'otp' ? 'opacity-60' : ''}
-          {...register('phone')}
-        />
-
-        {step === 'phone' ? (
-          <button type="button" onClick={handleRequestOtp} className={authBtnClass}>
-            <KeyRound className="h-4 w-4" aria-hidden="true" />
-            Gửi mã OTP
-          </button>
+      <AuthField
+        id="parent-email"
+        label="Email phụ huynh"
+        hint="Email đã đăng ký với nhà trường"
+        icon={Mail}
+        type="email"
+        autoComplete="username"
+        error={errors.email?.message}
+        {...register('email')}
+      />
+      <AuthField
+        id="parent-password"
+        label="Mật khẩu"
+        icon={Lock}
+        type="password"
+        autoComplete="current-password"
+        error={errors.password?.message}
+        {...register('password')}
+      />
+      {serverError && (
+        <p
+          role="alert"
+          className="mb-4 rounded-lg border border-rose-200/40 bg-rose-500/20 px-3 py-2 text-xs font-medium text-white"
+        >
+          {serverError}
+        </p>
+      )}
+      <button type="submit" disabled={submitting} className={authBtnClass}>
+        {submitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
-          <>
-            <AuthField
-              id="parent-otp"
-              label="Mã OTP (6 số)"
-              icon={ShieldCheck}
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              autoFocus
-              error={errors.otp?.message}
-              className="text-center text-xl tracking-[0.5em]"
-              {...register('otp')}
-            />
-            <p className="-mt-4 mb-4 text-xs text-white/80">Demo: nhập 123456</p>
-
-            <button type="submit" disabled={submitting} className={authBtnClass}>
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-              )}
-              {submitting ? 'Đang xác thực…' : 'Vào Sổ Liên Lạc'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStep('phone')}
-              className="mx-auto mt-3 block cursor-pointer text-sm font-medium text-white/85 underline-offset-2 transition-colors duration-150 hover:text-white hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            >
-              Đổi số điện thoại khác
-            </button>
-          </>
+          <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
         )}
-
-        {serverError && (
-          <p
-            role="alert"
-            className="mt-4 rounded-md border border-rose-200/50 bg-rose-500/25 px-3.5 py-2.5 text-sm font-medium text-white"
-          >
-            {serverError}
-          </p>
-        )}
-
-      </form>
+        {submitting ? 'Đang đăng nhập…' : 'Đăng nhập'}
+      </button>
+    </form>
   )
 
   if (embedded) return formEl
@@ -149,37 +108,15 @@ export function ParentLoginForm({
   return (
     <AuthShell
       theme="parent"
-      badge="Cổng Phụ huynh"
-      title={
-        campus ? (
-          <span className="block text-balance text-2xl leading-snug sm:text-[26px]">
-            {campus.name}
-          </span>
-        ) : (
-          'Sổ Liên Lạc Điện Tử'
-        )
-      }
-      subtitle={campus ? 'Sổ liên lạc điện tử' : undefined}
+      badge="Phụ huynh"
+      title="Sổ liên lạc"
+      subtitle="Đăng nhập bằng email và mật khẩu"
       footer={
-        !campus ? (
-          <p>
-            <Link
-              href="/coso"
-              className="font-bold text-white underline-offset-2 hover:underline"
-            >
-              Chọn cơ sở của bạn →
-            </Link>
-          </p>
-        ) : (
-          <p>
-            <Link
-              href={`/coso/${campus.slug}`}
-              className="font-bold text-white/80 underline-offset-2 hover:underline"
-            >
-              ← Về trang cơ sở
-            </Link>
-          </p>
-        )
+        <p>
+          <Link href="/coso" className="font-semibold underline-offset-2 hover:underline">
+            Chọn cơ sở
+          </Link>
+        </p>
       }
     >
       {formEl}

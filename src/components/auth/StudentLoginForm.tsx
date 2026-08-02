@@ -19,9 +19,9 @@ import type { CampusContext } from '@/components/auth/StaffLoginForm'
 
 const loginFormSchema = z.object({
   identifier: z
-    .string({ required_error: 'Vui lòng nhập email hoặc số điện thoại.' })
+    .string({ required_error: 'Vui lòng nhập mã học viên hoặc email.' })
     .trim()
-    .min(3, 'Vui lòng nhập email hoặc số điện thoại.'),
+    .min(2, 'Vui lòng nhập mã học viên hoặc email.'),
   password: z
     .string({ required_error: 'Vui lòng nhập mật khẩu.' })
     .min(6, 'Mật khẩu tối thiểu 6 ký tự.'),
@@ -160,7 +160,7 @@ export function StudentLoginForm({
     <form onSubmit={handleSubmit(onValid)} noValidate>
         <AuthField
           id="student-identifier"
-          label="Email hoặc số điện thoại"
+          label="Mã học viên hoặc email"
           icon={Mail}
           type="text"
           autoComplete="username"

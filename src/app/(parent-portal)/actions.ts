@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifyPassword } from '@/lib/auth/passwordHash'
 import { phoneVNSchema, zodFail } from '@/lib/validation/schemas'
 
 // ============================================================
@@ -266,6 +267,95 @@ export async function parentLogin(
       setParentCookie(DEMO_STUDENT_ID)
       return { studentName: MOCK_STUDENT.full_name }
     }
+    const message =
+      error instanceof Error && /PARENT_SESSION_SECRET/.test(error.message)
+        ? error.message
+        : 'Không kết nối được hệ thống. Vui lòng thử lại sau.'
+    return { error: message }
+  }
+}
+
+/**
+ * Đăng nhập phụ huynh bằng email + mật khẩu (bảng parent_accounts).
+ * Thành công → cookie parent_session gắn student_id.
+ */
+export async function parentLoginWithPassword(
+  formData: FormData
+): Promise<{ error: string } | { error?: undefined; studentName: string }> {
+  const emailParsed = z
+    .string()
+    .trim()
+    .email('Email không hợp lệ.')
+    .safeParse(String(formData.get('email') ?? ''))
+  if (!emailParsed.success) return zodFail(emailParsed.error)
+
+  const password = String(formData.get('password') ?? '')
+  if (password.length < 6) {
+    return { error: 'Mật khẩu tối thiểu 6 ký tự.' }
+  }
+
+  const campusOrgIdRaw = String(formData.get('campusOrgId') ?? '').trim()
+  const campusOrgId =
+    campusOrgIdRaw && /^[0-9a-f-]{36}$/i.test(campusOrgIdRaw) ? campusOrgIdRaw : null
+
+  try {
+    const supabase = admin()
+    const { data: account, error } = await supabase
+      .from('parent_accounts')
+      .select('id, student_id, org_id, password_hash, full_name')
+      .ilike('email', emailParsed.data)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error) {
+      if (/parent_accounts|does not exist|42P01/i.test(error.message)) {
+        return {
+          error:
+            'Cổng phụ huynh chưa sẵn sàng (thiếu bảng parent_accounts). Chạy migration 050 trên Supabase.',
+        }
+      }
+      throw error
+    }
+    if (!account || !verifyPassword(password, account.password_hash)) {
+      return { error: 'Email hoặc mật khẩu không đúng.' }
+    }
+
+    if (campusOrgId) {
+      const { data: subtree, error: subErr } = await supabase.rpc(
+        'get_descendant_org_ids',
+        { p_org_id: campusOrgId }
+      )
+      if (subErr) throw subErr
+      const ids = (subtree ?? []).map((row: { id?: string } | string) =>
+        typeof row === 'string' ? row : (row.id as string)
+      )
+      const allowed = ids.length > 0 ? ids : [campusOrgId]
+      if (!allowed.includes(account.org_id) && account.org_id !== campusOrgId) {
+        // Cho phép nếu student.org nằm trong subtree (account.org_id có thể = nhánh)
+        const { data: student } = await supabase
+          .from('profiles')
+          .select('org_id')
+          .eq('id', account.student_id)
+          .maybeSingle()
+        if (!student?.org_id || !allowed.includes(student.org_id)) {
+          return {
+            error: 'Tài khoản không thuộc cơ sở bạn đang truy cập.',
+          }
+        }
+      }
+    }
+
+    const { data: student } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', account.student_id)
+      .maybeSingle()
+
+    setParentCookie(account.student_id)
+    return {
+      studentName: student?.full_name || account.full_name || 'Học viên',
+    }
+  } catch (error) {
     const message =
       error instanceof Error && /PARENT_SESSION_SECRET/.test(error.message)
         ? error.message

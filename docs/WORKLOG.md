@@ -116,3 +116,8 @@
 ## 2026-08-02 | copy marketing don gian
 - Bo jargon (org_id, RAG, CRM, LMS, module...); viet lai hub + 5 chuong bang tieng Viet ro.
 - Vi du: tech strip -> "Don gian voi nha truong — phuc tap de phia sau".
+
+## 2026-08-02 | coso login thang + family password
+- /coso va /coso/[slug] -> thang /login (bo man chon).
+- AuthField: label tren, input vua; 2 tab Nha truong | Gia dinh + HV/PH.
+- HV: MaSV/email+pass; PH: email+pass (050 parent_accounts). Can chay 050 tren DB.

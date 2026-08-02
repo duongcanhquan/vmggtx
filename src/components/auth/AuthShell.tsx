@@ -39,17 +39,13 @@ const THEME: Record<
   },
 }
 
-/** Nút submit navy #162938 theo mẫu (.btn) */
+/** Nút submit — chữ vừa, không đè mô tả */
 export const authBtnClass =
-  'flex h-[45px] w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-[#162938] text-[15px] font-medium text-white transition-colors duration-300 hover:bg-[#1f3a52] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed disabled:opacity-60'
+  'flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#162938] text-sm font-semibold text-white transition-colors duration-300 hover:bg-[#1f3a52] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed disabled:opacity-60'
 
 /**
- * Ô nhập GẠCH CHÂN + LABEL NỔI + ICON PHẢI theo mẫu (.input-box).
- * Label nổi lên khi focus hoặc đã có nội dung (peer-placeholder-shown).
- *
- * BẮT BUỘC forwardRef: react-hook-form cần ref trỏ thẳng vào <input>
- * để đọc giá trị trình duyệt TỰ ĐIỀN (autofill). Thiếu ref → autofill
- * xong bấm Đăng nhập vẫn báo "Vui lòng nhập email…".
+ * Ô nhập: label NẰM TRÊN (không đè chữ khi gõ), chữ input vừa phải.
+ * forwardRef bắt buộc cho react-hook-form + autofill.
  */
 export const AuthField = forwardRef<
   HTMLInputElement,
@@ -58,38 +54,43 @@ export const AuthField = forwardRef<
     label: string
     icon: LucideIcon
     error?: string
+    hint?: string
   } & React.InputHTMLAttributes<HTMLInputElement>
 >(function AuthField(
-  { id, label, icon: Icon, error, className = '', ...inputProps },
+  { id, label, icon: Icon, error, hint, className = '', ...inputProps },
   ref
 ) {
   return (
-    <div className="my-7">
+    <div className="mb-5">
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/75"
+      >
+        {label}
+      </label>
       <div
-        className={`relative h-[50px] w-full border-b-2 transition-colors ${
-          error ? 'border-rose-300' : 'border-white/80 focus-within:border-white'
+        className={`relative flex h-11 w-full items-center rounded-lg border bg-white/10 px-3 transition-colors ${
+          error
+            ? 'border-rose-300/80'
+            : 'border-white/35 focus-within:border-white/80 focus-within:bg-white/[0.14]'
         }`}
       >
         <input
           ref={ref}
           id={id}
-          placeholder=" "
           aria-invalid={!!error}
-          className={`peer h-full w-full border-none bg-transparent pl-1.5 pr-9 text-base font-semibold text-white outline-none autofill:shadow-[inset_0_0_0_1000px_transparent] ${className}`}
+          className={`h-full w-full border-none bg-transparent pr-8 text-sm font-medium text-white outline-none placeholder:text-white/40 autofill:shadow-[inset_0_0_0_1000px_rgba(22,41,56,0.85)] ${className}`}
           {...inputProps}
         />
-        <label
-          htmlFor={id}
-          className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[15px] font-medium text-white/90 transition-all duration-300 peer-focus:top-[-2px] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[-2px] peer-[:not(:placeholder-shown)]:text-xs"
-        >
-          {label}
-        </label>
-        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/90">
-          <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+        <span className="pointer-events-none absolute right-3 text-white/70">
+          <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
       </div>
+      {hint && !error && (
+        <p className="mt-1 text-[11px] leading-snug text-white/55">{hint}</p>
+      )}
       {error && (
-        <p role="alert" className="mt-1.5 text-xs font-semibold text-rose-200">
+        <p role="alert" className="mt-1 text-xs font-semibold text-rose-200">
           {error}
         </p>
       )}
@@ -237,15 +238,15 @@ export function AuthShell({
                 <span className="truncate">{badge}</span>
               </span>
             )}
-            <h1 className="mt-3 break-words font-heading text-[1.9em] font-bold leading-tight tracking-tight text-white">
+            <h1 className="mt-3 break-words font-heading text-xl font-bold leading-snug tracking-tight text-white sm:text-2xl">
               {title}
             </h1>
             {subtitle && (
-              <p className="mt-1.5 text-balance text-sm text-white/85">{subtitle}</p>
+              <p className="mt-1.5 text-balance text-xs text-white/70 sm:text-sm">{subtitle}</p>
             )}
           </div>
 
-          <div className="mt-2">{children}</div>
+          <div className="mt-4">{children}</div>
 
           {/* login-register: liên kết chéo giữa các cổng */}
           {footer && (

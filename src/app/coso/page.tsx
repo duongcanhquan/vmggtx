@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, Building2, SearchX } from 'lucide-react'
 import { listPublicCampuses } from './actions'
-import { campusPortalPath } from '@/lib/utils/orgSlug'
+import { campusLoginPath } from '@/lib/utils/orgSlug'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +48,7 @@ export default async function CampusDirectoryPage() {
             {campuses.map((campus) => (
               <li key={campus.id}>
                 <Link
-                  href={campusPortalPath(campus.slug)}
+                  href={campusLoginPath(campus.slug)}
                   className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 motion-reduce:hover:translate-y-0"
                 >
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
