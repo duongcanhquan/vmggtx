@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useCompletion } from 'ai/react'
 import { Bot, Loader2, Sparkles, StopCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { SaveLessonDraft } from './SaveLessonDraft'
 
 // ============================================================
 // TRỢ LÝ AI SOẠN GIÁO ÁN (/teacher/assistant)
@@ -152,9 +153,12 @@ export default function TeacherAssistantPage() {
             {completion || 'Đang chuẩn bị nội dung…'}
           </div>
           {!isLoading && completion && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Nội dung do AI tạo — vui lòng rà soát trước khi dùng.
-            </p>
+            <>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Nội dung do AI tạo — vui lòng rà soát trước khi dùng.
+              </p>
+              <SaveLessonDraft content={completion} topicHint={input} />
+            </>
           )}
         </div>
       )}

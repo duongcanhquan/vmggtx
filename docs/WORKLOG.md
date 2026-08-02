@@ -169,3 +169,9 @@
 - softDeleteAssessment cascade soft-delete grades; loc assessments.deleted_at.
 - scanAttendanceWarningsAdmin: academic_staff HOAC GV sessionId.
 - loadError UI staff/classes + teacher/schedule; tutor enrollment active.
+
+## 2026-08-02 | LMS ho tro giang day + duyet bai (D21)
+- Migration 054: status pending_review/rejected + cot duyet; enrollment active.
+- Teacher LMS: Gui duyet, badge trang thai; staff /staff/lms-approval.
+- AI assistant -> luu nhap LMS; gate lesson_plan; soft-delete RAG chunks.
+- Setting require_lesson_approval; menuRegistry + DashboardShell + check-db.

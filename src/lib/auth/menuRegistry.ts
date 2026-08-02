@@ -66,10 +66,11 @@ export const MENU_SECTIONS: MenuSection[] = [
   {
     // LƯU Ý: teacher nằm trong defaultRoles vì Gia sư AI theo lớp
     // (/classes/[id]/tutor) do giáo viên + học viên sử dụng.
+    // LMS Online + duyệt bài giảng cũng gắn cụm «lớp học / dạy học».
     key: 'classes',
-    label: 'Lớp học (kèm Gia sư AI lớp)',
+    label: 'Lớp học · LMS · Gia sư AI',
     defaultRoles: [...ACADEMIC, 'teacher'],
-    prefixes: ['/classes'],
+    prefixes: ['/classes', '/teacher/lms', '/teacher/assistant', '/staff/lms-approval', '/learn'],
   },
   {
     key: 'attendance',

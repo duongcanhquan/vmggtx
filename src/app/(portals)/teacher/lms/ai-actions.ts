@@ -284,12 +284,18 @@ export async function indexLessonToRAG(
     const supabase = createClient()
     const { data: lesson } = await supabase
       .from('lms_lessons')
-      .select('id, title, description, content, created_by')
+      .select('id, title, description, content, status, created_by')
       .eq('id', lessonId)
       .eq('class_id', classId)
       .is('deleted_at', null)
       .maybeSingle()
     if (!lesson) return { error: 'Không tìm thấy bài giảng.' }
+    if (lesson.status !== 'published') {
+      return {
+        error:
+          'Chỉ nạp AI cho bài đã phát hành (sau khi Giáo vụ duyệt nếu cơ sở bật duyệt).',
+      }
+    }
 
     const fullText = [
       `BÀI GIẢNG: ${lesson.title}`,
@@ -319,15 +325,16 @@ export async function indexLessonToRAG(
       return { error: AI_FAILED }
     }
 
-    // Admin client: xóa chunk cũ theo metadata lesson_id rồi chèn mới
-    // (đã authorize GV/Staff của đúng lớp ở trên)
+    // Soft-delete chunk cũ theo metadata lesson_id rồi chèn mới
     const admin = createAdminClient()
+    const now = new Date().toISOString()
     await admin
       .from('lesson_materials')
-      .delete()
+      .update({ deleted_at: now })
       .eq('org_id', auth.cls.org_id)
       .eq('class_id', classId)
       .eq('metadata->>lesson_id', lessonId)
+      .is('deleted_at', null)
 
     const { error: insertError } = await admin.from('lesson_materials').insert(
       chunks.map((content, index) => ({

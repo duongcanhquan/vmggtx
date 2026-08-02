@@ -489,6 +489,12 @@ export const orgConfigSchema = z.object({
   require_manager_approval_for_refunds: z.boolean({
     invalid_type_error: 'Giá trị duyệt hoàn phí không hợp lệ.',
   }),
+  /** LMS: bắt buộc Giáo vụ duyệt bài giảng trước khi phát hành */
+  require_lesson_approval: z
+    .boolean({
+      invalid_type_error: 'Giá trị duyệt bài giảng không hợp lệ.',
+    })
+    .default(true),
   /** Mã cơ sở dùng để sinh mã học viên (VD: CS1, CG, HN2) */
   org_code: z
     .string()
@@ -542,6 +548,7 @@ export const DEFAULT_ORG_CONFIG: OrgConfig = {
   max_absence_warning: 3,
   grading_locked_days: 7,
   require_manager_approval_for_refunds: true,
+  require_lesson_approval: true,
   org_code: '',
   student_code_format: 'org_year_seq',
   dashboard_widgets: [

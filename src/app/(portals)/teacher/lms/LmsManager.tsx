@@ -40,6 +40,7 @@ import {
   saveLesson,
   saveQuiz,
   setQuizPublished,
+  submitLessonForReview,
   syncScoresToGradebook,
   type ClassLmsData,
   type ClassProgress,
@@ -137,6 +138,12 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
   }
 
   async function togglePublishLesson(lesson: LmsLesson) {
+    if (!data?.canDirectPublish && lesson.status !== 'published') {
+      return notify(
+        'error',
+        'Cơ sở yêu cầu duyệt bài — dùng «Gửi duyệt» thay vì phát hành trực tiếp.'
+      )
+    }
     setBusyId(lesson.id)
     const res = await saveLesson({
       id: lesson.id,
@@ -152,6 +159,44 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
     if (res.error) return notify('error', res.error)
     notify('success', lesson.status === 'published' ? 'Đã chuyển về nháp.' : 'Đã phát hành bài giảng.')
     void reload()
+  }
+
+  async function handleSubmitReview(lesson: LmsLesson) {
+    setBusyId(`sub-${lesson.id}`)
+    const res = await submitLessonForReview(classId, lesson.id)
+    setBusyId(null)
+    if (res.error) return notify('error', res.error)
+    notify('success', 'Đã gửi Giáo vụ duyệt bài giảng.')
+    void reload()
+  }
+
+  function statusBadge(status: LmsLesson['status']) {
+    const map: Record<
+      LmsLesson['status'],
+      { label: string; className: string }
+    > = {
+      draft: { label: 'Nháp', className: 'bg-slate-100 text-slate-700' },
+      pending_review: {
+        label: 'Chờ duyệt',
+        className: 'bg-amber-50 text-amber-800 border border-amber-200',
+      },
+      published: {
+        label: 'Đã phát hành',
+        className: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+      },
+      rejected: {
+        label: 'Từ chối',
+        className: 'bg-rose-50 text-rose-800 border border-rose-200',
+      },
+    }
+    const meta = map[status] ?? map.draft
+    return (
+      <span
+        className={`inline-flex rounded-lg px-2 py-0.5 text-[11px] font-semibold ${meta.className}`}
+      >
+        {meta.label}
+      </span>
+    )
   }
 
   async function handleSync(source: 'assignment' | 'quiz', sourceId: string) {
@@ -216,6 +261,12 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
           {/* ===== TAB BÀI GIẢNG ===== */}
           {tab === 'lessons' && (
             <section className="space-y-3">
+              {data.requireApproval && (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Cơ sở đang bật duyệt bài giảng: soạn xong → «Gửi duyệt» → Giáo vụ duyệt tại
+                  /staff/lms-approval. Chỉ bài «Đã phát hành» hiện với học viên và được «Cho AI học».
+                </p>
+              )}
               <button
                 onClick={() => setLessonEditing({})}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90"
@@ -232,15 +283,7 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="truncate font-heading text-base font-bold">{lesson.title}</h3>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                              lesson.status === 'published'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {lesson.status === 'published' ? 'Đã phát hành' : 'Nháp'}
-                          </span>
+                          {statusBadge(lesson.status)}
                           {ragStatus[lesson.id] > 0 && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700">
                               <BrainCircuit className="h-3 w-3" aria-hidden="true" /> AI đã học
@@ -249,6 +292,11 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
                         </div>
                         {lesson.description && (
                           <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{lesson.description}</p>
+                        )}
+                        {lesson.status === 'rejected' && lesson.review_note && (
+                          <p className="mt-1 text-xs text-rose-700">
+                            Lý do từ chối: {lesson.review_note}
+                          </p>
                         )}
                         {lesson.attachments.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -265,14 +313,36 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
                           </div>
                         )}
                       </div>
-                      <div className="flex shrink-0 gap-1.5">
+                      <div className="flex shrink-0 flex-wrap gap-1.5">
+                        {(lesson.status === 'draft' || lesson.status === 'rejected') &&
+                          data.requireApproval && (
+                            <button
+                              type="button"
+                              onClick={() => void handleSubmitReview(lesson)}
+                              disabled={busyId === `sub-${lesson.id}`}
+                              className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
+                            >
+                              {busyId === `sub-${lesson.id}` ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Send className="h-3.5 w-3.5" />
+                              )}
+                              Gửi duyệt
+                            </button>
+                          )}
                         <button
                           onClick={() => void handleTeachAI(lesson)}
-                          disabled={busyId === `rag-${lesson.id}` || !lesson.content}
+                          disabled={
+                            busyId === `rag-${lesson.id}` ||
+                            !lesson.content ||
+                            lesson.status !== 'published'
+                          }
                           title={
-                            lesson.content
-                              ? 'Cho Gia sư AI học nội dung bài này (RAG) để trả lời học viên'
-                              : 'Bài chưa có phần Nội dung để AI học'
+                            lesson.status !== 'published'
+                              ? 'Chỉ nạp AI sau khi bài đã phát hành'
+                              : lesson.content
+                                ? 'Cho Gia sư AI học nội dung bài này (RAG)'
+                                : 'Bài chưa có phần Nội dung để AI học'
                           }
                           className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-violet-200 bg-violet-50 px-3 text-xs font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-40"
                         >
@@ -283,9 +353,21 @@ export function LmsManager({ classes }: { classes: ClassOption[] }) {
                           )}
                           {ragStatus[lesson.id] > 0 ? 'AI học lại' : 'Cho AI học'}
                         </button>
-                        <IconBtn title={lesson.status === 'published' ? 'Chuyển về nháp' : 'Phát hành'} busy={busyId === lesson.id} onClick={() => void togglePublishLesson(lesson)}>
-                          {lesson.status === 'published' ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </IconBtn>
+                        {(data.canDirectPublish || lesson.status === 'published') && (
+                          <IconBtn
+                            title={
+                              lesson.status === 'published' ? 'Chuyển về nháp' : 'Phát hành'
+                            }
+                            busy={busyId === lesson.id}
+                            onClick={() => void togglePublishLesson(lesson)}
+                          >
+                            {lesson.status === 'published' ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </IconBtn>
+                        )}
                         <IconBtn title="Sửa" onClick={() => setLessonEditing(lesson)}>
                           <Pencil className="h-4 w-4" />
                         </IconBtn>
@@ -644,7 +726,9 @@ function LessonModal({
   const [description, setDescription] = useState(lesson.description ?? '')
   const [content, setContent] = useState(lesson.content ?? '')
   const [videoUrl, setVideoUrl] = useState(lesson.video_url ?? '')
-  const [status, setStatus] = useState<'draft' | 'published'>(lesson.status ?? 'draft')
+  const [status, setStatus] = useState<'draft' | 'published'>(
+    lesson.status === 'published' ? 'published' : 'draft'
+  )
   const [attachments, setAttachments] = useState<AttachmentMeta[]>(lesson.attachments ?? [])
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)

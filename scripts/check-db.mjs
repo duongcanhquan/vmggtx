@@ -240,6 +240,12 @@ console.log('\n-- Migration 051 (logo thương hiệu theo tổ chức) --')
 await checkColumn('organizations', 'logo_url', '051_org_logo.sql')
 await checkColumn('organizations', 'logo_key', '051_org_logo.sql')
 
+console.log('\n-- Migration 054 (duyệt bài giảng LMS) --')
+await checkColumn('lms_lessons', 'submitted_at', '054_lms_lesson_approval.sql')
+await checkColumn('lms_lessons', 'reviewed_by', '054_lms_lesson_approval.sql')
+await checkColumn('lms_lessons', 'reviewed_at', '054_lms_lesson_approval.sql')
+await checkColumn('lms_lessons', 'review_note', '054_lms_lesson_approval.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

@@ -194,18 +194,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // academic_assist: tối thiểu teacher trên org (chứa dữ liệu HV nhạy cảm)
-    if (taskType === 'academic_assist') {
+    // lesson_plan / academic_assist / hr_query: tối thiểu teacher trên org
+    // (chống HV/tuyển sinh đốt API key tenant)
+    if (
+      taskType === 'academic_assist' ||
+      taskType === 'lesson_plan' ||
+      taskType === 'hr_query'
+    ) {
+      const minRole = taskType === 'hr_query' ? 'accountant' : 'teacher'
       const { data: staffOk } = await supabase.rpc('is_authorized', {
         p_user_id: user.id,
         p_target_org_id: requestedOrgId,
-        p_required_role: 'teacher',
+        p_required_role: minRole,
       })
+      // hr_query: accountant+ hoặc teacher+ đều OK nếu weight đủ — dùng minRole
       if (staffOk !== true && profile.role !== 'super_admin') {
-        return NextResponse.json(
-          { error: 'TỪ CHỐI: Trợ lý học vụ chỉ dành cho GV / Giáo vụ trở lên.' },
-          { status: 403 }
-        )
+        // teacher có weight=2; accountant cũng 2 — hr cho cả hai
+        if (taskType === 'hr_query') {
+          const { data: teacherOk } = await supabase.rpc('is_authorized', {
+            p_user_id: user.id,
+            p_target_org_id: requestedOrgId,
+            p_required_role: 'teacher',
+          })
+          if (teacherOk !== true) {
+            return NextResponse.json(
+              { error: 'TỪ CHỐI: Trợ lý này chỉ dành cho nhân sự nội bộ.' },
+              { status: 403 }
+            )
+          }
+        } else {
+          return NextResponse.json(
+            {
+              error:
+                taskType === 'lesson_plan'
+                  ? 'TỪ CHỐI: Soạn giáo án AI chỉ dành cho GV / Giáo vụ trở lên.'
+                  : 'TỪ CHỐI: Trợ lý học vụ chỉ dành cho GV / Giáo vụ trở lên.',
+            },
+            { status: 403 }
+          )
+        }
       }
     }
 

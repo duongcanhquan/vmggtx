@@ -142,6 +142,13 @@ const MENU: MenuEntry[] = [
         menuKey: 'staff_ops',
       },
       {
+        label: 'Duyệt bài giảng LMS',
+        href: '/staff/lms-approval',
+        icon: BookOpenCheck,
+        roles: ACADEMIC,
+        menuKey: 'classes',
+      },
+      {
         label: 'Cảnh báo học vụ',
         href: '/academic/warnings',
         icon: AlertTriangle,
