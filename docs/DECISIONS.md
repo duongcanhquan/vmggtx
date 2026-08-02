@@ -30,7 +30,8 @@ Mỗi quyết định 1-3 dòng. Thêm mới vào CUỐI danh sách với mã D 
 - **D13** Commit trên Windows PowerShell: build sạch trước, message qua file .git-commit-msg.txt
   (không dấu), không dùng && / heredoc.
 - **D14** Phân tách cổng theo domain path:
-  - Gốc (`/login`) = cổng Super Admin (khuyến nghị); nhân sự cơ sở vẫn login được
-    (fallback khi chưa có slug / chưa chạy 045).
-  - Hub `/coso` = chọn cơ sở; mỗi campus `/coso/{slug}` + 3 login (khuyến nghị cho cơ sở).
+  - Gốc (`/login`) = landing marketing; Super Admin qua `/login/admin` (icon sách ẩn).
+  - Hub `/coso` → thẳng `/coso/{slug}/login` (không màn chọn trung gian).
+  - Login 2 tab: Nhà trường | Gia đình (HV: MaSV/email+pass; PH: email+pass qua
+    `parent_accounts` + cookie HMAC — không tạo role parent trong JWT).
   - Không bắt buộc subdomain DNS trước; `*.domain` làm sau nếu cần.
