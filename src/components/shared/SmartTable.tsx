@@ -371,7 +371,7 @@ export function SmartTable<TData, TValue>({
                     ? 'Đã lưu góc nhìn'
                     : saveState === 'error'
                       ? 'Lỗi — thử lại'
-                      : 'Lưu góc nhìn'}
+                      : 'Lưu'}
               </button>
               <button
                 type="button"

@@ -45,11 +45,13 @@ async function authorizeForStudent(studentId: string): Promise<
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Bạn chưa đăng nhập.' }
 
+  // [QA-FIX A] Soft-delete: không cho enroll/transfer HV đã xóa
   const { data: student } = await supabase
     .from('profiles')
     .select('id, org_id')
     .eq('id', studentId)
     .eq('role', 'student')
+    .is('deleted_at', null)
     .maybeSingle()
   if (!student) return { error: 'Học sinh không tồn tại.' }
 

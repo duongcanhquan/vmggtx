@@ -60,16 +60,30 @@ export async function runMonthlyPayroll(
       return { error: 'Bạn chưa đăng nhập. Chạy bảng lương yêu cầu quyền Campus Admin.' }
     }
 
+    // [QA-FIX C] Align menu payroll_contracts: campus_admin + accountant
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', currentUser.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    const role = profile?.role ?? ''
+    const roleAllowed =
+      role === 'super_admin' || role === 'campus_admin' || role === 'accountant'
+    if (!roleAllowed) {
+      return {
+        error: 'TỪ CHỐI: Chỉ Quản lý cơ sở hoặc Kế toán được chạy bảng lương.',
+      }
+    }
     const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
       p_user_id: currentUser.id,
       p_target_org_id: orgId,
-      p_required_role: 'campus_admin',
+      p_required_role: role === 'accountant' ? 'accountant' : 'campus_admin',
     })
     if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     if (authorized !== true) {
       return {
-        error:
-          'TỪ CHỐI: Bạn không phải Campus Admin, hoặc cơ sở này không thuộc quyền quản lý của bạn.',
+        error: 'TỪ CHỐI: Cơ sở này không thuộc quyền quản lý của bạn.',
       }
     }
 
@@ -174,7 +188,9 @@ export async function runMonthlyPayroll(
         outcome: locked ? 'locked' : 'saved',
         note: locked
           ? 'Bảng lương kỳ này đã duyệt/đã chi - giữ nguyên, không ghi đè.'
-          : 'Đã lưu nháp (draft).',
+          : payroll.sessionsMissingAttendance > 0
+            ? `Đã lưu nháp. ${payroll.sessionsMissingAttendance} buổi completed chưa điểm danh — không tính lương.`
+            : 'Đã lưu nháp (draft).',
       })
     }
 
@@ -195,5 +211,57 @@ export async function runMonthlyPayroll(
       error:
         error instanceof Error ? error.message : 'Lỗi không xác định khi chạy bảng lương.',
     }
+  }
+}
+
+/** Duyệt hoặc đánh dấu đã chi bảng lương draft của kỳ. */
+export async function setPayrollStatus(
+  orgId: string,
+  month: number,
+  year: number,
+  status: 'approved' | 'paid'
+): Promise<{ error?: string; updated?: number }> {
+  const parsed = payrollRunSchema.safeParse({ orgId, month, year })
+  if (!parsed.success) return zodFail(parsed.error)
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { error: 'Chưa đăng nhập.' }
+
+    const { data: authorized } = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: orgId,
+      p_required_role: 'campus_admin',
+    })
+    if (authorized !== true) {
+      const { data: me } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (me?.role !== 'accountant' && me?.role !== 'super_admin') {
+        return { error: 'Chỉ Campus Admin / Kế toán được duyệt bảng lương.' }
+      }
+    }
+
+    const fromStatus = status === 'approved' ? 'draft' : 'approved'
+    const { data, error } = await supabase
+      .from('payrolls')
+      .update({ status })
+      .eq('org_id', orgId)
+      .eq('month', month)
+      .eq('year', year)
+      .eq('status', fromStatus)
+      .is('deleted_at', null)
+      .select('id')
+
+    if (error) return { error: error.message }
+    revalidatePath('/finance/payroll')
+    return { updated: data?.length ?? 0 }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lỗi cập nhật trạng thái lương.' }
   }
 }

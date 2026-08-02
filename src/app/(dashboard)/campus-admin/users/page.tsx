@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
@@ -34,6 +35,7 @@ import {
   type StaffRow,
   type UserGrantData,
 } from './actions'
+import { listJobTitlesForOrg } from '../job-titles/actions'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
@@ -68,17 +70,15 @@ const FILTER_ROLES = [
   { value: 'admission_staff', label: 'Tư vấn tuyển sinh' },
   { value: 'accountant', label: 'Kế toán' },
   { value: 'teacher', label: 'Giáo viên' },
-  { value: 'student', label: 'Học viên' },
 ]
 
-/** Role được phép gán trong form - KHÔNG BAO GIỜ có super_admin */
+/** Role được phép gán trong form - KHÔNG BAO GIỜ có super_admin / student */
 const ASSIGNABLE_ROLE_OPTIONS = [
   { value: 'campus_admin', label: 'Quản lý cơ sở (campus_admin)' },
   { value: 'academic_staff', label: 'Giáo vụ (academic_staff)' },
   { value: 'admission_staff', label: 'Tư vấn tuyển sinh (admission_staff)' },
   { value: 'accountant', label: 'Kế toán (accountant)' },
   { value: 'teacher', label: 'Giáo viên (teacher)' },
-  { value: 'student', label: 'Học viên (student)' },
 ]
 
 /** Thông báo lỗi đỏ hiển thị NGAY dưới ô input sai */
@@ -221,6 +221,13 @@ export default function CampusAdminUsersPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Quản lý Nhân sự
           </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Chỉ tài khoản nhân viên / giáo viên. Học viên quản lý tại{' '}
+            <Link href="/students" className="font-semibold text-primary underline-offset-2 hover:underline">
+              Học sinh
+            </Link>
+            .
+          </p>
         </div>
         <button
           type="button"
@@ -325,6 +332,7 @@ export default function CampusAdminUsersPage() {
                   <th scope="col" className="px-4 py-3 font-semibold">Email</th>
                   <th scope="col" className="px-4 py-3 font-semibold">SĐT</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Vai trò</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Chức danh</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Tổ chức</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Ngày tạo</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Thao tác</th>
@@ -353,6 +361,9 @@ export default function CampusAdminUsersPage() {
                       >
                         {ROLE_LABELS[user.role] ?? user.role}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {user.job_title_name ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{user.org_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">
@@ -647,7 +658,33 @@ function EditUserModal({
   const [phone, setPhone] = useState(user.phone ?? '')
   const [role, setRole] = useState(user.role)
   const [orgId, setOrgId] = useState(user.org_id ?? '')
+  const [jobTitleId, setJobTitleId] = useState(user.job_title_id ?? '')
+  const [titles, setTitles] = useState<
+    { id: string; name: string; suggested_role: string | null }[]
+  >([])
+  const [titlesLoading, setTitlesLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!orgId) {
+      setTitles([])
+      return
+    }
+    let cancelled = false
+    setTitlesLoading(true)
+    listJobTitlesForOrg(orgId).then((res) => {
+      if (cancelled) return
+      setTitlesLoading(false)
+      if (res.error) {
+        setTitles([])
+        return
+      }
+      setTitles(res.data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -658,6 +695,7 @@ function EditUserModal({
     formData.set('role', role)
     formData.set('orgId', orgId)
     formData.set('phone', phone)
+    formData.set('jobTitleId', jobTitleId)
     const result = await updateUserAccount(formData)
     setSaving(false)
     if (result.error) {
@@ -696,6 +734,18 @@ function EditUserModal({
         </div>
 
         <form onSubmit={submit} className="space-y-4">
+          {(role === 'teacher' || user.role === 'teacher') && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-sm text-indigo-900">
+              Ngành / môn giảng dạy gán tại{' '}
+              <Link
+                href="/teachers"
+                className="font-semibold underline underline-offset-2"
+              >
+                Hồ sơ Giảng viên
+              </Link>
+              . Chức danh chỉ là mẫu phân quyền menu.
+            </div>
+          )}
           <div>
             <label htmlFor="edit-fullname" className="mb-1.5 block text-sm font-medium">
               Họ tên <span className="text-destructive">*</span>
@@ -749,7 +799,10 @@ function EditUserModal({
               <select
                 id="edit-org"
                 value={orgId}
-                onChange={(e) => setOrgId(e.target.value)}
+                onChange={(e) => {
+                  setOrgId(e.target.value)
+                  setJobTitleId('')
+                }}
                 className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="" disabled>
@@ -763,6 +816,38 @@ function EditUserModal({
               </select>
             </div>
           </div>
+
+          {role !== 'student' && (
+            <div>
+              <label htmlFor="edit-job-title" className="mb-1.5 block text-sm font-medium">
+                Chức danh (mẫu quyền)
+              </label>
+              <select
+                id="edit-job-title"
+                value={jobTitleId}
+                onChange={(e) => setJobTitleId(e.target.value)}
+                disabled={titlesLoading}
+                className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              >
+                <option value="">— Không gắn chức danh —</option>
+                {user.job_title_id &&
+                  user.job_title_name &&
+                  !titles.some((t) => t.id === user.job_title_id) && (
+                    <option value={user.job_title_id}>{user.job_title_name} (hiện tại)</option>
+                  )}
+                {titles.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.suggested_role ? ` · gợi ý ${t.suggested_role}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tạo/sửa mẫu tại menu «Chức danh & mẫu quyền». Có thể chỉnh lệch thêm bằng «Gán
+                quyền kiêm nhiệm».
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <button
@@ -854,6 +939,7 @@ function GrantsModal({
   }
 
   const roleKeySet = new Set(data?.roleKeys ?? [])
+  const titleKeySet = new Set(data?.titleKeys ?? [])
   const capSet = data?.capKeys ? new Set(data.capKeys) : null
   // Ẩn mục chỉ dành cho Super Admin
   const sections = MENU_SECTIONS.filter((s) => s.key !== 'settings_global')
@@ -881,6 +967,12 @@ function GrantsModal({
               <span className="font-semibold text-foreground">{user.full_name}</span>
               {' — '}
               {ROLE_LABELS[user.role] ?? user.role}
+              {data?.titleName ? (
+                <>
+                  {' · '}
+                  <span className="text-violet-700">Chức danh: {data.titleName}</span>
+                </>
+              ) : null}
             </p>
           </div>
           <button
@@ -895,8 +987,8 @@ function GrantsModal({
 
         <p className="mb-4 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900">
           Tick hạng mục = nhân sự được <strong>mở menu, vào trang và thao tác dữ liệu</strong>{' '}
-          phần đó (cộng thêm vào quyền vai trò). Các mục quản trị cơ sở (tài khoản, cài đặt,
-          phân quyền) vẫn yêu cầu vai trò Quản lý cơ sở.
+          phần đó (cộng thêm vào quyền vai trò + chức danh). Các mục quản trị cơ sở (tài khoản,
+          cài đặt, phân quyền) vẫn yêu cầu vai trò Quản lý cơ sở.
         </p>
 
         {loading ? (
@@ -906,9 +998,10 @@ function GrantsModal({
             <ul className="space-y-1">
               {sections.map((section) => {
                 const byRole = roleKeySet.has(section.key)
+                const byTitle = titleKeySet.has(section.key)
                 const outOfCap = capSet !== null && !capSet.has(section.key)
-                const checked = byRole || selected.has(section.key)
-                const disabled = byRole || outOfCap
+                const checked = byRole || byTitle || selected.has(section.key)
+                const disabled = byRole || byTitle || outOfCap
                 return (
                   <li key={section.key}>
                     <label
@@ -916,7 +1009,7 @@ function GrantsModal({
                         disabled ? 'opacity-60' : 'cursor-pointer hover:bg-indigo-50/50'
                       }`}
                     >
-                      {outOfCap && !byRole ? (
+                      {outOfCap && !byRole && !byTitle ? (
                         <Lock
                           className="h-[18px] w-[18px] shrink-0 text-stone-300"
                           aria-label="Ngoài quyền của bạn"
@@ -935,10 +1028,15 @@ function GrantsModal({
                       </span>
                       {byRole && (
                         <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-500">
-                          Sẵn có theo vai trò
+                          Theo vai trò
                         </span>
                       )}
-                      {!byRole && selected.has(section.key) && (
+                      {!byRole && byTitle && (
+                        <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                          Theo chức danh
+                        </span>
+                      )}
+                      {!byRole && !byTitle && selected.has(section.key) && (
                         <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                           Kiêm nhiệm
                         </span>

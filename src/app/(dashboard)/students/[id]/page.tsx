@@ -36,6 +36,7 @@ import {
 import { EnrollmentManager } from './EnrollmentManager'
 import { ParentAccountsCard } from './ParentAccountsCard'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { Toast, type ToastData } from '@/components/shared/Toast'
 
 // Lazy-load recharts: chỉ tải khi mở tab có biểu đồ -> trang mở tức thì
 const SubjectRadarChart = dynamic(
@@ -647,6 +648,7 @@ function EditIdentityButton({
   const [masv, setMasv] = useState(profile.masv ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<ToastData | null>(null)
 
   function openModal() {
     setFullName(profile.fullName)
@@ -672,12 +674,15 @@ function EditIdentityButton({
       setError(result.error)
       return
     }
+    // [QA-FIX E] Toast success khi lưu hồ sơ định danh
+    setToast({ type: 'success', message: 'Đã cập nhật hồ sơ học viên.' })
     setOpen(false)
     onDone()
   }
 
   return (
     <>
+      {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
       <button
         type="button"
         onClick={openModal}

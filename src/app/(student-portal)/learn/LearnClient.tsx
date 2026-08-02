@@ -72,9 +72,19 @@ function toEmbedUrl(url: string): string | null {
   }
 }
 
-export function LearnClient({ data }: { data: LearnData }) {
+export function LearnClient({
+  data,
+  initialClassId,
+}: {
+  data: LearnData
+  initialClassId?: string | null
+}) {
   const router = useRouter()
-  const [classId, setClassId] = useState(data.classes[0]?.classId ?? '')
+  const pickClass = (preferred?: string | null) => {
+    if (preferred && data.classes.some((c) => c.classId === preferred)) return preferred
+    return data.classes[0]?.classId ?? ''
+  }
+  const [classId, setClassId] = useState(() => pickClass(initialClassId))
   const [tab, setTab] = useState<Tab>('lessons')
   const [lessonOpen, setLessonOpen] = useState<LearnLesson | null>(null)
   const [assignmentOpen, setAssignmentOpen] = useState<LearnAssignment | null>(null)
@@ -84,6 +94,12 @@ export function LearnClient({ data }: { data: LearnData }) {
   const [progressOverride, setProgressOverride] = useState<
     Record<string, { viewed: boolean; completedAt: string | null }>
   >({})
+
+  useEffect(() => {
+    if (initialClassId && data.classes.some((c) => c.classId === initialClassId)) {
+      setClassId(initialClassId)
+    }
+  }, [initialClassId, data.classes])
 
   function lessonProgress(l: LearnLesson) {
     return progressOverride[l.id] ?? { viewed: l.viewed, completedAt: l.completedAt }
@@ -104,6 +120,19 @@ export function LearnClient({ data }: { data: LearnData }) {
     [data, classId]
   )
 
+  const progressSummary = useMemo(() => {
+    if (!cls) return { lessonsDone: 0, lessonsTotal: 0, submitted: 0, assignmentsTotal: 0 }
+    const lessonsDone = cls.lessons.filter((l) => lessonProgress(l).completedAt).length
+    const submitted = cls.assignments.filter((a) => a.mySubmission).length
+    return {
+      lessonsDone,
+      lessonsTotal: cls.lessons.length,
+      submitted,
+      assignmentsTotal: cls.assignments.length,
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lessonProgress reads progressOverride
+  }, [cls, progressOverride])
+
   function notify(type: 'success' | 'error', message: string) {
     setToast({ type, message })
     setTimeout(() => setToast(null), 4500)
@@ -119,23 +148,57 @@ export function LearnClient({ data }: { data: LearnData }) {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold tracking-tight">Học Online</h1>
+      <div>
+        <h1 className="font-heading text-2xl font-bold tracking-tight">Học Online</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Bài giảng · bài tập · kiểm tra của các học phần bạn đang học.
+        </p>
+      </div>
 
       {/* Chip chọn lớp */}
       <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {data.classes.map((c) => (
           <button
             key={c.classId}
+            type="button"
             onClick={() => setClassId(c.classId)}
-            className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-colors ${
+            className={`min-h-11 shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               c.classId === cls.classId
                 ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'border border-border bg-surface text-muted-foreground'
+                : 'border border-border bg-surface text-muted-foreground hover:border-primary/40'
             }`}
           >
             {c.className}
           </button>
         ))}
+      </div>
+
+      {/* Tóm tắt tiến độ lớp đang chọn */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border border-border bg-surface p-3.5">
+          <p className="text-xs font-medium text-muted-foreground">Bài học</p>
+          <p className="mt-1 font-heading text-xl font-bold tabular-nums text-primary">
+            {cls.lessons.length}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border bg-surface p-3.5">
+          <p className="text-xs font-medium text-muted-foreground">Đã hoàn thành</p>
+          <p className="mt-1 font-heading text-xl font-bold tabular-nums text-emerald-600">
+            {progressSummary.lessonsDone}/{progressSummary.lessonsTotal}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border bg-surface p-3.5">
+          <p className="text-xs font-medium text-muted-foreground">Bài tập</p>
+          <p className="mt-1 font-heading text-xl font-bold tabular-nums text-secondary">
+            {progressSummary.submitted}/{progressSummary.assignmentsTotal}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border bg-surface p-3.5">
+          <p className="text-xs font-medium text-muted-foreground">Kiểm tra</p>
+          <p className="mt-1 font-heading text-xl font-bold tabular-nums">
+            {cls.quizzes.length}
+          </p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -151,8 +214,9 @@ export function LearnClient({ data }: { data: LearnData }) {
           return (
             <button
               key={t.id}
+              type="button"
               onClick={() => setTab(t.id)}
-              className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-colors sm:text-sm ${
+              className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm ${
                 tab === t.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
               }`}
             >
@@ -182,7 +246,10 @@ export function LearnClient({ data }: { data: LearnData }) {
       {/* ===== BÀI HỌC ===== */}
       {tab === 'lessons' &&
         (cls.lessons.length === 0 ? (
-          <EmptyBox label="Chưa có bài học nào." />
+          <EmptyBox
+            label="Chưa có bài học phát hành."
+            hint="Khi giáo viên phát hành bài giảng, bạn sẽ thấy tại đây."
+          />
         ) : (
           <div className="space-y-2.5">
             {cls.lessons.map((l) => {
@@ -229,7 +296,10 @@ export function LearnClient({ data }: { data: LearnData }) {
       {/* ===== BÀI TẬP ===== */}
       {tab === 'assignments' &&
         (cls.assignments.length === 0 ? (
-          <EmptyBox label="Chưa có bài tập nào." />
+          <EmptyBox
+            label="Chưa có bài tập."
+            hint="Bài tập mới sẽ hiện khi giáo viên giao trên LMS."
+          />
         ) : (
           <div className="space-y-2.5">
             {cls.assignments.map((a) => {
@@ -285,7 +355,10 @@ export function LearnClient({ data }: { data: LearnData }) {
       {/* ===== KIỂM TRA ===== */}
       {tab === 'quizzes' &&
         (cls.quizzes.length === 0 ? (
-          <EmptyBox label="Chưa có bài kiểm tra nào." />
+          <EmptyBox
+            label="Chưa có bài kiểm tra."
+            hint="Đề trắc nghiệm sẽ mở khi giáo viên phát hành."
+          />
         ) : (
           <div className="space-y-2.5">
             {cls.quizzes.map((q) => {
@@ -389,11 +462,12 @@ export function LearnClient({ data }: { data: LearnData }) {
 
 // ============ Sub-components ============
 
-function EmptyBox({ label }: { label: string }) {
+function EmptyBox({ label, hint }: { label: string; hint?: string }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-10 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
       <Inbox className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      {hint ? <p className="max-w-xs text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }

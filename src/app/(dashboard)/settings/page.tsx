@@ -380,14 +380,44 @@ export default function SettingsPage() {
             {activeTab === 'academic' && (
               <>
                 <NumberSetting
+                  id="set-absence-early"
+                  label="Ngưỡng cảnh báo SỚM (vắng)"
+                  description="Vắng không phép từ mức này → cờ Sớm (nên nhỏ hơn ngưỡng Nguy hiểm)."
+                  value={config.absence_early_warning}
+                  onChange={(v) => patch('absence_early_warning', v)}
+                  suffix="buổi"
+                  min={1}
+                  max={30}
+                />
+                <NumberSetting
                   id="set-max-absence"
-                  label="Ngưỡng cảnh báo vắng mặt"
-                  description="Vắng không phép từ ngưỡng này sẽ bị gắn cờ cảnh báo."
+                  label="Ngưỡng cảnh báo NGUY HIỂM (vắng)"
+                  description="Vắng không phép từ mức này → cờ Nguy hiểm."
                   value={config.max_absence_warning}
                   onChange={(v) => patch('max_absence_warning', v)}
                   suffix="buổi"
                   min={1}
                   max={30}
+                />
+                <NumberSetting
+                  id="set-gpa-early"
+                  label="Ngưỡng ĐTB cảnh báo SỚM"
+                  description="Điểm TB dưới mức này (nhưng trên ngưỡng nguy hiểm) → cờ Sớm."
+                  value={config.gpa_early_warning}
+                  onChange={(v) => patch('gpa_early_warning', v)}
+                  suffix="điểm"
+                  min={0}
+                  max={10}
+                />
+                <NumberSetting
+                  id="set-gpa-danger"
+                  label="Ngưỡng ĐTB cảnh báo NGUY HIỂM"
+                  description="Điểm TB dưới mức này → cờ Nguy hiểm."
+                  value={config.gpa_warning_limit}
+                  onChange={(v) => patch('gpa_warning_limit', v)}
+                  suffix="điểm"
+                  min={0}
+                  max={10}
                 />
                 <NumberSetting
                   id="set-grading-lock"

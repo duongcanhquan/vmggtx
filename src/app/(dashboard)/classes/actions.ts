@@ -10,6 +10,11 @@ export type ClassRow = {
   id: string
   name: string
   teacher_id: string | null
+  teacher_name: string
+  subject_id: string | null
+  subject_name: string
+  org_id: string
+  org_name: string
   start_date: string | null
   end_date: string | null
   created_at: string
@@ -51,7 +56,9 @@ export async function getClasses(
 
     const { data, error } = await supabase
       .from('classes')
-      .select('id, name, teacher_id, start_date, end_date, created_at')
+      .select(
+        'id, name, teacher_id, subject_id, org_id, start_date, end_date, created_at, profiles!classes_teacher_id_fkey(full_name), subjects(name), organizations(name)'
+      )
       .in('org_id', subtree.ids)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
@@ -59,7 +66,41 @@ export async function getClasses(
     if (error) {
       return { data: [], error: `Lỗi tải danh sách lớp: ${error.message}` }
     }
-    return { data: (data ?? []) as ClassRow[] }
+
+    const pickName = (
+      value: { name?: string; full_name?: string } | { name?: string; full_name?: string }[] | null,
+      key: 'name' | 'full_name'
+    ): string => {
+      const row = Array.isArray(value) ? value[0] : value
+      if (!row) return '—'
+      const v = row[key]
+      return typeof v === 'string' && v.trim() ? v : '—'
+    }
+
+    return {
+      data: (data ?? []).map((row) => ({
+        id: row.id as string,
+        name: row.name as string,
+        teacher_id: (row.teacher_id as string | null) ?? null,
+        teacher_name: pickName(
+          row.profiles as { full_name?: string } | { full_name?: string }[] | null,
+          'full_name'
+        ),
+        subject_id: (row.subject_id as string | null) ?? null,
+        subject_name: pickName(
+          row.subjects as { name?: string } | { name?: string }[] | null,
+          'name'
+        ),
+        org_id: row.org_id as string,
+        org_name: pickName(
+          row.organizations as { name?: string } | { name?: string }[] | null,
+          'name'
+        ),
+        start_date: (row.start_date as string | null) ?? null,
+        end_date: (row.end_date as string | null) ?? null,
+        created_at: row.created_at as string,
+      })),
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Lỗi không xác định'
     return { data: [], error: `Không thể kết nối database: ${message}` }
@@ -199,18 +240,34 @@ export async function createClass(formData: FormData): Promise<ActionResult> {
     }
 
     // ===== Mọi check đã qua: INSERT với org_id = currentOrgId =====
-    const { error: insertError } = await supabase.from('classes').insert({
-      org_id: orgId,
-      subject_id: subjectId,
-      name,
-      teacher_id: teacherId || null,
-      start_date: startDate || null,
-      end_date: endDate || null,
-      max_students: maxStudents ? parseInt(maxStudents, 10) : null,
-    })
+    const { data: created, error: insertError } = await supabase
+      .from('classes')
+      .insert({
+        org_id: orgId,
+        subject_id: subjectId,
+        name,
+        teacher_id: teacherId || null,
+        start_date: startDate || null,
+        end_date: endDate || null,
+        max_students: maxStudents ? parseInt(maxStudents, 10) : null,
+      })
+      .select('id')
+      .maybeSingle()
 
     if (insertError) {
       return { error: `Lỗi tạo lớp học: ${insertError.message}` }
+    }
+
+    if (teacherId && created?.id) {
+      await supabase.from('class_teachers').upsert(
+        {
+          org_id: orgId,
+          class_id: created.id,
+          teacher_id: teacherId,
+          role: 'lead',
+        },
+        { onConflict: 'class_id,teacher_id' }
+      )
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Lỗi không xác định'

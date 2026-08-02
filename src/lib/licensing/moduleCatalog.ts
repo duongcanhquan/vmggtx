@@ -132,6 +132,15 @@ export const MODULE_CATALOG: ModuleInfo[] = [
     features: [],
   },
   {
+    key: 'work_tasks',
+    label: 'Phân công công việc',
+    group: 'academic',
+    summary: 'Giao việc nội bộ cho giáo vụ, giảng viên, nhân sự theo cơ sở.',
+    howItWorks:
+      'Quản lý tạo việc trên bảng Kanban, gán người thực hiện. Người được giao xem và cập nhật trạng thái trên cổng của mình.',
+    features: [],
+  },
+  {
     key: 'reports',
     label: 'Báo cáo & Phân tích',
     group: 'academic',
@@ -161,11 +170,11 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   },
   {
     key: 'teacher_schedule',
-    label: 'Lịch dạy & Xếp lịch',
+    label: 'Lịch dạy của giáo viên',
     group: 'teachers',
-    summary: 'Kênh 2 chiều: giáo viên đề xuất lịch/xin nghỉ, giáo vụ duyệt và xếp.',
+    summary: 'GV xem lịch buổi được phân công (kể cả dạy thay) và điểm danh.',
     howItWorks:
-      'Giáo viên gửi đề xuất lịch dạy hoặc xin nghỉ trên cổng riêng. Giáo vụ duyệt: tìm giáo viên dạy thay hoặc hủy/tạo buổi bù, hệ thống tự kiểm tra trùng lịch.',
+      'Giáo vụ xếp buổi tại /academic/schedule. Giáo viên thấy buổi có teacher_id hoặc substitute_teacher_id = mình trên /teacher/schedule. Đề xuất/xin nghỉ qua cổng riêng.',
     features: [
       { key: 'proposals', label: 'Đề xuất & xin nghỉ', description: 'Giáo viên tự gửi đề xuất, theo dõi trạng thái duyệt.' },
       { key: 'makeup', label: 'Buổi học bù', description: 'Tạo buổi bù liên kết buổi đã hủy.' },

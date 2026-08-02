@@ -22,6 +22,7 @@ export type MenuKey =
   | 'attendance'
   | 'staff_ops'
   | 'academic_warnings'
+  | 'work_tasks'
   | 'teachers'
   | 'teacher_schedule'
   | 'teacher_requests'
@@ -29,6 +30,7 @@ export type MenuKey =
   | 'students'
   | 'staff_users'
   | 'payroll_contracts'
+  | 'hr_leave'
   | 'finance_invoices'
   | 'assets'
   | 'ai_kb'
@@ -37,6 +39,7 @@ export type MenuKey =
   | 'permissions'
   | 'settings_global'
   | 'reports'
+  | 'lms'
 
 const MANAGERS: Role[] = ['super_admin', 'campus_admin']
 const ACADEMIC: Role[] = ['super_admin', 'campus_admin', 'academic_staff']
@@ -69,7 +72,7 @@ export const MENU_SECTIONS: MenuSection[] = [
     key: 'classes',
     label: 'Lớp học (kèm Gia sư AI lớp)',
     defaultRoles: [...ACADEMIC, 'teacher'],
-    prefixes: ['/classes'],
+    prefixes: ['/classes', '/academic/subjects'],
   },
   {
     key: 'attendance',
@@ -81,13 +84,25 @@ export const MENU_SECTIONS: MenuSection[] = [
     key: 'staff_ops',
     label: 'Vận hành Giáo vụ & Khảo thí',
     defaultRoles: [...ACADEMIC, 'admission_staff', 'accountant'],
-    prefixes: ['/staff'],
+    prefixes: ['/staff', '/academic/schedule', '/academic/transcripts'],
   },
   {
     key: 'academic_warnings',
     label: 'Cảnh báo học vụ',
     defaultRoles: ACADEMIC,
     prefixes: ['/academic/warnings'],
+  },
+  {
+    key: 'work_tasks',
+    label: 'Phân công công việc',
+    defaultRoles: ACADEMIC,
+    prefixes: ['/academic/tasks'],
+  },
+  {
+    key: 'lms',
+    label: 'LMS Online (bài giảng / bài tập)',
+    defaultRoles: [...ACADEMIC, 'teacher'],
+    prefixes: ['/academic/lms', '/teacher/lms'],
   },
   {
     key: 'reports',
@@ -104,7 +119,7 @@ export const MENU_SECTIONS: MenuSection[] = [
   },
   {
     key: 'teacher_schedule',
-    label: 'Lịch dạy giáo viên',
+    label: 'Lịch dạy của tôi (GV)',
     defaultRoles: [...ACADEMIC, 'teacher'],
     prefixes: ['/teacher/schedule'],
   },
@@ -130,19 +145,25 @@ export const MENU_SECTIONS: MenuSection[] = [
     key: 'staff_users',
     label: 'Tài khoản & Nhân viên',
     defaultRoles: MANAGERS,
-    prefixes: ['/campus-admin/users'],
+    prefixes: ['/campus-admin/users', '/campus-admin/job-titles'],
   },
   {
     key: 'payroll_contracts',
     label: 'Lương & Hợp đồng',
     defaultRoles: [...MANAGERS, 'accountant'],
-    prefixes: ['/hr', '/finance/payroll'],
+    prefixes: ['/hr/contracts', '/finance/payroll'],
+  },
+  {
+    key: 'hr_leave',
+    label: 'Ngày công & Phép',
+    defaultRoles: [...MANAGERS, 'academic_staff', 'accountant', 'teacher'],
+    prefixes: ['/hr/attendance', '/hr/my-leave'],
   },
   {
     key: 'finance_invoices',
     label: 'Học phí & Công nợ',
     defaultRoles: [...ACADEMIC, 'accountant'],
-    prefixes: ['/finance/invoices'],
+    prefixes: ['/finance/invoices', '/finance/tuition-rules'],
   },
   {
     key: 'assets',

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   Bot,
   CalendarDays,
+  ClipboardCheck,
   ClipboardList,
   Home,
   Loader2,
@@ -25,6 +26,7 @@ import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
 const PORTAL_MENU = [
   { label: 'Trang chủ', href: '/portal', icon: Home },
   { label: 'Lịch học', href: '/schedule', icon: CalendarDays },
+  { label: 'Lịch thi', href: '/exams', icon: ClipboardCheck },
   { label: 'Học Online', href: '/learn', icon: MonitorPlay },
   { label: 'Kết quả học tập', href: '/grades', icon: Medal },
   { label: 'Chuyên cần', href: '/progress', icon: ClipboardList },

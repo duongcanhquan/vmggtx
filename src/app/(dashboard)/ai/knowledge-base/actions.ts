@@ -5,23 +5,16 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { embedMany } from 'ai'
 import { createClient } from '@/lib/supabase/server'
 import { getAIConfig } from '@/lib/ai/getTenantAIConfig'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { KB_CATEGORIES, type KbCategory } from './constants'
 
-// ============================================================
-// KHO TRI THỨC AI (Knowledge Base) - Data Isolation theo org_id.
-//
-// processDocumentForAI:
-//   File (PDF/TXT/MD) -> trích text -> băm nhỏ (chunking)
-//   -> embedding (API Key theo TENANT qua getAIConfig)
-//   -> insert lesson_materials GẮN CHẶT org_id của user.
-// ============================================================
+// Re-export types only via constants for client — do NOT re-export from 'use server'
 
-/** Role được phép nạp tài liệu vào kho tri thức */
 const UPLOADER_ROLES = ['super_admin', 'campus_admin', 'academic_staff', 'teacher']
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024 // 8MB
+const MAX_FILE_BYTES = 8 * 1024 * 1024
 const ALLOWED_EXTENSIONS = ['.pdf', '.txt', '.md']
-
-/** Kích thước chunk ~1200 ký tự, chồng lấn 150 để không đứt ngữ cảnh */
 const CHUNK_SIZE = 1200
 const CHUNK_OVERLAP = 150
 const MAX_CHUNKS = 200
@@ -34,12 +27,17 @@ export type KnowledgeDoc = {
   fileName: string
   author: string
   subject: string
+  subjectId: string | null
+  category: KbCategory | string
+  categoryLabel: string
+  orgId: string
+  orgName: string
   chunkCount: number
+  classId: string | null
   className: string | null
   createdAt: string
 }
 
-// ---------- Chunking: ưu tiên cắt theo đoạn văn ----------
 function chunkText(raw: string): string[] {
   const text = raw.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').trim()
   if (!text) return []
@@ -51,7 +49,6 @@ function chunkText(raw: string): string[] {
     let end = Math.min(start + CHUNK_SIZE, text.length)
 
     if (end < text.length) {
-      // Cắt tại ranh giới tự nhiên gần nhất: hết đoạn > hết câu > khoảng trắng
       const slice = text.slice(start, end)
       const paragraphBreak = slice.lastIndexOf('\n\n')
       const sentenceBreak = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('.\n'))
@@ -77,7 +74,6 @@ function chunkText(raw: string): string[] {
   return chunks
 }
 
-// ---------- Trích text theo loại file ----------
 async function extractText(file: File): Promise<{ text: string } | { error: string }> {
   const name = file.name.toLowerCase()
 
@@ -92,7 +88,10 @@ async function extractText(file: File): Promise<{ text: string } | { error: stri
       try {
         const parsed = await parser.getText()
         if (!parsed.text?.trim()) {
-          return { error: 'PDF không chứa text (có thể là bản scan ảnh) - không trích xuất được nội dung.' }
+          return {
+            error:
+              'PDF không chứa text (có thể là bản scan ảnh) - không trích xuất được nội dung.',
+          }
         }
         return { text: parsed.text }
       } finally {
@@ -106,16 +105,13 @@ async function extractText(file: File): Promise<{ text: string } | { error: stri
   return { error: 'Định dạng không hỗ trợ. Chỉ nhận PDF, TXT, MD.' }
 }
 
+function categoryLabel(value: string): string {
+  return KB_CATEGORIES.find((c) => c.value === value)?.label ?? value
+}
+
 /**
- * Nạp tài liệu vào Kho tri thức AI của cơ sở.
- *
- * BẢO MẬT / DATA ISOLATION:
- * - org_id KHÓA CỨNG theo profile của user đang đăng nhập - client
- *   không thể truyền org_id khác (chống nạp tài liệu chéo cơ sở).
- * - Chỉ UPLOADER_ROLES được nạp. RLS (018) chặn thêm tầng DB.
- * - Embedding dùng API Key của TENANT (getAIConfig: org -> org Mẹ ->
- *   env). Model embedding luôn là text-embedding-3-small vì cột
- *   vector cố định 1536 chiều - key tenant chỉ quyết định AI TRẢ PHÍ.
+ * Nạp tài liệu vào kho tri thức của ORG đang chọn (FormData.orgId),
+ * không nhận org từ chỗ khác ngoài form đã authorize.
  */
 export async function processDocumentForAI(formData: FormData): Promise<ProcessResult> {
   try {
@@ -131,15 +127,42 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
       .eq('id', user.id)
       .is('deleted_at', null)
       .maybeSingle()
-    if (!profile?.org_id) {
-      return { error: 'Tài khoản của bạn chưa được gán vào cơ sở nào.' }
-    }
+    if (!profile) return { error: 'Không tìm thấy hồ sơ.' }
     if (!UPLOADER_ROLES.includes(profile.role)) {
       return { error: 'TỪ CHỐI: Chỉ Giáo viên / Giáo vụ / Quản lý được nạp tài liệu.' }
     }
-    const orgId = profile.org_id // KHÓA CỨNG - không nhận từ client
 
-    // ===== Đọc form =====
+    const orgId = String(formData.get('orgId') ?? '').trim()
+    if (!orgId) {
+      return { error: 'Chưa chọn cơ sở trên thanh tổ chức. Chọn cơ sở rồi nạp lại.' }
+    }
+
+    let allowed = profile.role === 'super_admin'
+    if (!allowed && profile.role === 'teacher') {
+      // GV chỉ nạp vào đúng org của mình (trùng org đang chọn trên thanh)
+      allowed = Boolean(profile.org_id && profile.org_id === orgId)
+    }
+    if (!allowed) {
+      const { data: authorized } = await isAuthorizedRpc(supabase, {
+        p_user_id: user.id,
+        p_target_org_id: orgId,
+        p_required_role: 'academic_staff',
+        p_menu_key: 'ai_kb',
+      })
+      allowed = authorized === true
+    }
+    if (!allowed) {
+      return { error: 'Bạn không có quyền nạp tri thức vào cơ sở đang chọn.' }
+    }
+
+    const { data: orgRow } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .eq('id', orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!orgRow) return { error: 'Cơ sở không tồn tại.' }
+
     const file = formData.get('file')
     if (!(file instanceof File) || file.size === 0) {
       return { error: 'Vui lòng chọn file tài liệu (PDF, TXT hoặc MD).' }
@@ -152,10 +175,38 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
     }
 
     const classId = String(formData.get('classId') ?? '').trim() || null
-    const subject = String(formData.get('subject') ?? '').trim()
+    const subjectId = String(formData.get('subjectId') ?? '').trim() || null
+    const categoryRaw = String(formData.get('category') ?? 'general').trim()
+    const category: KbCategory = KB_CATEGORIES.some((c) => c.value === categoryRaw)
+      ? (categoryRaw as KbCategory)
+      : 'general'
     const gradeLevel = String(formData.get('gradeLevel') ?? '').trim()
 
-    // classId (nếu có) phải là lớp CỦA CHÍNH cơ sở này
+    if (!subjectId && category === 'training') {
+      return { error: 'Category Đào tạo bắt buộc chọn môn học từ danh mục.' }
+    }
+
+    let subjectName: string | null = null
+    if (subjectId) {
+      const { data: subject } = await supabase
+        .from('subjects')
+        .select('id, name, org_id, is_active')
+        .eq('id', subjectId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (!subject || !subject.is_active) {
+        return { error: 'Môn học không tồn tại hoặc đã tắt.' }
+      }
+      // subject.org_id null = global; else must be in subtree
+      if (subject.org_id) {
+        const subtree = await getDescendantOrgIds(supabase, orgId)
+        if (!subtree.includes(subject.org_id) && subject.org_id !== orgId) {
+          return { error: 'Môn học không thuộc phạm vi cơ sở đang chọn.' }
+        }
+      }
+      subjectName = subject.name
+    }
+
     if (classId) {
       const { data: cls } = await supabase
         .from('classes')
@@ -163,12 +214,12 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
         .eq('id', classId)
         .is('deleted_at', null)
         .maybeSingle()
-      if (!cls || cls.org_id !== orgId) {
-        return { error: 'Lớp học không thuộc cơ sở của bạn.' }
+      const subtree = await getDescendantOrgIds(supabase, orgId)
+      if (!cls || (!subtree.includes(cls.org_id) && cls.org_id !== orgId)) {
+        return { error: 'Lớp học không thuộc cơ sở đang chọn (hoặc nhánh con).' }
       }
     }
 
-    // ===== Trích text + chunking =====
     const extracted = await extractText(file)
     if ('error' in extracted) return { error: extracted.error }
 
@@ -177,7 +228,6 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
       return { error: 'Tài liệu không có nội dung text để nạp vào kho tri thức.' }
     }
 
-    // ===== Embedding bằng API Key của tenant =====
     const aiConfig = await getAIConfig(orgId)
     const embeddingApiKey =
       aiConfig.provider === 'openai' && aiConfig.apiKey
@@ -206,7 +256,6 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
       }
     }
 
-    // ===== Insert - GẮN CHẶT org_id =====
     const rows = chunks.map((content, index) => ({
       org_id: orgId,
       class_id: classId,
@@ -215,8 +264,11 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
       metadata: {
         file_name: file.name,
         author: profile.full_name,
-        subject: subject || null,
+        subject: subjectName,
+        subject_id: subjectId,
+        category,
         grade_level: gradeLevel || null,
+        org_name: orgRow.name,
         chunk_index: index,
         total_chunks: chunks.length,
       },
@@ -228,6 +280,7 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
     }
 
     revalidatePath('/ai/knowledge-base')
+    revalidatePath('/settings/ai')
     return { fileName: file.name, chunkCount: chunks.length }
   } catch (error) {
     return {
@@ -237,89 +290,136 @@ export async function processDocumentForAI(formData: FormData): Promise<ProcessR
   }
 }
 
-/** Danh sách tài liệu trong kho tri thức của cơ sở user (gom theo file). */
-export async function getKnowledgeBaseDocs(): Promise<{
-  data: KnowledgeDoc[]
-  demo: boolean
-}> {
+export async function getKnowledgeBaseDocs(
+  orgId: string | null,
+  filters?: {
+    subjectId?: string | null
+    classId?: string | null
+    category?: string | null
+  }
+): Promise<{ data: KnowledgeDoc[]; demo: boolean; error?: string; orgName?: string }> {
+  if (!orgId) {
+    return { data: [], demo: false, error: 'Chưa chọn cơ sở trên thanh tổ chức.' }
+  }
+
   try {
     const supabase = createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) throw new Error('unauthenticated')
+    if (!user) return { data: [], demo: true }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
+    const subtree = await getDescendantOrgIds(supabase, orgId)
+    const orgIds = subtree.includes(orgId) ? subtree : [orgId, ...subtree]
+
+    const { data: orgs } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .in('id', orgIds)
       .is('deleted_at', null)
-      .maybeSingle()
-    if (!profile?.org_id) throw new Error('no-org')
+    const orgNameMap = new Map((orgs ?? []).map((o) => [o.id as string, o.name as string]))
 
     const { data, error } = await supabase
       .from('lesson_materials')
-      .select('metadata, created_at, classes(name)')
-      .eq('org_id', profile.org_id)
+      .select('org_id, class_id, metadata, created_at, classes(name)')
+      .in('org_id', orgIds)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(1000)
-    if (error) throw error
+      .limit(2000)
+    if (error) return { data: [], demo: false, error: error.message }
 
-    // Gom chunk theo file_name
     const byFile = new Map<string, KnowledgeDoc>()
     for (const row of data ?? []) {
       const meta = (row.metadata ?? {}) as Record<string, unknown>
       const fileName = String(meta.file_name ?? 'Tài liệu không tên')
+      const metaSubjectId = meta.subject_id ? String(meta.subject_id) : null
+      const metaCategory = String(meta.category ?? 'general')
+      const rowClassId = (row.class_id as string | null) ?? null
+
+      if (filters?.subjectId && metaSubjectId !== filters.subjectId) continue
+      if (filters?.classId && rowClassId !== filters.classId) continue
+      if (filters?.category && metaCategory !== filters.category) continue
+
       const cls = row.classes as { name?: string } | { name?: string }[] | null
       const className = Array.isArray(cls) ? cls[0]?.name ?? null : cls?.name ?? null
+      const rowOrgId = row.org_id as string
+      const key = `${rowOrgId}:${fileName}:${metaCategory}:${metaSubjectId ?? ''}:${rowClassId ?? ''}`
 
-      const existing = byFile.get(fileName)
+      const existing = byFile.get(key)
       if (existing) {
         existing.chunkCount += 1
       } else {
-        byFile.set(fileName, {
+        byFile.set(key, {
           fileName,
           author: String(meta.author ?? '—'),
           subject: String(meta.subject ?? '') || '—',
+          subjectId: metaSubjectId,
+          category: metaCategory,
+          categoryLabel: categoryLabel(metaCategory),
+          orgId: rowOrgId,
+          orgName: orgNameMap.get(rowOrgId) ?? String(meta.org_name ?? '—'),
           chunkCount: 1,
+          classId: rowClassId,
           className,
-          createdAt: row.created_at,
+          createdAt: row.created_at as string,
         })
       }
     }
 
-    return { data: [...byFile.values()], demo: false }
+    return {
+      data: [...byFile.values()],
+      demo: false,
+      orgName: orgNameMap.get(orgId),
+    }
   } catch {
     return { data: [], demo: true }
   }
 }
 
-/** Lớp học của cơ sở user - cho dropdown "gắn tài liệu vào lớp". */
-export async function getMyOrgClasses(): Promise<{ id: string; name: string }[]> {
+/** Lớp trong subtree org đang chọn */
+export async function getKbClasses(
+  orgId: string | null
+): Promise<{ id: string; name: string }[]> {
+  if (!orgId) return []
   try {
     const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return []
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
-      .is('deleted_at', null)
-      .maybeSingle()
-    if (!profile?.org_id) return []
-
+    const subtree = await getDescendantOrgIds(supabase, orgId)
+    const orgIds = subtree.includes(orgId) ? subtree : [orgId, ...subtree]
     const { data } = await supabase
       .from('classes')
       .select('id, name')
-      .eq('org_id', profile.org_id)
+      .in('org_id', orgIds)
       .is('deleted_at', null)
       .order('name')
     return data ?? []
   } catch {
     return []
   }
+}
+
+/** Môn active (global + org subtree) */
+export async function getKbSubjects(
+  orgId: string | null
+): Promise<{ id: string; name: string }[]> {
+  if (!orgId) return []
+  try {
+    const supabase = createClient()
+    const subtree = await getDescendantOrgIds(supabase, orgId)
+    const orgIds = subtree.includes(orgId) ? subtree : [orgId, ...subtree]
+    const { data } = await supabase
+      .from('subjects')
+      .select('id, name, org_id')
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .or(`org_id.is.null,org_id.in.(${orgIds.join(',')})`)
+      .order('name')
+    return (data ?? []).map((r) => ({ id: r.id as string, name: r.name as string }))
+  } catch {
+    return []
+  }
+}
+
+/** @deprecated dùng getKbClasses(orgId) */
+export async function getMyOrgClasses(): Promise<{ id: string; name: string }[]> {
+  return []
 }

@@ -1,30 +1,36 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import Link from 'next/link'
 import {
   BookMarked,
+  Building2,
   FileText,
   FileUp,
+  Filter,
   Inbox,
   Loader2,
+  Settings2,
   ShieldCheck,
   UploadCloud,
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { RoleGuard } from '@/components/shared/RoleGuard'
+import { FunLoader } from '@/components/shared/FunLoader'
+import { useOrgStore } from '@/lib/store/useOrgStore'
+import { findOrgNode } from '@/lib/utils/org-tree'
 import {
+  getKbClasses,
+  getKbSubjects,
   getKnowledgeBaseDocs,
-  getMyOrgClasses,
   processDocumentForAI,
   type KnowledgeDoc,
 } from './actions'
-import { FunLoader } from '@/components/shared/FunLoader'
+import { KB_CATEGORIES } from './constants'
 
 // ============================================================
-// KHO TRI THỨC AI (/ai/knowledge-base)
-// Giáo viên/Staff nạp tài liệu (PDF/TXT/MD) -> hệ thống chunking
-// + embedding + lưu vector GẮN CHẶT org_id (Data Isolation).
-// Gia sư AI của cơ sở chỉ trả lời từ kho tri thức của CHÍNH cơ sở.
+// KHO TRI THỨC AI — nạp theo org đang chọn + môn (subjects) + category
+// Filter danh sách: cơ sở · môn · lớp · category
 // ============================================================
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('vi-VN', {
@@ -34,26 +40,53 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('vi-VN', {
 })
 
 export default function KnowledgeBasePage() {
+  const currentOrgId = useOrgStore((s) => s.currentOrgId)
+  const orgTree = useOrgStore((s) => s.orgTree)
+  const currentOrgName = currentOrgId
+    ? findOrgNode(orgTree, currentOrgId)?.name
+    : null
+
   const [docs, setDocs] = useState<KnowledgeDoc[]>([])
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
+  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
   const [isDemo, setIsDemo] = useState(false)
+  const [loadError, setLoadError] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
   const [uploading, startUpload] = useTransition()
   const [toast, setToast] = useState<ToastData | null>(null)
   const [fileName, setFileName] = useState('')
+  const [formCategory, setFormCategory] = useState<string>('training')
+  const [filterSubjectId, setFilterSubjectId] = useState('')
+  const [filterClassId, setFilterClassId] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
   const formRef = useRef<HTMLFormElement>(null)
 
   const loadData = useCallback(async () => {
+    if (!currentOrgId) {
+      setDocs([])
+      setClasses([])
+      setSubjects([])
+      setLoadError('Chưa chọn cơ sở trên thanh tổ chức (góc trên).')
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    const [docsResult, classesResult] = await Promise.all([
-      getKnowledgeBaseDocs(),
-      getMyOrgClasses(),
+    const [docsResult, classesResult, subjectsResult] = await Promise.all([
+      getKnowledgeBaseDocs(currentOrgId, {
+        subjectId: filterSubjectId || null,
+        classId: filterClassId || null,
+        category: filterCategory || null,
+      }),
+      getKbClasses(currentOrgId),
+      getKbSubjects(currentOrgId),
     ])
     setDocs(docsResult.data)
     setIsDemo(docsResult.demo)
+    setLoadError(docsResult.error)
     setClasses(classesResult)
+    setSubjects(subjectsResult)
     setLoading(false)
-  }, [])
+  }, [currentOrgId, filterSubjectId, filterClassId, filterCategory])
 
   useEffect(() => {
     loadData()
@@ -61,7 +94,15 @@ export default function KnowledgeBasePage() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!currentOrgId) {
+      setToast({
+        type: 'error',
+        message: 'Chưa chọn cơ sở. Chọn tổ chức trên thanh rồi nạp lại.',
+      })
+      return
+    }
     const formData = new FormData(event.currentTarget)
+    formData.set('orgId', currentOrgId)
 
     startUpload(async () => {
       const result = await processDocumentForAI(formData)
@@ -75,9 +116,12 @@ export default function KnowledgeBasePage() {
       })
       formRef.current?.reset()
       setFileName('')
+      setFormCategory('training')
       loadData()
     })
   }
+
+  const subjectRequired = formCategory === 'training'
 
   return (
     <RoleGuard
@@ -89,12 +133,45 @@ export default function KnowledgeBasePage() {
       }
     >
       <div className="space-y-6">
-        {/* ===== Header ===== */}
-        <div>
-          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            <BookMarked className="h-7 w-7 text-secondary" aria-hidden="true" />
-            Kho tri thức AI
-          </h1>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+              <BookMarked className="h-7 w-7 text-secondary" aria-hidden="true" />
+              Kho tri thức AI
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Nạp tài liệu theo cơ sở đang chọn — Gia sư AI chỉ trả lời từ kho này.
+            </p>
+          </div>
+          <Link
+            href="/settings/ai"
+            className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm font-medium text-foreground transition-colors duration-150 hover:border-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Settings2 className="h-4 w-4" aria-hidden="true" />
+            Cấu hình AI / hướng dẫn
+          </Link>
+        </div>
+
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900"
+        >
+          <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+          <div>
+            <p className="font-semibold">
+              Cơ sở đang nạp:{' '}
+              {currentOrgId ? (
+                <span>{currentOrgName || 'Đã chọn'}</span>
+              ) : (
+                <span className="text-rose-700">Chưa chọn — chọn trên thanh tổ chức</span>
+              )}
+            </p>
+            <p className="mt-0.5 text-xs text-indigo-800/80">
+              Đổi cơ sở trên thanh chọn tổ chức rồi lọc / nạp lại. Tài liệu gắn đúng{' '}
+              <code className="rounded bg-indigo-100 px-1 font-mono text-[11px]">org_id</code>{' '}
+              của cơ sở đó.
+            </p>
+          </div>
         </div>
 
         <div
@@ -103,12 +180,13 @@ export default function KnowledgeBasePage() {
         >
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <p>
-            Tài liệu được <strong>cách ly tuyệt đối theo cơ sở</strong>.
+            Cách ly theo cơ sở. Category <strong>Đào tạo</strong> bắt buộc chọn môn từ danh
+            mục Subjects; <strong>Tuyển sinh</strong> / <strong>Chung</strong> dùng cho CRM
+            hoặc tài liệu toàn cơ sở.
           </p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-5">
-          {/* ===== Form upload ===== */}
           <form
             ref={formRef}
             onSubmit={handleSubmit}
@@ -149,16 +227,75 @@ export default function KnowledgeBasePage() {
 
             <div>
               <label
+                htmlFor="kb-category"
+                className="mb-1.5 block text-sm font-semibold text-foreground"
+              >
+                Category <span className="text-destructive">*</span>
+              </label>
+              <select
+                id="kb-category"
+                name="category"
+                required
+                value={formCategory}
+                onChange={(e) => setFormCategory(e.target.value)}
+                className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {KB_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="kb-subject"
+                className="mb-1.5 block text-sm font-semibold text-foreground"
+              >
+                Môn học (danh mục Subjects)
+                {subjectRequired && <span className="text-destructive"> *</span>}
+              </label>
+              <select
+                id="kb-subject"
+                name="subjectId"
+                required={subjectRequired}
+                defaultValue=""
+                disabled={!currentOrgId || subjects.length === 0}
+                className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              >
+                <option value="">
+                  {subjectRequired ? '— Chọn môn —' : '— Không gắn môn —'}
+                </option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              {subjects.length === 0 && currentOrgId && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Chưa có môn active.{' '}
+                  <Link href="/academic/subjects" className="text-primary underline">
+                    Quản lý môn học
+                  </Link>
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
                 htmlFor="kb-class"
                 className="mb-1.5 block text-sm font-semibold text-foreground"
               >
-                Gắn vào lớp (tùy chọn)
+                Gắn vào lớp / học phần (tùy chọn)
               </label>
               <select
                 id="kb-class"
                 name="classId"
                 defaultValue=""
-                className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={!currentOrgId}
+                className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
               >
                 <option value="">Toàn cơ sở</option>
                 {classes.map((cls) => (
@@ -169,42 +306,25 @@ export default function KnowledgeBasePage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label
-                  htmlFor="kb-subject"
-                  className="mb-1.5 block text-sm font-semibold text-foreground"
-                >
-                  Môn học
-                </label>
-                <input
-                  id="kb-subject"
-                  name="subject"
-                  type="text"
-                  placeholder="VD: Toán"
-                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="kb-grade"
-                  className="mb-1.5 block text-sm font-semibold text-foreground"
-                >
-                  Cấp học
-                </label>
-                <input
-                  id="kb-grade"
-                  name="gradeLevel"
-                  type="text"
-                  placeholder="VD: Khối 12"
-                  className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-              </div>
+            <div>
+              <label
+                htmlFor="kb-grade"
+                className="mb-1.5 block text-sm font-semibold text-foreground"
+              >
+                Cấp / khối (ghi chú, tùy chọn)
+              </label>
+              <input
+                id="kb-grade"
+                name="gradeLevel"
+                type="text"
+                placeholder="VD: Khối 12"
+                className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
             </div>
 
             <button
               type="submit"
-              disabled={uploading}
+              disabled={uploading || !currentOrgId}
               className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
             >
               {uploading ? (
@@ -221,31 +341,94 @@ export default function KnowledgeBasePage() {
             </button>
           </form>
 
-          {/* ===== Danh sách tài liệu ===== */}
-          <div className="rounded-2xl border border-border bg-surface p-5 lg:col-span-3">
-            <h2 className="font-heading text-lg font-bold">
-              Tài liệu của cơ sở{' '}
-              <span className="text-sm font-medium text-muted-foreground">
-                ({docs.length} file)
-              </span>
-            </h2>
+          <div className="space-y-4 rounded-2xl border border-border bg-surface p-5 lg:col-span-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="flex items-center gap-2 font-heading text-lg font-bold">
+                <Filter className="h-5 w-5 text-secondary" aria-hidden="true" />
+                Tài liệu{' '}
+                <span className="text-sm font-medium text-muted-foreground">
+                  ({docs.length} file)
+                </span>
+              </h2>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <label htmlFor="filter-subject" className="mb-1 block text-xs font-semibold">
+                  Lọc môn
+                </label>
+                <select
+                  id="filter-subject"
+                  value={filterSubjectId}
+                  onChange={(e) => setFilterSubjectId(e.target.value)}
+                  className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Tất cả môn</option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="filter-class" className="mb-1 block text-xs font-semibold">
+                  Lọc lớp
+                </label>
+                <select
+                  id="filter-class"
+                  value={filterClassId}
+                  onChange={(e) => setFilterClassId(e.target.value)}
+                  className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Tất cả lớp</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="filter-cat" className="mb-1 block text-xs font-semibold">
+                  Lọc category
+                </label>
+                <select
+                  id="filter-cat"
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Tất cả</option>
+                  {KB_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             {loading ? (
               <FunLoader label="Đang tải…" />
+            ) : loadError ? (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {loadError}
+              </p>
             ) : docs.length === 0 ? (
               <div className="flex flex-col items-center gap-2 p-12 text-center">
                 <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
                 <p className="text-sm text-muted-foreground">
                   {isDemo
                     ? 'Đăng nhập để xem kho tri thức.'
-                    : 'Kho tri thức trống.'}
+                    : 'Không có tài liệu khớp bộ lọc / kho trống.'}
                 </p>
               </div>
             ) : (
-              <ul className="mt-3 space-y-2.5">
+              <ul className="space-y-2.5">
                 {docs.map((doc) => (
                   <li
-                    key={doc.fileName}
+                    key={`${doc.orgId}:${doc.fileName}:${doc.category}:${doc.subjectId ?? ''}:${doc.classId ?? ''}:${doc.createdAt}`}
                     className="flex items-start gap-3 rounded-xl border border-border bg-background p-3.5"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-secondary">
@@ -256,8 +439,8 @@ export default function KnowledgeBasePage() {
                         {doc.fileName}
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {doc.author} · {doc.subject} ·{' '}
-                        {doc.className ?? 'Toàn cơ sở'} ·{' '}
+                        {doc.orgName} · {doc.categoryLabel} · {doc.subject} ·{' '}
+                        {doc.className ?? 'Toàn cơ sở'} · {doc.author} ·{' '}
                         {DATE_FORMATTER.format(new Date(doc.createdAt))}
                       </p>
                     </div>

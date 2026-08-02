@@ -99,58 +99,92 @@ export async function getCampusReport(
     const { orgIds } = scope
     const today = new Date().toISOString().slice(0, 10)
 
+    // [QA-FIX D] Paginate / count — tránh PostgREST cắt ~1000 → KPI sai
+    const pageSize = 1000
+    async function fetchAll<T>(
+      build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+    ): Promise<T[]> {
+      const rows: T[] = []
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await build(from, from + pageSize - 1)
+        if (error) throw error
+        const chunk = data ?? []
+        rows.push(...chunk)
+        if (chunk.length < pageSize) break
+        if (from + pageSize > 50_000) break // safety cap
+      }
+      return rows
+    }
+
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+
     const [
-      studentsRes,
+      students,
       classesRes,
-      paymentsRes,
-      invoicesRes,
-      warningsRes,
-      enrollRes,
-      attendRes,
+      payments,
+      invoices,
+      warnings,
+      enrollments,
+      attendance,
       orgsRes,
     ] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, org_id')
-        .eq('role', 'student')
-        .in('org_id', orgIds)
-        .is('deleted_at', null),
+      fetchAll<{ id: string; org_id: string | null }>((from, to) =>
+        supabase
+          .from('profiles')
+          .select('id, org_id')
+          .eq('role', 'student')
+          .in('org_id', orgIds)
+          .is('deleted_at', null)
+          .range(from, to)
+      ),
       supabase
         .from('classes')
         .select('id', { count: 'exact', head: true })
         .in('org_id', orgIds)
         .is('deleted_at', null)
         .or(`end_date.is.null,end_date.gte.${today}`),
-      supabase
-        .from('payments')
-        .select('amount_paid')
-        .in('org_id', orgIds)
-        .is('deleted_at', null),
-      supabase
-        .from('invoices')
-        .select('amount, status')
-        .in('org_id', orgIds)
-        .neq('status', 'cancelled')
-        .is('deleted_at', null),
-      supabase
-        .from('student_warnings')
-        .select('id, status, warning_type')
-        .in('org_id', orgIds)
-        .is('deleted_at', null),
-      supabase
-        .from('enrollments')
-        .select('status')
-        .in('org_id', orgIds)
-        .is('deleted_at', null),
-      supabase
-        .from('attendance')
-        .select('status, created_at')
-        .in('org_id', orgIds)
-        .is('deleted_at', null)
-        .gte(
-          'created_at',
-          new Date(Date.now() - 7 * 86400000).toISOString()
-        ),
+      fetchAll<{ amount_paid: number | null }>((from, to) =>
+        supabase
+          .from('payments')
+          .select('amount_paid')
+          .in('org_id', orgIds)
+          .is('deleted_at', null)
+          .range(from, to)
+      ),
+      fetchAll<{ amount: number | null; status: string }>((from, to) =>
+        supabase
+          .from('invoices')
+          .select('amount, status')
+          .in('org_id', orgIds)
+          .neq('status', 'cancelled')
+          .is('deleted_at', null)
+          .range(from, to)
+      ),
+      fetchAll<{ id: string; status: string; warning_type: string }>((from, to) =>
+        supabase
+          .from('student_warnings')
+          .select('id, status, warning_type')
+          .in('org_id', orgIds)
+          .is('deleted_at', null)
+          .range(from, to)
+      ),
+      fetchAll<{ status: string | null }>((from, to) =>
+        supabase
+          .from('enrollments')
+          .select('status')
+          .in('org_id', orgIds)
+          .is('deleted_at', null)
+          .range(from, to)
+      ),
+      fetchAll<{ status: string; created_at: string }>((from, to) =>
+        supabase
+          .from('attendance')
+          .select('status, created_at')
+          .in('org_id', orgIds)
+          .is('deleted_at', null)
+          .gte('created_at', weekAgo)
+          .range(from, to)
+      ),
       supabase
         .from('organizations')
         .select('id, name, parent_id')
@@ -158,24 +192,22 @@ export async function getCampusReport(
         .is('deleted_at', null),
     ])
 
-    const students = studentsRes.data ?? []
-    const collected = (paymentsRes.data ?? []).reduce(
-      (s, r) => s + Number(r.amount_paid ?? 0),
-      0
-    )
-    const invoiced = (invoicesRes.data ?? []).reduce(
-      (s, r) => s + Number(r.amount ?? 0),
-      0
-    )
+    console.log('[QA-FIX D] getCampusReport rows', {
+      students: students.length,
+      payments: payments.length,
+      invoices: invoices.length,
+    })
+
+    const collected = payments.reduce((s, r) => s + Number(r.amount_paid ?? 0), 0)
+    const invoiced = invoices.reduce((s, r) => s + Number(r.amount ?? 0), 0)
     const outstanding = Math.max(0, invoiced - collected)
 
-    const warnings = warningsRes.data ?? []
     const warningsOpen = warnings.filter((w) => w.status !== 'resolved').length
     const warnAtt = warnings.filter((w) => w.warning_type === 'attendance').length
     const warnGrade = warnings.filter((w) => w.warning_type === 'grade').length
 
     const enrollCounts = new Map<string, number>()
-    for (const e of enrollRes.data ?? []) {
+    for (const e of enrollments) {
       const k = e.status || 'other'
       enrollCounts.set(k, (enrollCounts.get(k) ?? 0) + 1)
     }
@@ -195,7 +227,7 @@ export async function getCampusReport(
     }
     let present = 0
     let totalAtt = 0
-    for (const row of attendRes.data ?? []) {
+    for (const row of attendance) {
       const day = String(row.created_at).slice(0, 10)
       const bucket = dayMap.get(day)
       if (!bucket) continue

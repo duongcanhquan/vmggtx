@@ -163,15 +163,17 @@ export const scheduleSessionSchema = z
     path: ['endTime'],
   })
 
-/** Form Thêm nhân sự (Campus Admin) - KHÔNG BAO GIỜ có super_admin */
+/** Form Thêm nhân sự (Campus Admin) - KHÔNG BAO GIỜ có super_admin / student */
 export const createUserSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   fullName: safeText('Họ tên'),
   role: z.enum(
-    ['campus_admin', 'academic_staff', 'admission_staff', 'accountant', 'teacher', 'student'],
+    ['campus_admin', 'academic_staff', 'admission_staff', 'accountant', 'teacher'],
     {
-      errorMap: () => ({ message: 'Role không hợp lệ. Không thể gán quyền này.' }),
+      errorMap: () => ({
+        message: 'Role không hợp lệ. Học viên tạo tại menu Học sinh.',
+      }),
     }
   ),
   orgId: requiredId('Vui lòng chọn chi nhánh cho nhân sự mới.'),
@@ -237,18 +239,22 @@ export const assetSchema = z
     path: ['salvageValue'],
   })
 
-/** Form Sửa nhân sự (Campus Admin) - đổi tên/role/chi nhánh, KHÔNG có super_admin */
+/** Form Sửa nhân sự (Campus Admin) - đổi tên/role/chi nhánh, KHÔNG có super_admin / student */
 export const updateUserSchema = z.object({
   userId: requiredId('Thiếu ID người dùng.'),
   fullName: safeText('Họ tên'),
   role: z.enum(
-    ['campus_admin', 'academic_staff', 'admission_staff', 'accountant', 'teacher', 'student'],
+    ['campus_admin', 'academic_staff', 'admission_staff', 'accountant', 'teacher'],
     {
-      errorMap: () => ({ message: 'Role không hợp lệ. Không thể gán quyền này.' }),
+      errorMap: () => ({
+        message: 'Role không hợp lệ. Học viên quản lý tại menu Học sinh.',
+      }),
     }
   ),
   orgId: requiredId('Vui lòng chọn chi nhánh.'),
   phone: z.union([z.literal(''), phoneVNSchema]).default(''),
+  /** Chức danh (056) — chuỗi rỗng = gỡ gắn */
+  jobTitleId: z.union([z.literal(''), requiredId('ID chức danh không hợp lệ.')]).default(''),
 })
 
 /** Form Cấp lại mật khẩu (Campus Admin) */
@@ -528,6 +534,43 @@ export const leadSchema = z.object({
     .max(1000, 'Tóm tắt cuộc gọi tối đa 1000 ký tự.')
     .optional()
     .default(''),
+  strengths: z
+    .string()
+    .trim()
+    .max(1000, 'Điểm mạnh tối đa 1000 ký tự.')
+    .optional()
+    .default(''),
+  weaknesses: z
+    .string()
+    .trim()
+    .max(1000, 'Điểm yếu tối đa 1000 ký tự.')
+    .optional()
+    .default(''),
+  needs: z
+    .string()
+    .trim()
+    .max(1000, 'Nhu cầu tối đa 1000 ký tự.')
+    .optional()
+    .default(''),
+  potentialRating: z
+    .enum(['high', 'medium', 'low', 'unknown'])
+    .optional()
+    .or(z.literal('')),
+  depositAmount: z
+    .string()
+    .trim()
+    .optional()
+    .default('')
+    .refine(
+      (v) => !v || (!Number.isNaN(Number(v.replace(/,/g, ''))) && Number(v.replace(/,/g, '')) >= 0),
+      'Số tiền đặt cọc không hợp lệ.'
+    ),
+  paymentNotes: z
+    .string()
+    .trim()
+    .max(1000, 'Ghi chú đóng tiền tối đa 1000 ký tự.')
+    .optional()
+    .default(''),
   parentName: z
     .string()
     .trim()
@@ -647,6 +690,22 @@ export const orgConfigSchema = z.object({
     .int('Ngưỡng vắng mặt phải là số nguyên.')
     .min(1, 'Ngưỡng vắng mặt tối thiểu 1 buổi.')
     .max(30, 'Ngưỡng vắng mặt tối đa 30 buổi.'),
+  absence_early_warning: z.coerce
+    .number({ invalid_type_error: 'Ngưỡng cảnh báo sớm phải là số.' })
+    .int('Ngưỡng cảnh báo sớm phải là số nguyên.')
+    .min(1, 'Ngưỡng sớm tối thiểu 1 buổi.')
+    .max(30, 'Ngưỡng sớm tối đa 30 buổi.')
+    .default(2),
+  gpa_warning_limit: z.coerce
+    .number({ invalid_type_error: 'Ngưỡng ĐTB nguy hiểm phải là số.' })
+    .min(0)
+    .max(10)
+    .default(5),
+  gpa_early_warning: z.coerce
+    .number({ invalid_type_error: 'Ngưỡng ĐTB sớm phải là số.' })
+    .min(0)
+    .max(10)
+    .default(6),
   grading_locked_days: z.coerce
     .number({ invalid_type_error: 'Số ngày khóa điểm phải là số.' })
     .int('Số ngày khóa điểm phải là số nguyên.')
@@ -715,6 +774,36 @@ export const orgConfigSchema = z.object({
     .trim()
     .max(800, 'Ghi chú AI tối đa 800 ký tự.')
     .default(''),
+  /** Khung giờ ca TKB (lưới tuần + auto) */
+  schedule_slots: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(32),
+        label: z.string().trim().min(1).max(40),
+        start: z.string().regex(/^\d{2}:\d{2}$/),
+        end: z.string().regex(/^\d{2}:\d{2}$/),
+      })
+    )
+    .max(16)
+    .default([
+      { id: 'ca1', label: 'Ca 1', start: '07:30', end: '09:00' },
+      { id: 'ca2', label: 'Ca 2', start: '09:15', end: '10:45' },
+      { id: 'ca3', label: 'Ca 3', start: '13:30', end: '15:00' },
+      { id: 'ca4', label: 'Ca 4', start: '15:15', end: '16:45' },
+      { id: 'ca5', label: 'Ca 5', start: '18:00', end: '20:00' },
+    ]),
+  /** HR: quỹ phép năm + tuần làm việc (0=CN … 6=T7) */
+  hr_annual_leave_days: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(60)
+    .default(12),
+  hr_work_week: z
+    .array(z.number().int().min(0).max(6))
+    .min(1)
+    .max(7)
+    .default([1, 2, 3, 4, 5]),
 })
 
 export type OrgConfig = z.infer<typeof orgConfigSchema>
@@ -723,6 +812,9 @@ export type OrgConfig = z.infer<typeof orgConfigSchema>
 export const DEFAULT_ORG_CONFIG: OrgConfig = {
   auto_attendance_sms: true,
   max_absence_warning: 3,
+  absence_early_warning: 2,
+  gpa_warning_limit: 5,
+  gpa_early_warning: 6,
   grading_locked_days: 7,
   require_manager_approval_for_refunds: true,
   org_code: '',
@@ -745,6 +837,15 @@ export const DEFAULT_ORG_CONFIG: OrgConfig = {
   crm_ai_tone: 'friendly',
   crm_default_follow_up_hours: 24,
   crm_ai_system_note: '',
+  schedule_slots: [
+    { id: 'ca1', label: 'Ca 1', start: '07:30', end: '09:00' },
+    { id: 'ca2', label: 'Ca 2', start: '09:15', end: '10:45' },
+    { id: 'ca3', label: 'Ca 3', start: '13:30', end: '15:00' },
+    { id: 'ca4', label: 'Ca 4', start: '15:15', end: '16:45' },
+    { id: 'ca5', label: 'Ca 5', start: '18:00', end: '20:00' },
+  ],
+  hr_annual_leave_days: 12,
+  hr_work_week: [1, 2, 3, 4, 5],
 }
 
 // ====== Cài đặt toàn cục của SuperAdmin (/admin/settings) ======

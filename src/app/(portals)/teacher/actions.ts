@@ -102,27 +102,27 @@ export async function getTeacherHome(): Promise<TeacherHomeResult> {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000)
 
     const [todayResult, pendingResult, monthResult, classesResult] = await Promise.all([
-      // Lịch dạy hôm nay
+      // Lịch dạy hôm nay (chính + dạy thay)
       supabase
         .from('class_sessions')
         .select('id, class_id, room, start_time, end_time, status, classes(name)')
-        .eq('teacher_id', user.id)
+        .or(`teacher_id.eq.${user.id},substitute_teacher_id.eq.${user.id}`)
         .is('deleted_at', null)
         .gte('start_time', dayStart.toISOString())
         .lt('start_time', dayEnd.toISOString())
         .order('start_time'),
-      // Đã kết thúc nhưng chưa completed (7 ngày gần nhất, gồm hôm nay)
+      // Đã kết thúc nhưng chưa completed (7 ngày gần nhất)
       supabase
         .from('class_sessions')
         .select('id, class_id, room, start_time, end_time, status, classes(name)')
-        .eq('teacher_id', user.id)
+        .or(`teacher_id.eq.${user.id},substitute_teacher_id.eq.${user.id}`)
         .eq('status', 'scheduled')
         .is('deleted_at', null)
         .lt('end_time', now.toISOString())
         .gte('end_time', sevenDaysAgo.toISOString())
         .order('end_time', { ascending: false })
         .limit(20),
-      // Tổng tiết đã dạy trong tháng (ước tính lương)
+      // Tổng tiết đã dạy trong tháng (ước tính lương) — chỉ buổi chính
       supabase
         .from('class_sessions')
         .select('id', { count: 'exact', head: true })
@@ -139,7 +139,34 @@ export async function getTeacherHome(): Promise<TeacherHomeResult> {
         .is('deleted_at', null),
     ])
 
-    if (todayResult.error) {
+    let todayData = todayResult.data
+    let pendingData = pendingResult.data
+
+    if (todayResult.error && /substitute|42703|column/i.test(todayResult.error.message)) {
+      const todayLegacy = await supabase
+        .from('class_sessions')
+        .select('id, class_id, room, start_time, end_time, status, classes(name)')
+        .eq('teacher_id', user.id)
+        .is('deleted_at', null)
+        .gte('start_time', dayStart.toISOString())
+        .lt('start_time', dayEnd.toISOString())
+        .order('start_time')
+      const pendingLegacy = await supabase
+        .from('class_sessions')
+        .select('id, class_id, room, start_time, end_time, status, classes(name)')
+        .eq('teacher_id', user.id)
+        .eq('status', 'scheduled')
+        .is('deleted_at', null)
+        .lt('end_time', now.toISOString())
+        .gte('end_time', sevenDaysAgo.toISOString())
+        .order('end_time', { ascending: false })
+        .limit(20)
+      if (todayLegacy.error) {
+        return { error: `Không tải được lịch dạy: ${todayLegacy.error.message}` }
+      }
+      todayData = todayLegacy.data
+      pendingData = pendingLegacy.data
+    } else if (todayResult.error) {
       return { error: `Không tải được lịch dạy: ${todayResult.error.message}` }
     }
 
@@ -169,10 +196,8 @@ export async function getTeacherHome(): Promise<TeacherHomeResult> {
     }
 
     return {
-      todaySessions: ((todayResult.data ?? []) as unknown as SessionRow[]).map(
-        toTeacherSession
-      ),
-      pendingAttendance: ((pendingResult.data ?? []) as unknown as SessionRow[]).map(
+      todaySessions: ((todayData ?? []) as unknown as SessionRow[]).map(toTeacherSession),
+      pendingAttendance: ((pendingData ?? []) as unknown as SessionRow[]).map(
         toTeacherSession
       ),
       stats: {

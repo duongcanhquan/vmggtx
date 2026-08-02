@@ -48,6 +48,8 @@ export type TeacherPayroll = {
   year: number
   contractType: PayrollContractType
   totalHoursTaught: number
+  /** Buổi completed nhưng chưa điểm danh — không tính lương (D-HR7) */
+  sessionsMissingAttendance: number
   regularPay: number
   teachingPay: number
   totalAllowance: number
@@ -93,7 +95,8 @@ function computePayroll(
   totalHoursTaught: number,
   taxPercentage: number,
   month: number,
-  year: number
+  year: number,
+  sessionsMissingAttendance = 0
 ): TeacherPayroll {
   let regularPay = 0
   let teachingPay = 0
@@ -134,6 +137,7 @@ function computePayroll(
     year,
     contractType,
     totalHoursTaught,
+    sessionsMissingAttendance,
     regularPay,
     teachingPay,
     totalAllowance,
@@ -285,13 +289,22 @@ export async function calculateTeacherPayrollBatch(
     payableSessions = sessions.filter((s) => attendedIds.ids.has(s.id))
   }
 
-  // Đếm tiết dạy theo giáo viên
+  // Đếm tiết dạy theo giáo viên + tiết bị loại vì thiếu điểm danh
   const hoursByTeacher = new Map<string, number>()
-  for (const session of payableSessions) {
-    hoursByTeacher.set(
-      session.teacher_id,
-      (hoursByTeacher.get(session.teacher_id) ?? 0) + 1
-    )
+  const skippedByTeacher = new Map<string, number>()
+  for (const session of sessions) {
+    const paid = payableSessions.some((p) => p.id === session.id)
+    if (paid) {
+      hoursByTeacher.set(
+        session.teacher_id,
+        (hoursByTeacher.get(session.teacher_id) ?? 0) + 1
+      )
+    } else if ((options?.sessionStatus ?? 'completed') === 'completed') {
+      skippedByTeacher.set(
+        session.teacher_id,
+        (skippedByTeacher.get(session.teacher_id) ?? 0) + 1
+      )
+    }
   }
 
   // Thuế mặc định resolve 1 LẦN cho mỗi org (cache), chỉ khi hợp đồng thiếu
@@ -332,7 +345,8 @@ export async function calculateTeacherPayrollBatch(
         hoursByTeacher.get(teacherId) ?? 0,
         taxPercentage,
         month,
-        year
+        year,
+        skippedByTeacher.get(teacherId) ?? 0
       ),
     })
   }
@@ -420,6 +434,7 @@ export async function calculateTeacherPayroll(
   if (sessionError) return { error: `Lỗi đếm tiết dạy: ${sessionError.message}` }
 
   let totalHoursTaught = 0
+  let sessionsMissingAttendance = 0
   if ((sessionRows ?? []).length > 0) {
     const attended = await fetchAttendedSessionIds(
       supabase,
@@ -427,6 +442,7 @@ export async function calculateTeacherPayroll(
     )
     if (attended.error !== undefined) return { error: attended.error }
     totalHoursTaught = (sessionRows ?? []).filter((s) => attended.ids.has(s.id)).length
+    sessionsMissingAttendance = (sessionRows ?? []).length - totalHoursTaught
   }
 
   // [CẤU HÌNH ĐỘNG] Hợp đồng KHÔNG ghi rõ thuế -> dùng tax_rate_default
@@ -444,7 +460,8 @@ export async function calculateTeacherPayroll(
       totalHoursTaught,
       taxPercentage,
       month,
-      year
+      year,
+      sessionsMissingAttendance
     ),
   }
 }

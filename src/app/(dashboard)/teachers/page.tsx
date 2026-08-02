@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
   BookOpen,
   GraduationCap,
@@ -18,6 +19,7 @@ import {
   assignClassesToTeacher,
   getAssignableClasses,
   getTeacherDirectory,
+  listSubjectsForTeacherForm,
   updateTeacherProfile,
   type AssignableClass,
   type TeacherRow,
@@ -76,10 +78,21 @@ export default function TeachersPage() {
             Hồ sơ Giảng viên
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Danh bạ giảng viên và phân công lớp phụ trách.
+            Danh bạ giảng viên và phân công lớp chủ nhiệm. Xếp buổi dạy tại{' '}
+            <Link href="/academic/schedule" className="font-medium text-primary hover:underline">
+              Xếp lịch / TKB
+            </Link>
+            .
           </p>
         </div>
-        <div className="relative w-full sm:w-72">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/academic/schedule"
+            className="inline-flex min-h-11 items-center rounded-xl border border-border bg-surface px-4 text-sm font-semibold hover:bg-muted"
+          >
+            Xếp lịch / TKB
+          </Link>
+          <div className="relative w-full sm:w-72">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
@@ -92,6 +105,7 @@ export default function TeachersPage() {
             aria-label="Tìm giảng viên"
             className="min-h-11 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
+          </div>
         </div>
       </div>
 
@@ -127,12 +141,30 @@ export default function TeachersPage() {
                     {teacher.full_name}
                   </h2>
                   <p className="mt-0.5 text-xs text-muted-foreground">{teacher.org_name}</p>
+                  {teacher.teaching_major && (
+                    <p className="mt-1 text-xs font-medium text-violet-700">
+                      Ngành: {teacher.teaching_major}
+                    </p>
+                  )}
                 </div>
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                   <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
                   {teacher.classes.length} lớp
                 </span>
               </div>
+
+              {teacher.subjects.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {teacher.subjects.map((s) => (
+                    <span
+                      key={s.id}
+                      className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800"
+                    >
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               <dl className="mt-3 space-y-1.5 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -232,12 +264,37 @@ function EditTeacherModal({
   const [fullName, setFullName] = useState(teacher.full_name)
   const [phone, setPhone] = useState(teacher.phone ?? '')
   const [email, setEmail] = useState(teacher.email ?? '')
+  const [teachingMajor, setTeachingMajor] = useState(teacher.teaching_major ?? '')
+  const [subjectIds, setSubjectIds] = useState<string[]>(
+    teacher.subjects.map((s) => s.id)
+  )
+  const [allSubjects, setAllSubjects] = useState<{ id: string; name: string }[]>(
+    []
+  )
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    void listSubjectsForTeacherForm().then((res) => {
+      if (!res.error) setAllSubjects(res.data)
+    })
+  }, [])
+
+  function toggleSubject(id: string) {
+    setSubjectIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    const result = await updateTeacherProfile(teacher.id, { fullName, phone, email })
+    const result = await updateTeacherProfile(teacher.id, {
+      fullName,
+      phone,
+      email,
+      teachingMajor,
+      subjectIds,
+    })
     setSaving(false)
     if (result.error) {
       onError(result.error)
@@ -261,7 +318,7 @@ function EditTeacherModal({
       />
       <form
         onSubmit={submit}
-        className="relative w-full max-w-md rounded-t-3xl bg-surface p-6 shadow-xl sm:rounded-3xl"
+        className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-surface p-6 shadow-xl sm:rounded-3xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -313,6 +370,39 @@ function EditTeacherModal({
               viên&quot;.
             </span>
           </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-foreground">Ngành dạy</span>
+            <input
+              value={teachingMajor}
+              onChange={(e) => setTeachingMajor(e.target.value)}
+              placeholder="VD: Công nghệ thông tin"
+              className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-foreground">Môn dạy</p>
+            {allSubjects.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Chưa có môn active — thêm ở Chương trình môn học.
+              </p>
+            ) : (
+              <ul className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                {allSubjects.map((s) => (
+                  <li key={s.id}>
+                    <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-indigo-50">
+                      <input
+                        type="checkbox"
+                        checked={subjectIds.includes(s.id)}
+                        onChange={() => toggleSubject(s.id)}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      <span className="text-sm">{s.name}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

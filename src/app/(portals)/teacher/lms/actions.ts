@@ -12,6 +12,9 @@ import {
   presignUpload,
 } from '@/lib/storage/r2'
 
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
+
 // ============================================================
 // LMS - phía GIÁO VIÊN: soạn bài giảng, giao bài tập, chấm bài,
 // tạo đề trắc nghiệm và đồng bộ điểm vào Sổ điểm chính thức.
@@ -106,6 +109,16 @@ async function authorizeClass(classId: string): Promise<ClassAuth> {
 
   let allowed = cls.teacher_id === user.id
   if (!allowed) {
+    const { data: ct } = await supabase
+      .from('class_teachers')
+      .select('id')
+      .eq('class_id', classId)
+      .eq('teacher_id', user.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    allowed = Boolean(ct)
+  }
+  if (!allowed) {
     const { data: staffOk } = await supabase.rpc('is_authorized', {
       p_user_id: user.id,
       p_target_org_id: cls.org_id,
@@ -116,6 +129,116 @@ async function authorizeClass(classId: string): Promise<ClassAuth> {
   if (!allowed) return { error: 'Bạn không có quyền với lớp này.' }
 
   return { supabase, user, cls }
+}
+
+export type LmsClassOption = {
+  id: string
+  name: string
+  orgName: string | null
+}
+
+/**
+ * Danh sách lớp mở LMS:
+ * - Giáo vụ / Admin: mọi học phần trong org đang chọn (+ nhánh con)
+ * - Giáo viên: lớp lead (teacher_id) + class_teachers
+ */
+export async function listAccessibleLmsClasses(
+  orgId: string | null
+): Promise<{ classes: LmsClassOption[]; error?: string }> {
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { classes: [], error: 'Bạn cần đăng nhập.' }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, org_id')
+      .eq('id', user.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!profile) return { classes: [], error: 'Không tìm thấy hồ sơ.' }
+
+    const staffRoles = ['super_admin', 'campus_admin', 'academic_staff']
+    if (staffRoles.includes(profile.role)) {
+      if (!orgId) return { classes: [], error: 'Chưa chọn cơ sở trên thanh tổ chức.' }
+      if (profile.role !== 'super_admin') {
+        const auth = await isAuthorizedRpc(supabase, {
+          p_user_id: user.id,
+          p_target_org_id: orgId,
+          p_required_role: 'academic_staff',
+          p_menu_key: 'lms',
+        })
+        if (auth.data !== true) {
+          return { classes: [], error: 'Bạn không có quyền mở LMS tại cơ sở đang chọn.' }
+        }
+      }
+      const subtree = await getDescendantOrgIds(supabase, orgId)
+      const orgIds = subtree.includes(orgId) ? subtree : [orgId, ...subtree]
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name, organizations(name)')
+        .in('org_id', orgIds)
+        .is('deleted_at', null)
+        .order('name')
+      if (error) return { classes: [], error: error.message }
+      return {
+        classes: (data ?? []).map((row) => {
+          const org = row.organizations as { name?: string } | { name?: string }[] | null
+          const orgName = Array.isArray(org) ? org[0]?.name ?? null : org?.name ?? null
+          return { id: row.id as string, name: row.name as string, orgName }
+        }),
+      }
+    }
+
+    // Giáo viên: lead + co/grader
+    const byId = new Map<string, LmsClassOption>()
+    const { data: leadRows } = await supabase
+      .from('classes')
+      .select('id, name, organizations(name)')
+      .eq('teacher_id', user.id)
+      .is('deleted_at', null)
+      .order('name')
+    for (const row of leadRows ?? []) {
+      const org = row.organizations as { name?: string } | { name?: string }[] | null
+      const orgName = Array.isArray(org) ? org[0]?.name ?? null : org?.name ?? null
+      byId.set(row.id as string, {
+        id: row.id as string,
+        name: row.name as string,
+        orgName,
+      })
+    }
+
+    const { data: coRows } = await supabase
+      .from('class_teachers')
+      .select('class_id, classes(id, name, deleted_at, organizations(name))')
+      .eq('teacher_id', user.id)
+      .is('deleted_at', null)
+    for (const row of coRows ?? []) {
+      const cls = row.classes as unknown as
+        | {
+            id: string
+            name: string
+            deleted_at: string | null
+            organizations: { name?: string } | { name?: string }[] | null
+          }
+        | null
+      if (!cls || cls.deleted_at) continue
+      const org = cls.organizations
+      const orgName = Array.isArray(org) ? org[0]?.name ?? null : org?.name ?? null
+      byId.set(cls.id, { id: cls.id, name: cls.name, orgName })
+    }
+
+    return {
+      classes: [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi')),
+    }
+  } catch (e) {
+    return {
+      classes: [],
+      error: e instanceof Error ? e.message : 'Không tải được danh sách lớp LMS.',
+    }
+  }
 }
 
 // ---------- 1. Danh sách lớp + dữ liệu LMS ----------

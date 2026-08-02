@@ -257,6 +257,71 @@ await checkColumn('leads', 'custom_metadata', '053_crm_lead_profile_ai.sql')
 await checkColumn('profiles', 'cccd', '053_crm_lead_profile_ai.sql')
 await checkColumn('profiles', 'parent_name', '053_crm_lead_profile_ai.sql')
 
+console.log('\n-- Migration 054 (CRM tư vấn + đóng tiền) --')
+await checkColumn('leads', 'strengths', '054_crm_counseling_payment.sql')
+await checkColumn('leads', 'weaknesses', '054_crm_counseling_payment.sql')
+await checkColumn('leads', 'needs', '054_crm_counseling_payment.sql')
+await checkColumn('leads', 'potential_rating', '054_crm_counseling_payment.sql')
+await checkColumn('leads', 'deposit_amount', '054_crm_counseling_payment.sql')
+await checkColumn('leads', 'payment_notes', '054_crm_counseling_payment.sql')
+
+console.log('\n-- Migration 055 (cảnh báo học vụ ops) --')
+await checkColumn('student_warnings', 'severity', '055_academic_warnings_ops.sql')
+await checkColumn('student_warnings', 'handler_notes', '055_academic_warnings_ops.sql')
+await checkColumn('student_warnings', 'handled_by', '055_academic_warnings_ops.sql')
+
+console.log('\n-- Migration 056 (chức danh + mẫu quyền) --')
+await checkTable('job_titles', '056_job_titles.sql')
+await checkColumn('profiles', 'job_title_id', '056_job_titles.sql')
+
+console.log('\n-- Migration 057 (ngày nghỉ TKB) --')
+await checkTable('org_holidays', '057_org_holidays.sql')
+
+console.log('\n-- Migration 058 (kế hoạch xếp lịch lớp) --')
+await checkTable('class_schedule_plans', '058_class_schedule_plans.sql')
+
+console.log('\n-- Migration 059 (phân công công việc) --')
+await checkTable('work_tasks', '059_work_tasks.sql')
+await checkTable('work_task_assignees', '059_work_tasks.sql')
+
+console.log('\n-- Migration 060 (facility_id buổi học) --')
+await checkColumn('class_sessions', 'facility_id', '060_session_facility_id.sql')
+
+console.log('\n-- Migration 061 (curriculum subjects) --')
+await checkColumn('subjects', 'code', '061_curriculum_subjects.sql')
+await checkColumn('subjects', 'credits', '061_curriculum_subjects.sql')
+await checkColumn('subjects', 'total_periods', '061_curriculum_subjects.sql')
+
+console.log('\n-- Migration 062 (tuition_rules) --')
+await checkTable('tuition_rules', '062_tuition_rules.sql')
+
+console.log('\n-- Migration 063 (GV ngành + môn) --')
+await checkColumn('profiles', 'teaching_major', '063_teacher_subjects.sql')
+await checkTable('teacher_subjects', '063_teacher_subjects.sql')
+
+console.log('\n-- Migration 064 (lớp hành chính + class_teachers) --')
+await checkTable('class_groups', '064_class_groups_teachers.sql')
+await checkTable('class_group_members', '064_class_groups_teachers.sql')
+await checkColumn('classes', 'group_id', '064_class_groups_teachers.sql')
+await checkTable('class_teachers', '064_class_groups_teachers.sql')
+
+console.log('\n-- Migration 065 (LMS rubric) --')
+await checkTable('lms_rubrics', '065_lms_rubrics.sql')
+await checkTable('lms_rubric_criteria', '065_lms_rubrics.sql')
+await checkTable('lms_rubric_levels', '065_lms_rubrics.sql')
+await checkTable('lms_submission_grades', '065_lms_rubrics.sql')
+
+console.log('\n-- Migration 066 (MaSV ↔ student_code sync) --')
+console.log(
+  '[INFO] Backfill MaSV (nếu có) chạy SQL Editor riêng. Không thêm bảng mới.'
+)
+
+console.log('\n-- Migration 067 (HR phép / ngày công / lương VP) --')
+await checkTable('hr_leave_balances', '067_hr_leave_workdays.sql')
+await checkTable('hr_leave_requests', '067_hr_leave_workdays.sql')
+await checkTable('hr_workday_overrides', '067_hr_leave_workdays.sql')
+await checkTable('staff_salary_terms', '067_hr_leave_workdays.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

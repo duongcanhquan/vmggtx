@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAIConfig } from '@/lib/ai/getTenantAIConfig'
+import { assertClassAccess } from '@/lib/auth/assertClassAccess'
 
 // [QA GATE] Body phải qua Zod trước khi dùng (đồng bộ chuẩn với copilot route)
 const bodySchema = z.object({
@@ -91,36 +92,31 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ===== [SECURITY AUDIT] Caller phải THUỘC lớp: học viên ghi danh /
-  // GV của lớp / Staff của org (chống mượn API key tenant qua classId lạ)
-  if (cls.teacher_id !== user.id) {
-    const [{ data: enrollment }, { data: staffAuthorized }] = await Promise.all([
-      supabase
-        .from('enrollments')
-        .select('id')
-        .eq('class_id', cls.id)
-        .eq('student_id', user.id)
-        .is('deleted_at', null)
-        .maybeSingle(),
-      supabase.rpc('is_authorized', {
-        p_user_id: user.id,
-        p_target_org_id: cls.org_id,
-        p_required_role: 'academic_staff',
-      }),
-    ])
-    if (!enrollment && staffAuthorized !== true) {
-      return NextResponse.json(
-        { error: 'TỪ CHỐI: Bạn không thuộc lớp học này.' },
-        { status: 403 }
-      )
-    }
+  // [QA-FIX C] Lead | co-teacher | enrollment | cohort | academic_staff
+  const allowed = await assertClassAccess(
+    supabase,
+    user.id,
+    cls.id,
+    cls.org_id,
+    cls.teacher_id
+  )
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'TỪ CHỐI: Bạn không thuộc lớp học này.' },
+      { status: 403 }
+    )
   }
 
-  // ===== [STUDENT 360] Ghi nhật ký câu hỏi (fire-and-forget) =====
-  // Cố vấn học tập xem học sinh hay hỏi AI về môn gì tại /students/[id].
-  // Lỗi ghi log không được ảnh hưởng luồng chat chính.
+  // ===== [STUDENT 360] Chỉ log khi caller là học viên =====
   void (async () => {
     try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (profile?.role !== 'student') return
       const admin = createAdminClient()
       await admin.from('student_ai_chats').insert({
         org_id: cls.org_id,
@@ -183,6 +179,7 @@ export async function POST(request: NextRequest) {
         .join('\n---\n') || '(Chưa có tài liệu nào cho lớp này)'
 
     // Bước 4: stream câu trả lời với ngữ cảnh tài liệu (model của tenant)
+    // [QA-FIX D] Timeout stream < maxDuration(30s)
     const result = streamText({
       model: openaiClient(chatModel),
       system: `Bạn là gia sư của trung tâm GDTX, trả lời bằng tiếng Việt, ngắn gọn và dễ hiểu.
@@ -191,6 +188,7 @@ Hãy dùng tài liệu sau để trả lời. Nếu tài liệu không chứa th
 TÀI LIỆU CỦA LỚP:
 ${context}`,
       messages: convertToCoreMessages(messages),
+      abortSignal: AbortSignal.timeout(25_000),
     })
 
     return result.toDataStreamResponse({

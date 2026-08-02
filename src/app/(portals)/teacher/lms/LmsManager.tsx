@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import {
   BookOpenCheck,
   BrainCircuit,
@@ -55,6 +56,7 @@ import {
   getLessonRagStatus,
   indexLessonToRAG,
 } from './ai-actions'
+import { getAssignmentRubric, saveAssignmentRubric } from './rubric-actions'
 
 // ============================================================
 // LMS Giáo viên - client. 3 tab: Bài giảng / Bài tập / Kiểm tra.
@@ -80,12 +82,30 @@ function fmtDate(iso: string | null): string {
   })
 }
 
-export function LmsManager({ classes }: { classes: ClassOption[] }) {
-  const [classId, setClassId] = useState(classes[0]?.id ?? '')
+export function LmsManager({
+  classes,
+  initialClassId,
+}: {
+  classes: ClassOption[]
+  initialClassId?: string | null
+}) {
+  const pickId = (list: ClassOption[], preferred?: string | null) => {
+    if (preferred && list.some((c) => c.id === preferred)) return preferred
+    return list[0]?.id ?? ''
+  }
+  const [classId, setClassId] = useState(() => pickId(classes, initialClassId))
   const [tab, setTab] = useState<Tab>('lessons')
   const [data, setData] = useState<ClassLmsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  useEffect(() => {
+    if (initialClassId && classes.some((c) => c.id === initialClassId)) {
+      setClassId(initialClassId)
+      return
+    }
+    setClassId((prev) => (prev && classes.some((c) => c.id === prev) ? prev : pickId(classes, null)))
+  }, [classes, initialClassId])
 
   // Modal state
   const [lessonEditing, setLessonEditing] = useState<Partial<LmsLesson> | null>(null)
@@ -884,8 +904,195 @@ function AssignmentModal({
         >
           {saving && <Loader2 className="h-4 w-4 animate-spin" />} Lưu bài tập
         </button>
+        {assignment.id && (
+          <RubricEditorInline
+            classId={classId}
+            assignmentId={assignment.id}
+            onError={onError}
+          />
+        )}
       </div>
     </ModalShell>
+  )
+}
+
+function RubricEditorInline({
+  classId,
+  assignmentId,
+  onError,
+}: {
+  classId: string
+  assignmentId: string
+  onError: (m: string) => void
+  onSaved?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('Rubric chấm điểm')
+  const [criteria, setCriteria] = useState<
+    { name: string; description: string; levels: { label: string; points: number }[] }[]
+  >([
+    {
+      name: 'Nội dung',
+      description: '',
+      levels: [
+        { label: 'Yếu', points: 1 },
+        { label: 'Trung bình', points: 2 },
+        { label: 'Tốt', points: 3 },
+      ],
+    },
+  ])
+  const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!open || loaded) return
+    void getAssignmentRubric(classId, assignmentId).then((res) => {
+      if (res.error) return
+      if (res.data) {
+        setTitle(res.data.title)
+        setCriteria(
+          res.data.criteria.map((c) => ({
+            name: c.name,
+            description: c.description ?? '',
+            levels: c.levels.map((l) => ({ label: l.label, points: l.points })),
+          }))
+        )
+      }
+      setLoaded(true)
+    })
+  }, [open, loaded, classId, assignmentId])
+
+  async function save() {
+    setSaving(true)
+    const res = await saveAssignmentRubric({
+      classId,
+      assignmentId,
+      title,
+      criteria,
+    })
+    setSaving(false)
+    if (res.error) return onError(res.error)
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 text-sm font-bold text-violet-800 hover:bg-violet-100"
+      >
+        Thiết lập Rubric
+      </button>
+    )
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-violet-200 bg-violet-50/50 p-3">
+      <p className="text-sm font-bold text-violet-900">Rubric bài tập</p>
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className={inputCls}
+        placeholder="Tiêu đề rubric"
+      />
+      {criteria.map((c, i) => (
+        <div key={i} className="space-y-2 rounded-lg border border-border bg-surface p-2">
+          <input
+            value={c.name}
+            onChange={(e) => {
+              const next = [...criteria]
+              next[i] = { ...c, name: e.target.value }
+              setCriteria(next)
+            }}
+            className={inputCls}
+            placeholder="Tên tiêu chí"
+          />
+          {c.levels.map((lv, j) => (
+            <div key={j} className="flex gap-2">
+              <input
+                value={lv.label}
+                onChange={(e) => {
+                  const next = [...criteria]
+                  const levels = [...c.levels]
+                  levels[j] = { ...lv, label: e.target.value }
+                  next[i] = { ...c, levels }
+                  setCriteria(next)
+                }}
+                className={`${inputCls} flex-1`}
+                placeholder="Mức"
+              />
+              <input
+                type="number"
+                min={0}
+                max={10}
+                step={0.25}
+                value={lv.points}
+                onChange={(e) => {
+                  const next = [...criteria]
+                  const levels = [...c.levels]
+                  levels[j] = { ...lv, points: Number(e.target.value) }
+                  next[i] = { ...c, levels }
+                  setCriteria(next)
+                }}
+                className={`${inputCls} w-20`}
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            className="text-xs font-semibold text-primary"
+            onClick={() => {
+              const next = [...criteria]
+              next[i] = {
+                ...c,
+                levels: [...c.levels, { label: 'Mức mới', points: 1 }],
+              }
+              setCriteria(next)
+            }}
+          >
+            + Mức
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="text-xs font-semibold text-primary"
+        onClick={() =>
+          setCriteria([
+            ...criteria,
+            {
+              name: 'Tiêu chí mới',
+              description: '',
+              levels: [
+                { label: 'Yếu', points: 1 },
+                { label: 'Tốt', points: 3 },
+              ],
+            },
+          ])
+        }
+      >
+        + Tiêu chí
+      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="min-h-10 flex-1 rounded-xl border border-border text-sm font-semibold"
+        >
+          Đóng
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void save()}
+          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 rounded-xl bg-violet-700 text-sm font-bold text-white disabled:opacity-50"
+        >
+          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Lưu rubric
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -1289,8 +1496,14 @@ function SubmissionsModal({
                   className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-primary px-3.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-40"
                 >
                   {savingId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  Chấm
+                  Chấm nhanh
                 </button>
+                <Link
+                  href={`/teacher/lms/grade/${s.id}`}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 text-xs font-bold text-violet-800 hover:bg-violet-100"
+                >
+                  Chấm rubric
+                </Link>
               </div>
             </div>
           ))}

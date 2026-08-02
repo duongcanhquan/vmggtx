@@ -94,7 +94,16 @@ export async function getStaffContext(): Promise<StaffContext> {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) return MOCK_CONTEXT
+    // [QA-FIX C] Không giả lập Chi nhánh Cầu Giấy khi chưa auth
+    if (!user) {
+      return {
+        userId: '',
+        orgId: '',
+        orgName: '—',
+        fullName: '',
+        demo: false,
+      }
+    }
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -103,7 +112,15 @@ export async function getStaffContext(): Promise<StaffContext> {
       .is('deleted_at', null)
       .maybeSingle()
 
-    if (!profile?.org_id) return MOCK_CONTEXT
+    if (!profile?.org_id) {
+      return {
+        userId: user.id,
+        orgId: '',
+        orgName: '—',
+        fullName: profile?.full_name ?? '',
+        demo: false,
+      }
+    }
 
     const org = profile.organizations as { name: string } | { name: string }[] | null
     return {
@@ -114,7 +131,14 @@ export async function getStaffContext(): Promise<StaffContext> {
       demo: false,
     }
   } catch {
-    return MOCK_CONTEXT
+    console.error('[QA-FIX C] getStaffContext failed')
+    return {
+      userId: '',
+      orgId: '',
+      orgName: '—',
+      fullName: '',
+      demo: false,
+    }
   }
 }
 
@@ -125,8 +149,8 @@ export async function getStaffClasses(): Promise<{
 }> {
   try {
     const context = await getStaffContext()
-    if (context.demo || !context.orgId) {
-      return { data: MOCK_CLASSES, demo: true }
+    if (!context.orgId) {
+      return { data: [], demo: false }
     }
 
     const supabase = createClient()
@@ -139,11 +163,12 @@ export async function getStaffClasses(): Promise<{
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
-    if (error || !data) {
-      return { data: MOCK_CLASSES, demo: true }
+    if (error) {
+      console.error('[QA-FIX C] getStaffClasses:', error.message)
+      return { data: [], demo: false }
     }
 
-    const rows: StaffClassRow[] = data.map((row) => {
+    const rows: StaffClassRow[] = (data ?? []).map((row) => {
       const teacher = row.profiles as { full_name: string } | { full_name: string }[] | null
       const sessions = row.class_sessions as { count: number }[] | null
       return {
@@ -161,7 +186,8 @@ export async function getStaffClasses(): Promise<{
     })
     return { data: rows, demo: false }
   } catch {
-    return { data: MOCK_CLASSES, demo: true }
+    console.error('[QA-FIX C] getStaffClasses exception')
+    return { data: [], demo: false }
   }
 }
 

@@ -152,6 +152,26 @@ export function FamilyLoginForm({
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
+    // [QA-FIX E] Client validate trước khi gọi mạng (noValidate form)
+    if (who === 'student') {
+      if (!identifier.trim()) {
+        setError('Vui lòng nhập mã học viên hoặc email.')
+        return
+      }
+      if (!password) {
+        setError('Vui lòng nhập mật khẩu.')
+        return
+      }
+    } else {
+      if (!email.trim() || !email.includes('@')) {
+        setError('Vui lòng nhập email phụ huynh hợp lệ.')
+        return
+      }
+      if (!password) {
+        setError('Vui lòng nhập mật khẩu.')
+        return
+      }
+    }
     setSubmitting(true)
     try {
       if (who === 'student') await submitStudent()

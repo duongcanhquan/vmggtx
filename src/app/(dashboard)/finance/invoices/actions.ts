@@ -102,17 +102,28 @@ const MOCK_INVOICES: InvoiceRow[] = [
 
 /**
  * Danh sách hóa đơn của org đang chọn + chi nhánh con/cháu,
- * kèm tổng tiền đã thu (SUM payments). Fallback demo khi DB trống.
+ * kèm tổng tiền đã thu (SUM payments).
+ * [QA-FIX C] Empty = [] thật — KHÔNG mock khi org trống.
  */
 export async function getInvoices(
   orgId: string | null
-): Promise<{ data: InvoiceRow[]; demo: boolean }> {
+): Promise<{ data: InvoiceRow[]; demo: boolean; loadError?: string | null }> {
   if (!orgId) {
-    return { data: MOCK_INVOICES, demo: true }
+    return { data: [], demo: false, loadError: 'Chưa chọn cơ sở / cấp quản lý.' }
   }
 
   try {
     const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      // Chỉ khi chưa login mới cho xem mock UI (dev); production = rỗng
+      if (process.env.NODE_ENV !== 'production') {
+        return { data: MOCK_INVOICES, demo: true, loadError: null }
+      }
+      return { data: [], demo: false, loadError: 'Bạn chưa đăng nhập.' }
+    }
 
     const orgIds = await getDescendantOrgIds(supabase, orgId)
 
@@ -125,11 +136,12 @@ export async function getInvoices(
       .is('deleted_at', null)
       .order('due_date', { ascending: true, nullsFirst: false })
 
-    if (error || !data || data.length === 0) {
-      return { data: MOCK_INVOICES, demo: true }
+    if (error) {
+      console.error('[QA-FIX C] getInvoices error:', error.message)
+      return { data: [], demo: false, loadError: error.message }
     }
 
-    const rows: InvoiceRow[] = data.map((row) => {
+    const rows: InvoiceRow[] = (data ?? []).map((row) => {
       const student = row.profiles as { full_name: string } | { full_name: string }[] | null
       const org = row.organizations as { name: string } | { name: string }[] | null
       const payments = (row.payments ?? []) as {
@@ -153,9 +165,14 @@ export async function getInvoices(
         due_date: row.due_date,
       }
     })
-    return { data: rows, demo: false }
-  } catch {
-    return { data: MOCK_INVOICES, demo: true }
+    return { data: rows, demo: false, loadError: null }
+  } catch (e) {
+    console.error('[QA-FIX C] getInvoices exception')
+    return {
+      data: [],
+      demo: false,
+      loadError: e instanceof Error ? e.message : 'Không tải được hóa đơn.',
+    }
   }
 }
 

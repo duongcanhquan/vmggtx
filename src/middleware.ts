@@ -8,6 +8,7 @@ import {
 } from '@/lib/auth/roles'
 import { menuKeyForPath } from '@/lib/auth/menuRegistry'
 import { FEATURE_ROUTES } from '@/lib/licensing/moduleCatalog'
+import { verifyParentSessionCookie } from '@/lib/auth/parentSessionEdge'
 
 // ============================================================
 // CACHE TRẠNG THÁI TRUY CẬP (license + menu + module flags)
@@ -208,12 +209,32 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     allowedRoles: ['super_admin', 'campus_admin'],
   },
   {
+    prefix: '/hr/attendance',
+    allowedRoles: ['super_admin', 'campus_admin', 'academic_staff', 'accountant'],
+  },
+  {
+    prefix: '/hr/my-leave',
+    allowedRoles: [
+      'super_admin',
+      'campus_admin',
+      'academic_staff',
+      'admission_staff',
+      'accountant',
+      'teacher',
+    ],
+  },
+  {
     // Lương & Hợp đồng (gộp tab với /finance/payroll) - kế toán được xem
     prefix: '/hr',
     allowedRoles: ['super_admin', 'campus_admin', 'accountant'],
   },
   {
     prefix: '/dashboard/academic',
+    allowedRoles: ['super_admin', 'campus_admin', 'academic_staff'],
+  },
+  {
+    // LMS Giáo vụ (Dashboard) — đặt TRƯỚC /academic chung
+    prefix: '/academic/lms',
     allowedRoles: ['super_admin', 'campus_admin', 'academic_staff'],
   },
   {
@@ -322,6 +343,10 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
   {
     prefix: '/schedule',
     allowedRoles: ['super_admin', 'campus_admin', 'student', 'teacher', 'academic_staff'],
+  },
+  {
+    prefix: '/exams',
+    allowedRoles: ['super_admin', 'campus_admin', 'student'],
   },
   {
     prefix: '/tuition',
@@ -678,7 +703,9 @@ export async function middleware(request: NextRequest) {
     // `parent_session` (server component tự verify chữ ký). Có cookie
     // -> cho qua; không có -> về cổng đăng nhập phụ huynh.
     if (isParentArea(pathname)) {
-      if (request.cookies.get('parent_session')?.value) {
+      // [QA-FIX B] Verify HMAC — không chỉ check cookie tồn tại
+      const parentCookie = request.cookies.get('parent_session')?.value
+      if (await verifyParentSessionCookie(parentCookie)) {
         return response
       }
       return redirectTo(request, loginPathFor(pathname, request), response)

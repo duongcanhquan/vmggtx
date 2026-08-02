@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import {
   AlertTriangle,
   ArrowLeft,
+  BookMarked,
   BrainCircuit,
   KeyRound,
   Loader2,
@@ -154,6 +155,49 @@ export default function AISettingsPage() {
             API Key sẽ được lưu trữ — hãy đặt giới hạn chi tiêu (billing limit) phía
             nhà cung cấp.
           </p>
+        </div>
+
+        {/* ===== Hướng dẫn Kho tri thức ===== */}
+        <div className="rounded-2xl border border-border bg-surface p-5">
+          <h2 className="flex items-center gap-2 font-heading text-lg font-bold">
+            <BookMarked className="h-5 w-5 text-secondary" aria-hidden="true" />
+            Kho tri thức AI — cách dùng
+          </h2>
+          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-foreground">
+            <li>
+              Chọn <strong>cơ sở</strong> trên thanh tổ chức (góc trên) — tài liệu gắn đúng
+              cơ sở đó.
+            </li>
+            <li>
+              Vào{' '}
+              <Link
+                href="/ai/knowledge-base"
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Kho tri thức AI
+              </Link>
+              , chọn <strong>category</strong> (Đào tạo / Tuyển sinh / Chung).
+            </li>
+            <li>
+              Category <strong>Đào tạo</strong>: bắt buộc chọn <strong>môn</strong> từ danh
+              mục Subjects; có thể gắn lớp/học phần.
+            </li>
+            <li>
+              Lọc danh sách theo cơ sở đang chọn · môn · lớp · category trước khi kiểm tra
+              file đã nạp.
+            </li>
+            <li>
+              Embedding dùng API Key OpenAI của cơ sở (hoặc biến môi trường) — cấu hình bên
+              dưới.
+            </li>
+          </ol>
+          <Link
+            href="/ai/knowledge-base"
+            className="mt-4 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <BookMarked className="h-4 w-4" aria-hidden="true" />
+            Mở Kho tri thức
+          </Link>
         </div>
 
         {view?.configured && (

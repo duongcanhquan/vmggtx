@@ -171,5 +171,90 @@
 
 ## 2026-08-02 | CRM bugfix pass
 - Soft-delete: log activity TRUOC khi an lead (RLS).
-- datetime-local -> ISO timestamptz; createLead khong ghi de follow-up thÃ´.
+- datetime-local -> ISO timestamptz; createLead khong ghi de follow-up thô.
 - AI form luon mode rag; drawer key=lead.id; fallback cot/activities/convert.
+
+## 2026-08-02 | CRM bang dong + ho so day du (054)
+- Migration 054: strengths/weaknesses/needs/potential_rating/deposit/payment_notes.
+- UI: toggle Dng (table + pagination 10/20/50) / Kanban; drawer tab Tong quan/Cham soc/Sua/Dong tien/AI.
+- getLeadPaymentInfo: dat coc + hoa don HV khi da convert. Build exit 0. Can chay 052-054 tren DB.
+
+## 2026-08-02 | fix Bang diem tong shell + tong hop
+- Root cause: menu tro /staff/transcripts -> PortalShell Staff.
+- Chuyen /academic/transcripts (dashboard): KPI, loc don vi, tim lop, drill-down + tim HV.
+- Redirect /staff/transcripts; update DashboardShell + staff nav. D20.
+
+## 2026-08-02 | Xep lich TKB dashboard (A+B)
+- /academic/schedule: 1 buoi + tuan lap T2-CN; anti conflict; subtree org.
+- Menu + link tu /classes /teachers; staff nav; doi nhan Lich cua toi.
+- GV schedule/home: thay the substitute_teacher_id. D21. Build check.
+
+## 2026-08-02 | Canh bao hoc vu full ops (055)
+- Migration 055 severity/in_progress/notes; settings nguong som + GPA.
+- UI: KPI, top HV/lop, tim/loc, workflow, AI goi y. D22. Can chay 055 tren DB.
+
+## 2026-08-02 | Chuc danh + mau quyen (056 / D23)
+- Migration 056: job_titles + profiles.job_title_id; get_my_menu_grants = title ? grants.
+- UI /campus-admin/job-titles (CRUD ma tran tick); gan chuc danh o S?a ti kho?n.
+- Menu staff_users + DashboardShell; GrantsModal hien Theo chuc danh. Can chay 056 tren DB.
+
+## 2026-08-02 | Gap audit 7 nhom + uu tien TKB
+- Audit DONE/PARTIAL/MISSING; chon cum TKB (A theo tang).
+- Spec + plan: docs/superpowers/specs|plans/2026-08-02-smart-timetable*.
+
+## 2026-08-02 | TKB thong minh tang 1-3 (D24)
+- 057 org_holidays + is_org_holiday; skip/block khi xep.
+- Luoi tuan HTML5 DnD + conflict do; khung gio schedule_slots.
+- 058 class_schedule_plans + autoScheduler greedy preview/commit.
+- Can chay 057-058 tren DB that.
+
+## 2026-08-02 | Phan cong cong viec (059 / D25)
+- Migration work_tasks + work_task_assignees, RLS + grant work_tasks.
+- UI /academic/tasks (Kanban) + /teacher/tasks; MenuKey work_tasks.
+- Tach biet e-ticket. Can chay 059 tren DB.
+
+## 2026-08-02 | Gap audit P2-P5 (060-062 / D26)
+- P2: /teacher/exams + /exams + In/PDF bang diem (HTML print).
+- P3: class_sessions.facility_id + dropdown CSVC xep lich (giu room).
+- P4: curriculum columns subjects + /academic/subjects.
+- P5: tuition_rules + sinh invoices pending /finance/tuition-rules.
+- Can chay 060-062 tren DB that.
+
+## 2026-08-02 | Class groups + GV mon/nganh (063-064 / D27)
+- P0: /classes hien co so, mon, ten GV (bo UUID).
+- P1: teaching_major + teacher_subjects; UI /teachers.
+- P2: class_groups + group_id + class_teachers; /classes/groups.
+- Rubric LMS (P3) chua code. Can chay 063-064 tren DB.
+
+## 2026-08-02 | Rubric LMS + dong goi cohort (065 / D27)
+- 065 lms_rubrics/criteria/levels/submission_grades.
+- /teacher/lms/grade/[submissionId] split-screen + local+server draft + chot diem.
+- LMS: Thiet lap Rubric + nut Cham rubric; cohort them HV; gan lead/co/grader.
+- Build sach. Can chay 065 tren DB.
+
+## 2026-08-02 | Kho tri thuc AI UI (option B)
+- Nap theo org dang chon (useOrgStore), mon tu subjects, category training/admissions/general.
+- Filter danh sach: mon · lop · category; bat buoc mon khi category Dao tao.
+- /settings/ai: huong dan 5 buoc + link /ai/knowledge-base.
+- Build sach. Khong migration moi.
+
+
+## 2026-08-02 | LMS hien ro (option A)
+- Menu Dashboard Dao tao: LMS Online -> /academic/lms (menuKey lms).
+- /classes: nut LMS + deep-link ?classId=; listAccessibleLmsClasses (staff org / GV lead+co).
+- /learn: HV tu enrollments + class_group_members; tom tat tien do; empty states.
+- Build sach. Khong migration moi.
+
+## 2026-08-02 | HR P0-P3 (D28)
+- P0: users loai student; schema create/update khong student.
+- P1: link nganh/mon /teachers; job-titles ghi chu.
+- P3: migration 066 leave/workdays/salary; /hr/attendance + /hr/my-leave + menu.
+- P2: payroll missing attendance note; duyet approved/paid.
+- Can chay 066 tren DB. Build sau.
+
+## 2026-08-02 | QA audit fix High A-E
+- A: MaSV=student_code (create/CRM/import/update/list); migration 067 backfill.
+- B: warnings core+auth; copilot role-gate; parent HMAC middleware; OTP harden; no MOCK prod.
+- C: mock-on-empty off; payroll/accountant; assertClassAccess (co-teacher/cohort).
+- D/E: report paginate; tutor timeout; form validate; toast; truncate; lucide Wallet.
+- Build + tsc sach. Can chay 067 (va 066 HR) tren DB.

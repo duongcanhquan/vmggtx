@@ -317,16 +317,19 @@ export async function getStudents(
     const orgIds = await getDescendantOrgIds(supabase, orgId)
 
     const scope = orgIds.includes(orgId) ? orgIds : [orgId, ...orgIds]
+    // [QA-FIX A] Đọc cả MaSV + student_code — mã hiển thị ưu tiên MaSV (khóa login)
     let { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, phone, custom_metadata, student_code, organizations(name)')
+      .select(
+        'id, full_name, email, phone, custom_metadata, student_code, MaSV, organizations(name)'
+      )
       .eq('role', 'student')
       .in('org_id', scope)
       .is('deleted_at', null)
       .order('full_name')
 
-    // DB chưa chạy migration 028 (thiếu cột student_code) -> truy vấn lại không có cột
-    if (error && /student_code/i.test(error.message)) {
+    // DB chưa chạy migration 028/035 (thiếu cột) -> truy vấn lại không có cột
+    if (error && /student_code|MaSV|does not exist/i.test(error.message)) {
       const retry = await supabase
         .from('profiles')
         .select('id, full_name, email, phone, custom_metadata, organizations(name)')
@@ -344,10 +347,13 @@ export async function getStudents(
 
     const rows: StudentRow[] = (data ?? []).map((row) => {
       const org = row.organizations as { name: string } | { name: string }[] | null
+      const masv = (row as { MaSV?: string | null }).MaSV ?? null
+      const studentCode = (row as { student_code?: string | null }).student_code ?? null
       return {
         id: row.id,
         code:
-          ((row as { student_code?: string | null }).student_code ?? null) ||
+          masv ||
+          studentCode ||
           `HV-${row.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`,
         full_name: row.full_name,
         email: row.email,
@@ -453,7 +459,9 @@ export async function createStudent(
     }
 
     // Mã học viên theo quy tắc của cơ sở (null nếu chưa chạy migration 028)
+    // [QA-FIX A] MaSV (login/import) và student_code PHẢI cùng một giá trị
     const studentCode = await generateStudentCode(admin, orgParsed.data)
+    const syncedCode = studentCode ? studentCode.toUpperCase() : null
 
     const baseProfile: Record<string, unknown> = {
       id: created.user.id,
@@ -464,12 +472,12 @@ export async function createStudent(
       org_id: orgParsed.data,
       custom_metadata: customResult.data,
     }
-    const profileWithCode = studentCode
-      ? { ...baseProfile, student_code: studentCode }
+    const profileWithCode = syncedCode
+      ? { ...baseProfile, student_code: syncedCode, MaSV: syncedCode }
       : baseProfile
     let { error: profileError } = await admin.from('profiles').insert(profileWithCode)
-    // Cột student_code chưa có (thiếu 028) -> tạo lại KHÔNG kèm mã
-    if (profileError && /student_code/i.test(profileError.message)) {
+    // Cột student_code/MaSV chưa có -> tạo lại KHÔNG kèm mã (backward compat)
+    if (profileError && /student_code|MaSV|does not exist/i.test(profileError.message)) {
       const retry = await admin.from('profiles').insert(baseProfile)
       profileError = retry.error
     }
@@ -563,7 +571,8 @@ export async function bulkImportStudents(
     scopeOrgIds.add(orgParsed.data)
 
     // MaSV trùng lặp NGAY trong file -> chặn toàn bộ (khóa upsert phải duy nhất)
-    const codes = rows.map((row) => row.maSV.trim())
+    // [QA-FIX A] Chuẩn hóa UPPER — khớp login (toUpperCase) + migration 066
+    const codes = rows.map((row) => row.maSV.trim().toUpperCase())
     const duplicateCodes = [...new Set(codes.filter((code, i) => codes.indexOf(code) !== i))]
     if (duplicateCodes.length > 0) {
       return {
@@ -598,7 +607,9 @@ export async function bulkImportStudents(
         }
       } else {
         for (const profile of (data ?? []) as ExistingProfile[]) {
-          if (profile.MaSV) existingByMasv.set(profile.MaSV, profile)
+          if (profile.MaSV) {
+            existingByMasv.set(String(profile.MaSV).toUpperCase(), profile)
+          }
         }
       }
     }
@@ -631,7 +642,7 @@ export async function bulkImportStudents(
 
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index]
-      const code = row.maSV.trim()
+      const code = row.maSV.trim().toUpperCase()
       const phone = normalizePhone(row.phone)
       const byMasv = masvSupported ? existingByMasv.get(code) : undefined
       const byPhone = existingByPhone.get(phone)
@@ -659,12 +670,15 @@ export async function bulkImportStudents(
             continue
           }
           // Khớp theo SĐT nhưng hồ sơ đó đã mang MaSV KHÁC -> xung đột định danh
-          if (!byMasv && masvSupported && byPhone?.MaSV && byPhone.MaSV !== code) {
+          const existingMasv = byPhone?.MaSV
+            ? String(byPhone.MaSV).toUpperCase()
+            : null
+          if (!byMasv && masvSupported && existingMasv && existingMasv !== code) {
             outcomes.push({
               rowIndex: index,
               fullName: row.fullName,
               outcome: 'failed',
-              message: `SĐT này thuộc học sinh mang MaSV "${byPhone.MaSV}" (khác "${code}") — kiểm tra lại file.`,
+              message: `SĐT này thuộc học sinh mang MaSV "${byPhone?.MaSV}" (khác "${code}") — kiểm tra lại file.`,
             })
             continue
           }
@@ -674,8 +688,11 @@ export async function bulkImportStudents(
             address: row.address || null,
             phone,
           }
-          // Map MaSV vào profiles khi upsert (gán mã cho hồ sơ khớp SĐT chưa có mã)
-          if (masvSupported) updatePayload.MaSV = code
+          // [QA-FIX A] Map MaSV + student_code cùng giá trị khi upsert
+          if (masvSupported) {
+            updatePayload.MaSV = code
+            updatePayload.student_code = code
+          }
 
           const { error: updateError } = await admin
             .from('profiles')
@@ -713,16 +730,16 @@ export async function bulkImportStudents(
             // [BẢO MẬT] Ép cứng org đích - không nhận từ file
             org_id: orgParsed.data,
           }
-          if (masvSupported) importProfile.MaSV = code
-          const importCode = await generateStudentCode(admin, orgParsed.data)
-          const importProfileWithCode = importCode
-            ? { ...importProfile, student_code: importCode }
-            : importProfile
-          let { error: profileError } = await admin
-            .from('profiles')
-            .insert(importProfileWithCode)
+          // [QA-FIX A] Import: student_code = MaSV từ file (KHÔNG generate mã thứ 2)
+          if (masvSupported) {
+            importProfile.MaSV = code
+            importProfile.student_code = code
+          }
+          let { error: profileError } = await admin.from('profiles').insert(importProfile)
           if (profileError && /student_code/i.test(profileError.message)) {
-            const retry = await admin.from('profiles').insert(importProfile)
+            const withoutStudentCode = { ...importProfile }
+            delete withoutStudentCode.student_code
+            const retry = await admin.from('profiles').insert(withoutStudentCode)
             profileError = retry.error
           }
           if (profileError) {

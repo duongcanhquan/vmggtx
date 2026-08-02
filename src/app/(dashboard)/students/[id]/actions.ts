@@ -5,7 +5,13 @@ import { createClient } from '@/lib/supabase/server'
 import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
-import { requiredId, zodFail } from '@/lib/validation/schemas'
+import {
+  maSVSchema,
+  phoneVNSchema,
+  requiredId,
+  zodFail,
+} from '@/lib/validation/schemas'
+import { z } from 'zod'
 
 // ============================================================
 // STUDENT 360° - gom TOÀN BỘ hoạt động của 1 học sinh vào 1 action.
@@ -360,11 +366,23 @@ export async function updateStudentIdentity(
   if (!idParsed.success) return zodFail(idParsed.error)
 
   const fullName = values.fullName.trim()
-  const phone = values.phone.trim()
-  const address = values.address.trim()
-  const masv = values.masv.trim()
   if (fullName.length < 2) return { error: 'Họ tên phải có ít nhất 2 ký tự.' }
-  if (masv.length > 50) return { error: 'MaSV tối đa 50 ký tự.' }
+
+  // [QA-FIX A/E] Validate SĐT + MaSV (cùng schema với StudentForm / import)
+  const phoneParsed = z
+    .union([z.literal(''), phoneVNSchema])
+    .safeParse(values.phone.trim())
+  if (!phoneParsed.success) return zodFail(phoneParsed.error)
+
+  const masvRaw = values.masv.trim()
+  let masv = ''
+  if (masvRaw) {
+    const masvParsed = maSVSchema.safeParse(masvRaw)
+    if (!masvParsed.success) return zodFail(masvParsed.error)
+    masv = masvParsed.data.toUpperCase()
+  }
+  const address = values.address.trim()
+  const phone = phoneParsed.data
 
   try {
     const supabase = createClient()
@@ -411,15 +429,27 @@ export async function updateStudentIdentity(
       }
     }
 
-    const { error } = await admin
+    // [QA-FIX A] Đồng bộ student_code = MaSV để list/login/360 cùng một mã
+    const updatePayload: Record<string, unknown> = {
+      full_name: fullName,
+      phone: phone || null,
+      address: address || null,
+      MaSV: masv || null,
+      student_code: masv || null,
+    }
+    let { error } = await admin
       .from('profiles')
-      .update({
-        full_name: fullName,
-        phone: phone || null,
-        address: address || null,
-        MaSV: masv || null,
-      })
+      .update(updatePayload)
       .eq('id', idParsed.data)
+    // Backward compat: cột student_code chưa có
+    if (error && /student_code/i.test(error.message)) {
+      const { student_code: _sc, ...withoutCode } = updatePayload
+      const retry = await admin
+        .from('profiles')
+        .update(withoutCode)
+        .eq('id', idParsed.data)
+      error = retry.error
+    }
     if (error) return { error: `Không cập nhật được hồ sơ: ${error.message}` }
 
     revalidatePath(`/students/${idParsed.data}`)

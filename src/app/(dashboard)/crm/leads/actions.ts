@@ -48,6 +48,12 @@ export type LeadCard = {
   interests: string | null
   preferred_schedule: string | null
   call_summary: string | null
+  strengths: string | null
+  weaknesses: string | null
+  needs: string | null
+  potential_rating: string | null
+  deposit_amount: number | null
+  payment_notes: string | null
   parent_name: string | null
   parent_phone: string | null
   parent_relation: string | null
@@ -117,7 +123,7 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
 }
 
 const LEAD_SELECT =
-  'id, org_id, full_name, phone, email, status, source, priority, notes, date_of_birth, gender, cccd, address, current_school, education_level, career_interest, interests, preferred_schedule, call_summary, parent_name, parent_phone, parent_relation, parent_email, parent2_name, parent2_phone, parent2_relation, next_follow_up_at, appointment_at, lost_reason, counselor_id, interested_subject_id, converted_student_id, created_at, updated_at, subjects(name), profiles!leads_counselor_id_fkey(full_name)'
+  'id, org_id, full_name, phone, email, status, source, priority, notes, date_of_birth, gender, cccd, address, current_school, education_level, career_interest, interests, preferred_schedule, call_summary, strengths, weaknesses, needs, potential_rating, deposit_amount, payment_notes, parent_name, parent_phone, parent_relation, parent_email, parent2_name, parent2_phone, parent2_relation, next_follow_up_at, appointment_at, lost_reason, counselor_id, interested_subject_id, converted_student_id, created_at, updated_at, subjects(name), profiles!leads_counselor_id_fkey(full_name)'
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '')
@@ -152,6 +158,12 @@ function leadFormFromData(formData: FormData) {
     interests: String(formData.get('interests') ?? ''),
     preferredSchedule: String(formData.get('preferredSchedule') ?? ''),
     callSummary: String(formData.get('callSummary') ?? ''),
+    strengths: String(formData.get('strengths') ?? ''),
+    weaknesses: String(formData.get('weaknesses') ?? ''),
+    needs: String(formData.get('needs') ?? ''),
+    potentialRating: String(formData.get('potentialRating') ?? ''),
+    depositAmount: String(formData.get('depositAmount') ?? ''),
+    paymentNotes: String(formData.get('paymentNotes') ?? ''),
     parentName: String(formData.get('parentName') ?? ''),
     parentPhone: String(formData.get('parentPhone') ?? ''),
     parentRelation: String(formData.get('parentRelation') ?? ''),
@@ -184,6 +196,14 @@ function leadRowFromValues(values: import('@/lib/validation/schemas').LeadFormVa
     interests: values.interests || null,
     preferred_schedule: values.preferredSchedule || null,
     call_summary: values.callSummary || null,
+    strengths: values.strengths || null,
+    weaknesses: values.weaknesses || null,
+    needs: values.needs || null,
+    potential_rating: values.potentialRating || null,
+    deposit_amount: values.depositAmount
+      ? Number(String(values.depositAmount).replace(/,/g, ''))
+      : null,
+    payment_notes: values.paymentNotes || null,
     parent_name: values.parentName || null,
     parent_phone: values.parentPhone ? normalizePhone(values.parentPhone) : null,
     parent_relation: values.parentRelation || null,
@@ -235,6 +255,8 @@ function computeProfileCompleteness(row: Record<string, unknown>): number {
     row.parent_phone,
     row.current_school || row.education_level,
     row.preferred_schedule,
+    row.strengths || row.needs || row.potential_rating,
+    row.call_summary,
   ]
   const filled = checks.filter((v) => v != null && String(v).trim() !== '').length
   return Math.round((filled / checks.length) * 100)
@@ -290,6 +312,13 @@ function mapLeadRow(
     interests: (row.interests as string | null) ?? null,
     preferred_schedule: (row.preferred_schedule as string | null) ?? null,
     call_summary: (row.call_summary as string | null) ?? null,
+    strengths: (row.strengths as string | null) ?? null,
+    weaknesses: (row.weaknesses as string | null) ?? null,
+    needs: (row.needs as string | null) ?? null,
+    potential_rating: (row.potential_rating as string | null) ?? null,
+    deposit_amount:
+      row.deposit_amount != null ? Number(row.deposit_amount) : null,
+    payment_notes: (row.payment_notes as string | null) ?? null,
     parent_name: (row.parent_name as string | null) ?? null,
     parent_phone: (row.parent_phone as string | null) ?? null,
     parent_relation: (row.parent_relation as string | null) ?? null,
@@ -408,6 +437,12 @@ export async function getLeads(
               interests: null,
               preferred_schedule: null,
               call_summary: null,
+              strengths: null,
+              weaknesses: null,
+              needs: null,
+              potential_rating: null,
+              deposit_amount: null,
+              payment_notes: null,
               parent_name: null,
               parent_phone: null,
               parent_relation: null,
@@ -422,7 +457,7 @@ export async function getLeads(
           ),
           demo: false,
           error:
-            'Migration 052/053 chưa chạy — đang hiển thị cột cơ bản. Hãy chạy 052 rồi 053 trên Supabase.',
+            'Migration 052/053/054 chưa chạy — đang hiển thị cột cơ bản. Hãy chạy 052→054 trên Supabase.',
         }
       }
       return { data: [], demo: false, error: error.message }
@@ -1392,7 +1427,9 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
       }
     }
 
+    // [QA-FIX A] CRM convert: MaSV + student_code cùng giá trị (khóa login)
     const studentCode = await generateStudentCode(admin, lead.org_id)
+    const syncedCode = studentCode ? studentCode.toUpperCase() : null
     const newProfile: Record<string, unknown> = {
       id: studentId,
       full_name: lead.full_name,
@@ -1420,11 +1457,11 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
         crm_notes: lead.notes || null,
       },
     }
-    const newProfileWithCode = studentCode
-      ? { ...newProfile, student_code: studentCode }
+    const newProfileWithCode = syncedCode
+      ? { ...newProfile, student_code: syncedCode, MaSV: syncedCode }
       : newProfile
     let { error: profileError } = await admin.from('profiles').insert(newProfileWithCode)
-    if (profileError && /student_code/i.test(profileError.message)) {
+    if (profileError && /student_code|MaSV|does not exist/i.test(profileError.message)) {
       const retry = await admin.from('profiles').insert(newProfile)
       profileError = retry.error
     }
@@ -1439,7 +1476,9 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
         org_id: lead.org_id,
         status: 'active',
         address: lead.address || null,
-        ...(studentCode ? { student_code: studentCode } : {}),
+        ...(syncedCode
+          ? { student_code: syncedCode, MaSV: syncedCode }
+          : {}),
       }
       const retry = await admin.from('profiles').insert(baseProfile)
       profileError = retry.error
@@ -1515,6 +1554,103 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
         error instanceof Error
           ? error.message
           : 'Loi khong xac dinh khi chuyen hoa lead.',
+    }
+  }
+}
+
+export type LeadPaymentInfo = {
+  depositAmount: number | null
+  paymentNotes: string | null
+  invoices: {
+    id: string
+    amount: number
+    status: string
+    due_date: string | null
+    note: string | null
+    paid: number
+  }[]
+}
+
+/** Đặt cọc CRM + hóa đơn HV nếu đã convert */
+export async function getLeadPaymentInfo(
+  leadId: string
+): Promise<{ data: LeadPaymentInfo | null; error?: string }> {
+  try {
+    const supabase = createClient()
+    const { data: lead, error } = await supabase
+      .from('leads')
+      .select('id, deposit_amount, payment_notes, converted_student_id')
+      .eq('id', leadId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error && /column|42703/i.test(error.message)) {
+      const legacy = await supabase
+        .from('leads')
+        .select('id, converted_student_id')
+        .eq('id', leadId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (legacy.error || !legacy.data) {
+        return { data: null, error: legacy.error?.message ?? 'Không tìm thấy lead.' }
+      }
+      return {
+        data: { depositAmount: null, paymentNotes: null, invoices: [] },
+      }
+    }
+    if (error || !lead) {
+      return { data: null, error: error?.message ?? 'Không tìm thấy lead.' }
+    }
+
+    const invoices: LeadPaymentInfo['invoices'] = []
+    if (lead.converted_student_id) {
+      const { data: invRows } = await supabase
+        .from('invoices')
+        .select('id, amount, status, due_date, note')
+        .eq('student_id', lead.converted_student_id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      const ids = (invRows ?? []).map((i) => i.id)
+      const paidByInv = new Map<string, number>()
+      if (ids.length > 0) {
+        const { data: pays } = await supabase
+          .from('payments')
+          .select('invoice_id, amount_paid')
+          .in('invoice_id', ids)
+          .is('deleted_at', null)
+        for (const p of pays ?? []) {
+          paidByInv.set(
+            p.invoice_id,
+            (paidByInv.get(p.invoice_id) ?? 0) + Number(p.amount_paid ?? 0)
+          )
+        }
+      }
+      for (const inv of invRows ?? []) {
+        invoices.push({
+          id: inv.id,
+          amount: Number(inv.amount),
+          status: inv.status,
+          due_date: inv.due_date,
+          note: inv.note,
+          paid: paidByInv.get(inv.id) ?? 0,
+        })
+      }
+    }
+
+    return {
+      data: {
+        depositAmount:
+          lead.deposit_amount != null ? Number(lead.deposit_amount) : null,
+        paymentNotes: (lead.payment_notes as string | null) ?? null,
+        invoices,
+      },
+    }
+  } catch (e) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : 'Lỗi tải thông tin đóng tiền.',
     }
   }
 }

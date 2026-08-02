@@ -19,6 +19,8 @@ export type TeachingSession = {
   room: string | null
   start_time: string
   end_time: string
+  /** true = đang dạy thay (substitute_teacher_id) */
+  is_substitute: boolean
 }
 
 export type SessionStudent = {
@@ -55,6 +57,7 @@ function buildMockWeek(weekStartISO: string): TeachingSession[] {
       room: 'P.301',
       start_time: s1.start,
       end_time: s1.end,
+      is_substitute: false,
     },
     {
       id: 'mock-s2',
@@ -64,6 +67,7 @@ function buildMockWeek(weekStartISO: string): TeachingSession[] {
       room: 'P.301',
       start_time: s2.start,
       end_time: s2.end,
+      is_substitute: false,
     },
     {
       id: 'mock-s3',
@@ -73,6 +77,7 @@ function buildMockWeek(weekStartISO: string): TeachingSession[] {
       room: 'P.105',
       start_time: s3.start,
       end_time: s3.end,
+      is_substitute: false,
     },
     {
       id: 'mock-s4',
@@ -82,14 +87,15 @@ function buildMockWeek(weekStartISO: string): TeachingSession[] {
       room: 'Hội trường A',
       start_time: s4.start,
       end_time: s4.end,
+      is_substitute: true,
     },
   ]
 }
 
 /**
  * Lịch dạy trong 1 tuần của giáo viên đang đăng nhập.
- * Query theo teacher_id = auth.uid(), KHÔNG lọc org_id: gom mọi buổi
- * dạy trên mọi chi nhánh mà giáo viên được gán.
+ * Gom buổi teacher_id = mình HOẶC substitute_teacher_id = mình (dạy thay).
+ * KHÔNG lọc org_id.
  */
 export async function getMyWeekSessions(weekStartISO: string): Promise<{
   data: TeachingSession[]
@@ -109,16 +115,37 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
       return { data: buildMockWeek(weekStartISO), demo: true }
     }
 
-    const { data, error } = await supabase
+    let data: Record<string, unknown>[] | null = null
+    let error: { message: string } | null = null
+
+    const full = await supabase
       .from('class_sessions')
       .select(
-        'id, class_id, room, start_time, end_time, classes(name), organizations(name)'
+        'id, class_id, room, start_time, end_time, teacher_id, substitute_teacher_id, classes(name), organizations(name)'
       )
-      .eq('teacher_id', user.id) // Chỉ theo giáo viên - KHÔNG theo org
+      .or(`teacher_id.eq.${user.id},substitute_teacher_id.eq.${user.id}`)
       .gte('start_time', weekStart.toISOString())
       .lt('start_time', weekEnd.toISOString())
       .is('deleted_at', null)
       .order('start_time')
+
+    if (full.error && /substitute|42703|column/i.test(full.error.message)) {
+      const legacy = await supabase
+        .from('class_sessions')
+        .select(
+          'id, class_id, room, start_time, end_time, teacher_id, classes(name), organizations(name)'
+        )
+        .eq('teacher_id', user.id)
+        .gte('start_time', weekStart.toISOString())
+        .lt('start_time', weekEnd.toISOString())
+        .is('deleted_at', null)
+        .order('start_time')
+      data = (legacy.data ?? null) as Record<string, unknown>[] | null
+      error = legacy.error
+    } else {
+      data = (full.data ?? null) as Record<string, unknown>[] | null
+      error = full.error
+    }
 
     if (error || !data) {
       return { data: buildMockWeek(weekStartISO), demo: true }
@@ -127,14 +154,19 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
     const rows: TeachingSession[] = data.map((row) => {
       const cls = row.classes as { name: string } | { name: string }[] | null
       const org = row.organizations as { name: string } | { name: string }[] | null
+      const isSub =
+        row.substitute_teacher_id != null &&
+        String(row.substitute_teacher_id) === user.id &&
+        String(row.teacher_id) !== user.id
       return {
-        id: row.id,
-        class_id: row.class_id,
+        id: String(row.id),
+        class_id: String(row.class_id),
         class_name: Array.isArray(cls) ? cls[0]?.name ?? '—' : cls?.name ?? '—',
         org_name: Array.isArray(org) ? org[0]?.name ?? '—' : org?.name ?? '—',
-        room: row.room,
-        start_time: row.start_time,
-        end_time: row.end_time,
+        room: (row.room as string | null) ?? null,
+        start_time: String(row.start_time),
+        end_time: String(row.end_time),
+        is_substitute: isSub,
       }
     })
     return { data: rows, demo: false }
@@ -161,18 +193,44 @@ export async function getSessionStudents(
       return { data: [], demo: false, loadError: 'Bạn chưa đăng nhập.' }
     }
 
-    const { data: session } = await supabase
+    let session: {
+      id: string
+      class_id: string
+      org_id: string
+      teacher_id: string | null
+      substitute_teacher_id: string | null
+    } | null = null
+
+    const full = await supabase
       .from('class_sessions')
-      .select('id, class_id, org_id, teacher_id')
+      .select('id, class_id, org_id, teacher_id, substitute_teacher_id')
       .eq('id', sessionId)
       .is('deleted_at', null)
       .maybeSingle()
+
+    if (full.error && /substitute|42703|column/i.test(full.error.message)) {
+      const legacy = await supabase
+        .from('class_sessions')
+        .select('id, class_id, org_id, teacher_id')
+        .eq('id', sessionId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (legacy.data) {
+        session = { ...legacy.data, substitute_teacher_id: null }
+      }
+    } else if (full.data) {
+      session = full.data
+    }
 
     if (!session) {
       return { data: [], demo: false, loadError: 'Không tìm thấy buổi học.' }
     }
 
-    if (session.teacher_id !== user.id) {
+    const isAssigned =
+      session.teacher_id === user.id ||
+      session.substitute_teacher_id === user.id
+
+    if (!isAssigned) {
       const { data: authorized } = await supabase.rpc('is_authorized', {
         p_user_id: user.id,
         p_target_org_id: session.org_id,

@@ -73,16 +73,30 @@ export async function calculateMonthlyPayroll(
       return { error: 'Bạn chưa đăng nhập. Tính lương yêu cầu quyền Campus Admin.' }
     }
 
+    // [QA-FIX C] Align menu payroll_contracts: campus_admin + accountant
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', currentUser.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    const role = profile?.role ?? ''
+    const roleAllowed =
+      role === 'super_admin' || role === 'campus_admin' || role === 'accountant'
+    if (!roleAllowed) {
+      return {
+        error: 'TỪ CHỐI: Chỉ Quản lý cơ sở hoặc Kế toán được tính lương.',
+      }
+    }
     const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
       p_user_id: currentUser.id,
       p_target_org_id: orgId,
-      p_required_role: 'campus_admin',
+      p_required_role: role === 'accountant' ? 'accountant' : 'campus_admin',
     })
     if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     if (authorized !== true) {
       return {
-        error:
-          'TỪ CHỐI: Bạn không phải Campus Admin, hoặc cơ sở này không thuộc quyền quản lý của bạn.',
+        error: 'TỪ CHỐI: Cơ sở này không thuộc quyền quản lý của bạn.',
       }
     }
 

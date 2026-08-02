@@ -86,6 +86,79 @@ export type LearnClass = {
 
 export type LearnData = { r2Ready: boolean; classes: LearnClass[] }
 
+/** HV được học lớp nếu có enrollments HOẶC thuộc cohort (class_groups) của học phần. */
+async function resolveStudentClassIds(
+  supabase: ReturnType<typeof createClient>,
+  studentId: string
+): Promise<{ id: string; name: string }[]> {
+  const byId = new Map<string, { id: string; name: string }>()
+
+  const { data: enrollments } = await supabase
+    .from('enrollments')
+    .select('class_id, classes!inner(id, name, deleted_at)')
+    .eq('student_id', studentId)
+    .is('deleted_at', null)
+
+  for (const e of enrollments ?? []) {
+    const cls = e.classes as unknown as { id: string; name: string; deleted_at: string | null } | null
+    if (cls && !cls.deleted_at) byId.set(cls.id, { id: cls.id, name: cls.name })
+  }
+
+  const { data: memberships, error: memberErr } = await supabase
+    .from('class_group_members')
+    .select('group_id')
+    .eq('student_id', studentId)
+    .is('deleted_at', null)
+
+  const groupIds = memberErr
+    ? []
+    : [...new Set((memberships ?? []).map((m) => m.group_id as string).filter(Boolean))]
+  if (groupIds.length > 0) {
+    const { data: groupClasses } = await supabase
+      .from('classes')
+      .select('id, name')
+      .in('group_id', groupIds)
+      .is('deleted_at', null)
+    for (const c of groupClasses ?? []) {
+      byId.set(c.id as string, { id: c.id as string, name: c.name as string })
+    }
+  }
+
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+}
+
+async function studentCanAccessClass(
+  supabase: ReturnType<typeof createClient>,
+  studentId: string,
+  classId: string
+): Promise<boolean> {
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('id')
+    .eq('student_id', studentId)
+    .eq('class_id', classId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (enrollment) return true
+
+  const { data: cls } = await supabase
+    .from('classes')
+    .select('group_id')
+    .eq('id', classId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!cls?.group_id) return false
+
+  const { data: member } = await supabase
+    .from('class_group_members')
+    .select('id')
+    .eq('group_id', cls.group_id)
+    .eq('student_id', studentId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  return Boolean(member)
+}
+
 // ---------- 1. Toàn bộ dữ liệu học tập của tôi ----------
 export async function getMyLearnData(): Promise<LearnData | { error: string }> {
   try {
@@ -95,15 +168,7 @@ export async function getMyLearnData(): Promise<LearnData | { error: string }> {
     } = await supabase.auth.getUser()
     if (!user) return { error: 'Bạn cần đăng nhập.' }
 
-    const { data: enrollments } = await supabase
-      .from('enrollments')
-      .select('class_id, classes(id, name)')
-      .eq('student_id', user.id)
-      .is('deleted_at', null)
-
-    const classRows = (enrollments ?? [])
-      .map((e) => e.classes as unknown as { id: string; name: string } | null)
-      .filter((c): c is { id: string; name: string } => Boolean(c))
+    const classRows = await resolveStudentClassIds(supabase, user.id)
     if (classRows.length === 0) return { r2Ready: isR2Configured(), classes: [] }
 
     const classIds = classRows.map((c) => c.id)
@@ -447,18 +512,13 @@ export async function getQuizForTaking(quizId: string): Promise<QuizTakingState>
     if (!quiz || !quiz.is_published)
       return { error: 'Đề kiểm tra không tồn tại hoặc chưa mở.' }
 
-    // Chỉ HỌC VIÊN GHI DANH mới được tạo lượt làm (GV/Staff cũng đọc
-    // được quiz qua RLS nhưng không được "làm bài" - tránh lượt rác
-    // chặn việc sửa đề và làm nhiễu bảng kết quả).
-    const { data: enrollment } = await supabase
-      .from('enrollments')
-      .select('id')
-      .eq('class_id', quiz.class_id)
-      .eq('student_id', user.id)
-      .is('deleted_at', null)
-      .maybeSingle()
-    if (!enrollment)
-      return { error: 'Chỉ học viên ghi danh lớp này mới được làm bài. Giáo viên xem đề trong trang LMS.' }
+    // Chỉ HỌC VIÊN (enrollments hoặc thành viên cohort) mới làm bài.
+    const canTake = await studentCanAccessClass(supabase, user.id, quiz.class_id)
+    if (!canTake)
+      return {
+        error:
+          'Chỉ học viên ghi danh lớp này mới được làm bài. Giáo viên xem đề trong trang LMS.',
+      }
 
     const admin = createAdminClient()
 

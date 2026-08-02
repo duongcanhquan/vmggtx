@@ -29,6 +29,7 @@ const STAFF_NAV: PortalNavGroup[] = [
     items: [
       { label: 'Học viên', href: '/students', icon: Users },
       { label: 'Lớp học', href: '/staff/classes', icon: BookOpen },
+      { label: 'Xếp lịch / TKB', href: '/academic/schedule', icon: CalendarRange },
       { label: 'Thời khóa biểu', href: '/staff/timetable', icon: CalendarRange },
       { label: 'Điều phối lịch', href: '/staff/schedule-management', icon: CalendarCog },
       { label: 'Điểm danh', href: '/attendance', icon: ClipboardCheck },
@@ -42,7 +43,7 @@ const STAFF_NAV: PortalNavGroup[] = [
       { label: 'Kỳ thi', href: '/staff/exams', icon: PenSquare },
       { label: 'Lịch thi & Giám thị', href: '/staff/exam-schedule', icon: ShieldCheck },
       { label: 'Tổ chức thi & Thi lại', href: '/staff/assessments', icon: RefreshCcw },
-      { label: 'Bảng điểm tổng', href: '/staff/transcripts', icon: FileSpreadsheet },
+      { label: 'Bảng điểm tổng', href: '/academic/transcripts', icon: FileSpreadsheet },
       { label: 'Xét duyệt kết quả', href: '/staff/results-approval', icon: CheckSquare },
     ],
   },

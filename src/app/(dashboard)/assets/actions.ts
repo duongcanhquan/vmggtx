@@ -257,7 +257,8 @@ export async function getAssetOrgs(
 export async function getAssets(
   orgId: string | null
 ): Promise<{ data: AssetRow[]; demo: boolean }> {
-  if (!orgId) return { data: buildMockAssets(), demo: true }
+  // [QA-FIX C] Empty/error = [] — không fake tài sản khi org trống
+  if (!orgId) return { data: [], demo: false }
 
   try {
     const supabase = createClient()
@@ -273,7 +274,10 @@ export async function getAssets(
       .order('created_at', { ascending: false })
       .limit(2000)
 
-    if (error) return { data: buildMockAssets(), demo: true }
+    if (error) {
+      console.error('[QA-FIX C] getAssets:', error.message)
+      return { data: [], demo: false }
+    }
     if (!data || data.length === 0) return { data: [], demo: false }
 
     const rows: AssetRow[] = data.map((row) => {
@@ -304,7 +308,8 @@ export async function getAssets(
     })
     return { data: rows, demo: false }
   } catch {
-    return { data: buildMockAssets(), demo: true }
+    console.error('[QA-FIX C] getAssets exception')
+    return { data: [], demo: false }
   }
 }
 

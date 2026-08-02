@@ -185,6 +185,19 @@ function admin() {
   return createAdminClient()
 }
 
+/** [QA-FIX B] MOCK chỉ khi DEV + cookie demo — production không bao giờ trả data giả */
+function allowParentMock(studentId: string | null): boolean {
+  return process.env.NODE_ENV !== 'production' && studentId === DEMO_STUDENT_ID
+}
+
+const EMPTY_ATTENDANCE: AttendanceSummary = {
+  total: 0,
+  present: 0,
+  excused: 0,
+  unexcused: 0,
+  presentRate: 100,
+}
+
 // ---------- 1. XÁC THỰC ----------
 
 /**
@@ -203,14 +216,18 @@ export async function parentLogin(
   const phone = phoneParsed.data
   const otp = otpParsed.data
 
-  // OTP demo: CHỈ chấp nhận đúng mã cấu hình (mặc định 123456) — không còn
-  // "6 số bất kỳ". Production bắt buộc set PARENT_MOCK_OTP (hoặc sau này SMS thật).
-  const expectedOtp = process.env.PARENT_MOCK_OTP || '123456'
-  if (process.env.NODE_ENV === 'production' && !process.env.PARENT_MOCK_OTP) {
-    return {
-      error: 'Cổng phụ huynh chưa cấu hình OTP (thiếu PARENT_MOCK_OTP). Liên hệ quản trị.',
+  // [QA-FIX B] OTP mock: production BẮT BUỘC PARENT_MOCK_OTP và cấm mã yếu 123456.
+  // Dev mặc định 123456. Production nên chuyển SMS OTP thật sớm.
+  const configuredOtp = process.env.PARENT_MOCK_OTP
+  if (process.env.NODE_ENV === 'production') {
+    if (!configuredOtp || configuredOtp === '123456') {
+      return {
+        error:
+          'Cổng phụ huynh chưa cấu hình OTP an toàn (PARENT_MOCK_OTP). Liên hệ quản trị.',
+      }
     }
   }
+  const expectedOtp = configuredOtp || '123456'
   if (otp !== expectedOtp) {
     return { error: 'Mã OTP không đúng. Thử lại hoặc liên hệ nhà trường.' }
   }
@@ -384,7 +401,7 @@ export async function parentLogout(): Promise<void> {
 export async function getParentStudent(): Promise<ParentStudent | null> {
   const studentId = getSessionStudentId()
   if (!studentId) return null
-  if (studentId === DEMO_STUDENT_ID) return MOCK_STUDENT
+  if (allowParentMock(studentId)) return MOCK_STUDENT
 
   try {
     const supabase = admin()
@@ -434,7 +451,8 @@ export async function getParentStudent(): Promise<ParentStudent | null> {
 /** Chuyên cần: cộng dồn từ view vw_student_attendance_stats */
 export async function getAttendanceSummary(): Promise<AttendanceSummary> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_ATTENDANCE
+  if (!studentId) return EMPTY_ATTENDANCE
+  if (allowParentMock(studentId)) return MOCK_ATTENDANCE
 
   try {
     const supabase = admin()
@@ -456,14 +474,16 @@ export async function getAttendanceSummary(): Promise<AttendanceSummary> {
       presentRate: total > 0 ? Math.round((present / total) * 100) : 100,
     }
   } catch {
-    return MOCK_ATTENDANCE
+    console.error('[parent] getAttendanceSummary failed — empty fallback (no mock in prod)')
+    return EMPTY_ATTENDANCE
   }
 }
 
 /** 3 cột điểm mới nhất */
 export async function getRecentGrades(): Promise<RecentGrade[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_GRADES
+  if (!studentId) return []
+  if (allowParentMock(studentId)) return MOCK_GRADES
 
   try {
     const supabase = admin()
@@ -495,14 +515,16 @@ export async function getRecentGrades(): Promise<RecentGrade[]> {
       }
     })
   } catch {
-    return MOCK_GRADES
+    console.error('[parent] getRecentGrades failed — empty fallback')
+    return []
   }
 }
 
 /** Các buổi học 7 ngày tới (qua enrollments) */
 export async function getWeekSessions(): Promise<WeekSession[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_WEEK
+  if (!studentId) return []
+  if (allowParentMock(studentId)) return MOCK_WEEK
 
   try {
     const supabase = admin()
@@ -541,7 +563,8 @@ export async function getWeekSessions(): Promise<WeekSession[]> {
       }
     })
   } catch {
-    return MOCK_WEEK
+    console.error('[parent] getWeekSessions failed — empty fallback')
+    return []
   }
 }
 
@@ -554,7 +577,8 @@ export async function getWeekSessions(): Promise<WeekSession[]> {
  */
 export async function getParentNotices(): Promise<ParentNotice[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_NOTICES
+  if (!studentId) return []
+  if (allowParentMock(studentId)) return MOCK_NOTICES
 
   try {
     const supabase = admin()
@@ -769,14 +793,16 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
     notices.sort((a, b) => (a.date < b.date ? 1 : -1))
     return notices.length > 0 ? notices : []
   } catch {
-    return MOCK_NOTICES
+    console.error('[parent] getParentNotices failed — empty fallback')
+    return []
   }
 }
 
 /** Sổ điểm đầy đủ nhóm theo lớp (tab Sổ điểm) */
 export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_GRADE_REPORT
+  if (!studentId) return []
+  if (allowParentMock(studentId)) return MOCK_GRADE_REPORT
 
   try {
     const supabase = admin()
@@ -833,7 +859,8 @@ export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
     }
     return Array.from(byClass.values())
   } catch {
-    return MOCK_GRADE_REPORT
+    console.error('[parent] getParentGradeReport failed — empty fallback')
+    return []
   }
 }
 
@@ -890,9 +917,18 @@ const MOCK_TUITION: ParentTuition = {
   overdueRemaining: 2_500_000,
 }
 
+const EMPTY_TUITION: ParentTuition = {
+  invoices: [],
+  totalAmount: 0,
+  totalPaid: 0,
+  totalRemaining: 0,
+  overdueRemaining: 0,
+}
+
 export async function getParentTuition(): Promise<ParentTuition> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_TUITION
+  if (!studentId) return EMPTY_TUITION
+  if (allowParentMock(studentId)) return MOCK_TUITION
 
   try {
     const supabase = admin()
@@ -973,7 +1009,8 @@ export async function getParentInsights(): Promise<{
   }
   const studentId = getSessionStudentId()
   if (!studentId) return { data: empty, loadError: 'Chưa đăng nhập phụ huynh.' }
-  if (studentId === DEMO_STUDENT_ID) {
+  // [QA-FIX B] Demo insights chỉ DEV
+  if (allowParentMock(studentId)) {
     return {
       data: {
         presentRate: 92,

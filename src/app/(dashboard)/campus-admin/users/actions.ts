@@ -10,7 +10,6 @@ import {
   zodFail,
 } from '@/lib/validation/schemas'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
-import { checkStudentCapacity } from '@/lib/licensing/capacity'
 import {
   defaultKeysForRole,
   isMenuKey,
@@ -26,14 +25,13 @@ import type { Role } from '@/lib/auth/roles'
 //   qua cửa kiểm tra rpc is_authorized trước (chống hack org_id).
 // ============================================================
 
-/** Các role Campus Admin được phép gán. TUYỆT ĐỐI không có super_admin. */
+/** Các role Campus Admin được phép gán. TUYỆT ĐỐI không có super_admin / student. */
 export type AssignableRole =
   | 'campus_admin'
   | 'academic_staff'
   | 'admission_staff'
   | 'accountant'
   | 'teacher'
-  | 'student'
 
 // Danh sách role được phép gán nay nằm trong createUserSchema (zod enum)
 // tại src/lib/validation/schemas.ts - enum KHÔNG chứa super_admin.
@@ -53,6 +51,8 @@ export type StaffRow = {
   org_id: string | null
   org_name: string
   created_at: string
+  job_title_id: string | null
+  job_title_name: string | null
 }
 
 export type UsersActionResult = { error: string } | { error?: undefined }
@@ -74,6 +74,8 @@ const MOCK_USERS: StaffRow[] = [
     org_id: 'org-cs-hn1',
     org_name: 'Cơ sở Hà Nội 1',
     created_at: '2026-05-12T08:00:00Z',
+    job_title_id: null,
+    job_title_name: null,
   },
   {
     id: 'mock-u2',
@@ -84,6 +86,8 @@ const MOCK_USERS: StaffRow[] = [
     org_id: 'org-cn-caugiay',
     org_name: 'Chi nhánh Cầu Giấy',
     created_at: '2026-06-02T08:00:00Z',
+    job_title_id: null,
+    job_title_name: null,
   },
   {
     id: 'mock-u3',
@@ -94,26 +98,20 @@ const MOCK_USERS: StaffRow[] = [
     org_id: 'org-cn-dongda',
     org_name: 'Chi nhánh Đống Đa',
     created_at: '2026-06-20T08:00:00Z',
+    job_title_id: null,
+    job_title_name: null,
   },
   {
     id: 'mock-u4',
-    full_name: 'Nguyễn Văn Toàn',
-    email: 'toan.nguyen@student.gdtx.edu.vn',
-    phone: null,
-    role: 'student',
-    org_id: 'org-cn-caugiay',
-    org_name: 'Chi nhánh Cầu Giấy',
+    full_name: 'Vũ Thị Mai',
+    email: 'mai.vu@gdtx.edu.vn',
+    phone: '0912000004',
+    role: 'accountant',
+    org_id: 'org-cs-hn1',
+    org_name: 'Cơ sở Hà Nội 1',
     created_at: '2026-07-01T08:00:00Z',
-  },
-  {
-    id: 'mock-u5',
-    full_name: 'Đỗ Thu Hà',
-    email: 'ha.do@student.gdtx.edu.vn',
-    phone: null,
-    role: 'student',
-    org_id: 'org-cn-dongda',
-    org_name: 'Chi nhánh Đống Đa',
-    created_at: '2026-07-15T08:00:00Z',
+    job_title_id: null,
+    job_title_name: null,
   },
 ]
 
@@ -193,12 +191,19 @@ export async function getUsersInScope(filters: {
 
     let query = supabase
       .from('profiles')
-      .select('id, full_name, email, phone, role, org_id, created_at, organizations(name)')
+      .select(
+        'id, full_name, email, phone, role, org_id, created_at, job_title_id, organizations(name), job_titles(name)'
+      )
       .is('deleted_at', null)
+      .neq('role', 'student')
       .order('created_at', { ascending: false })
     if (scope) query = query.in('org_id', scope)
 
-    if (filters.role) query = query.eq('role', filters.role)
+    // Không cho lọc role=student trên trang nhân sự
+    if (filters.role && filters.role !== 'student') query = query.eq('role', filters.role)
+    if (filters.role === 'student') {
+      return { data: [], demo: false, error: 'Học viên quản lý tại menu Học sinh.' }
+    }
     if (filters.orgId) query = query.eq('org_id', filters.orgId)
     if (filters.search) {
       // Escape ký tự đặc biệt của PostgREST or-filter
@@ -213,6 +218,46 @@ export async function getUsersInScope(filters: {
     // CHỈ rơi về mock khi LỖI thật sự — cơ sở mới chưa có nhân sự phải
     // thấy danh sách RỖNG thật, không phải 5 người demo gây nhầm lẫn.
     if (error || !data) {
+      // Fallback: nếu thiếu cột 056, thử query không join job_titles
+      if (error && /job_title|job_titles/i.test(error.message)) {
+        let fallback = supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, role, org_id, created_at, organizations(name)')
+          .is('deleted_at', null)
+          .neq('role', 'student')
+          .order('created_at', { ascending: false })
+        if (scope) fallback = fallback.in('org_id', scope)
+        if (filters.role && filters.role !== 'student') fallback = fallback.eq('role', filters.role)
+        if (filters.orgId) fallback = fallback.eq('org_id', filters.orgId)
+        if (filters.search) {
+          const term = filters.search.replace(/[%_,()]/g, ' ').trim()
+          if (term) {
+            fallback = fallback.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+          }
+        }
+        const fb = await fallback
+        if (!fb.error && fb.data) {
+          const rows: StaffRow[] = fb.data.map((row) => {
+            const org = row.organizations as
+              | { name: string }
+              | { name: string }[]
+              | null
+            return {
+              id: row.id,
+              full_name: row.full_name,
+              email: row.email,
+              phone: (row.phone as string | null) ?? null,
+              role: row.role,
+              org_id: row.org_id,
+              org_name: Array.isArray(org) ? org[0]?.name ?? '—' : org?.name ?? '—',
+              created_at: row.created_at,
+              job_title_id: null,
+              job_title_name: null,
+            }
+          })
+          return { data: rows, demo: false }
+        }
+      }
       const rows = MOCK_USERS.filter(
         (u) =>
           (!filters.role || u.role === filters.role) &&
@@ -223,6 +268,8 @@ export async function getUsersInScope(filters: {
 
     const rows: StaffRow[] = data.map((row) => {
       const org = row.organizations as { name: string } | { name: string }[] | null
+      const title = (row as { job_titles?: { name: string } | { name: string }[] | null })
+        .job_titles
       return {
         id: row.id,
         full_name: row.full_name,
@@ -232,6 +279,10 @@ export async function getUsersInScope(filters: {
         org_id: row.org_id,
         org_name: Array.isArray(org) ? org[0]?.name ?? '—' : org?.name ?? '—',
         created_at: row.created_at,
+        job_title_id: (row as { job_title_id?: string | null }).job_title_id ?? null,
+        job_title_name: Array.isArray(title)
+          ? title[0]?.name ?? null
+          : title?.name ?? null,
       }
     })
     return { data: rows, demo: false }
@@ -310,10 +361,11 @@ export async function createUserAccount(
     // ===== Qua bài test bảo mật: dùng Service Role tạo tài khoản =====
     const admin = createAdminClient()
 
-    // [LICENSE 044] Học viên mới phải còn chỗ trong giới hạn gói của cơ sở
-    if (role === 'student') {
-      const capacityError = await checkStudentCapacity(admin, orgId, 1)
-      if (capacityError) return { error: capacityError }
+    // Nhân sự ≠ học viên (HV chỉ tạo tại /students)
+    if ((role as string) === 'student') {
+      return {
+        error: 'Không tạo học viên tại Quản lý Nhân sự. Vào menu Học sinh để thêm HV.',
+      }
     }
 
     const { data: created, error: createError } =
@@ -465,9 +517,10 @@ export async function updateUserAccount(
     role: String(formData.get('role') ?? ''),
     orgId: String(formData.get('orgId') ?? ''),
     phone: String(formData.get('phone') ?? ''),
+    jobTitleId: String(formData.get('jobTitleId') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
-  const { userId, fullName, role, orgId, phone } = parsed.data
+  const { userId, fullName, role, orgId, phone, jobTitleId } = parsed.data
 
   try {
     const gate = await requireManageableTarget(userId)
@@ -494,17 +547,67 @@ export async function updateUserAccount(
       }
     }
 
+    let resolvedTitleId: string | null = jobTitleId || null
+    if (resolvedTitleId) {
+      const { data: title } = await supabase
+        .from('job_titles')
+        .select('id, org_id')
+        .eq('id', resolvedTitleId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (!title) {
+        return {
+          error:
+            'Chức danh không tồn tại. Chạy migration 056_job_titles.sql nếu chưa có bảng.',
+        }
+      }
+      // Title phải thuộc org đích hoặc tổ tiên của org đích
+      const allowedOrgs = new Set<string>([orgId])
+      let cursor = orgId
+      for (let step = 0; step < 8; step++) {
+        const { data: node } = await supabase
+          .from('organizations')
+          .select('parent_id')
+          .eq('id', cursor)
+          .is('deleted_at', null)
+          .maybeSingle()
+        if (!node?.parent_id) break
+        allowedOrgs.add(node.parent_id as string)
+        cursor = node.parent_id as string
+      }
+      if (!allowedOrgs.has(title.org_id as string)) {
+        return {
+          error: 'Chức danh không thuộc chi nhánh (hoặc cấp trên) của nhân sự.',
+        }
+      }
+    }
+
     const admin = createAdminClient()
     const { error } = await admin
       .from('profiles')
-      .update({ full_name: fullName, role, org_id: orgId, phone: phone || null })
+      .update({
+        full_name: fullName,
+        role,
+        org_id: orgId,
+        phone: phone || null,
+        job_title_id: resolvedTitleId,
+      })
       .eq('id', userId)
-    if (error) return { error: `Không cập nhật được tài khoản: ${error.message}` }
+    if (error) {
+      if (/job_title_id|does not exist|schema cache/i.test(error.message)) {
+        return {
+          error:
+            'Database chưa có cột chức danh. Vào Supabase SQL Editor chạy file supabase/migrations/056_job_titles.sql rồi thử lại.',
+        }
+      }
+      return { error: `Không cập nhật được tài khoản: ${error.message}` }
+    }
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Lỗi không xác định.' }
   }
 
   revalidatePath('/campus-admin/users')
+  revalidatePath('/campus-admin/job-titles')
   return {}
 }
 
@@ -544,8 +647,11 @@ export async function resetUserPassword(
 const UNGRANTABLE_KEYS: MenuKey[] = ['settings_global']
 
 export type UserGrantData = {
-  /** Key được gán THÊM cho user này */
+  /** Key được gán THÊM cho user này (kiêm nhiệm 049) */
   grants: MenuKey[]
+  /** Key từ chức danh (056) — chỉ đọc trong modal, sửa ở trang chức danh */
+  titleKeys: MenuKey[]
+  titleName: string | null
   /** Key user đã có sẵn theo vai trò (hiển thị để phân biệt) */
   roleKeys: MenuKey[]
   /** Trần ủy quyền của người gán (campus_admin); null = super_admin không giới hạn */
@@ -563,7 +669,7 @@ export async function getUserGrants(
 
   const supabase = createClient()
 
-  const [{ data: row }, { data: me }] = await Promise.all([
+  const [{ data: row }, { data: me }, profileRes] = await Promise.all([
     supabase
       .from('user_menu_permissions')
       .select('menu_keys')
@@ -574,7 +680,17 @@ export async function getUserGrants(
       .select('role')
       .eq('id', gate.currentUserId)
       .maybeSingle(),
+    supabase
+      .from('profiles')
+      .select('job_title_id, job_titles(name, menu_keys)')
+      .eq('id', targetUserId)
+      .maybeSingle(),
   ])
+
+  const profile =
+    profileRes.error && /job_title|job_titles/i.test(profileRes.error.message)
+      ? null
+      : profileRes.data
 
   // Trần ủy quyền: campus_admin TOÀN QUYỀN vận hành trong subtree
   // -> gán được mọi hạng mục cơ sở (trừ key riêng của super_admin).
@@ -585,10 +701,22 @@ export async function getUserGrants(
     )
   }
 
+  const jt = profile?.job_titles as
+    | { name: string; menu_keys: unknown }
+    | { name: string; menu_keys: unknown }[]
+    | null
+    | undefined
+  const titleObj = Array.isArray(jt) ? jt[0] : jt
+  const titleKeys = Array.isArray(titleObj?.menu_keys)
+    ? (titleObj!.menu_keys as unknown[]).filter(isMenuKey)
+    : []
+
   return {
     grants: Array.isArray(row?.menu_keys)
       ? (row.menu_keys as unknown[]).filter(isMenuKey)
       : [],
+    titleKeys,
+    titleName: titleObj?.name ?? null,
     roleKeys: defaultKeysForRole(gate.target.role as Role),
     capKeys,
     targetName: gate.target.full_name,

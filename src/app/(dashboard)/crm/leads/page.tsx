@@ -8,9 +8,13 @@ import {
   AlertTriangle,
   BarChart3,
   CalendarClock,
+  ChevronLeft,
+  ChevronRight,
+  Columns3,
   Flame,
   GraduationCap,
   Inbox,
+  LayoutList,
   Loader2,
   Megaphone,
   Phone,
@@ -84,6 +88,16 @@ const PRIORITY_BADGE: Record<string, string> = {
   warm: 'bg-amber-50 text-amber-700',
   cold: 'bg-muted text-muted-foreground',
 }
+
+const STATUS_LABEL: Record<LeadStatus, string> = {
+  new: 'Mới',
+  contacted: 'Đã liên hệ',
+  test_scheduled: 'Hẹn test',
+  enrolled: 'Đã nhập học',
+  lost: 'Mất lead',
+}
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -804,6 +818,9 @@ export default function CrmLeadsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [overdueOnly, setOverdueOnly] = useState(false)
   const [showReport, setShowReport] = useState(false)
+  const [viewMode, setViewMode] = useState<'kanban' | 'table'>('table')
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(20)
+  const [pageIndex, setPageIndex] = useState(0)
 
   const loadData = useCallback(async () => {
     if (!currentOrgId) {
@@ -860,6 +877,17 @@ export default function CrmLeadsPage() {
       )
     })
   }, [leads, searchText, counselorFilter, sourceFilter, priorityFilter, overdueOnly])
+
+  useEffect(() => {
+    setPageIndex(0)
+  }, [searchText, counselorFilter, sourceFilter, priorityFilter, overdueOnly, pageSize, viewMode])
+
+  const tablePageCount = Math.max(1, Math.ceil(filteredLeads.length / pageSize))
+  const safePageIndex = Math.min(pageIndex, tablePageCount - 1)
+  const pagedLeads = useMemo(() => {
+    const start = safePageIndex * pageSize
+    return filteredLeads.slice(start, start + pageSize)
+  }, [filteredLeads, safePageIndex, pageSize])
 
   async function handleAssignCounselor(leadId: string, counselorId: string) {
     const previous = leads
@@ -951,10 +979,42 @@ export default function CrmLeadsPage() {
             Tuyển sinh (CRM)
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Pipeline lead → chăm sóc → hẹn test → nhập học. Bấm thẻ để mở nhật ký.
+            Pipeline lead → chăm sóc → hẹn test → nhập học. Bấm dòng/thẻ để mở hồ sơ đầy đủ.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div
+            role="group"
+            aria-label="Chế độ hiển thị"
+            className="inline-flex rounded-xl border border-border bg-surface p-1"
+          >
+            <button
+              type="button"
+              aria-pressed={viewMode === 'table'}
+              onClick={() => setViewMode('table')}
+              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <LayoutList className="h-4 w-4" aria-hidden="true" />
+              Dòng
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewMode === 'kanban'}
+              onClick={() => setViewMode('kanban')}
+              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors ${
+                viewMode === 'kanban'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Columns3 className="h-4 w-4" aria-hidden="true" />
+              Kanban
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setShowReport((prev) => !prev)}
@@ -1162,6 +1222,165 @@ export default function CrmLeadsPage() {
 
       {loading ? (
         <FunLoader label="Đang tải pipeline tuyển sinh…" />
+      ) : viewMode === 'table' ? (
+        <div className="space-y-3">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+            <table className="w-full min-w-[880px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-3 font-semibold">Họ tên</th>
+                  <th className="px-3 py-3 font-semibold">SĐT</th>
+                  <th className="px-3 py-3 font-semibold">Trạng thái</th>
+                  <th className="px-3 py-3 font-semibold">Nguồn</th>
+                  <th className="px-3 py-3 font-semibold">Độ nóng</th>
+                  <th className="px-3 py-3 font-semibold">TV phụ trách</th>
+                  <th className="px-3 py-3 font-semibold">Hồ sơ</th>
+                  <th className="px-3 py-3 font-semibold">Follow-up</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedLeads.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center gap-2">
+                        <Inbox className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+                        <p>Không có lead phù hợp bộ lọc.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  pagedLeads.map((lead) => (
+                    <tr
+                      key={lead.id}
+                      onClick={() => setDetailLead(lead)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setDetailLead(lead)
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Mở hồ sơ ${lead.full_name}`}
+                      className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-primary/5 focus:outline-none focus-visible:bg-primary/10"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-foreground">{lead.full_name}</p>
+                        {lead.parent_name && (
+                          <p className="text-xs text-muted-foreground">PH: {lead.parent_name}</p>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 tabular-nums text-muted-foreground">{lead.phone}</td>
+                      <td className="px-3 py-3">
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-semibold">
+                          {STATUS_LABEL[lead.status]}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-muted-foreground">
+                        {lead.source ? SOURCE_LABELS[lead.source] || lead.source : '—'}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${PRIORITY_BADGE[lead.priority] || PRIORITY_BADGE.warm}`}
+                        >
+                          <Flame className="h-3 w-3" aria-hidden="true" />
+                          {lead.priority === 'hot'
+                            ? 'Nóng'
+                            : lead.priority === 'cold'
+                              ? 'Lạnh'
+                              : 'Ấm'}
+                        </span>
+                        {lead.is_overdue && (
+                          <span className="ml-1 inline-flex rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-semibold text-destructive">
+                            Quá hạn
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={lead.counselor_id ?? ''}
+                          onChange={(e) => handleAssignCounselor(lead.id, e.target.value)}
+                          aria-label={`Người phụ trách lead ${lead.full_name}`}
+                          className="min-h-9 w-full max-w-[160px] cursor-pointer rounded-lg border border-border bg-background px-2 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <option value="">— Chưa phân công —</option>
+                          {counselors.map((counselor) => (
+                            <option key={counselor.id} value={counselor.id}>
+                              {counselor.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-3 tabular-nums text-muted-foreground">
+                        {lead.profile_completeness}%
+                      </td>
+                      <td className="px-3 py-3 text-xs text-muted-foreground">
+                        {lead.next_follow_up_at
+                          ? new Date(lead.next_follow_up_at).toLocaleString('vi-VN', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              {filteredLeads.length === 0
+                ? 'Không có bản ghi'
+                : `Hiển thị ${safePageIndex * pageSize + 1}–${Math.min(
+                    (safePageIndex + 1) * pageSize,
+                    filteredLeads.length
+                  )} / ${filteredLeads.length} lead`}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                Mỗi trang
+                <select
+                  value={pageSize}
+                  onChange={(e) =>
+                    setPageSize(Number(e.target.value) as (typeof PAGE_SIZE_OPTIONS)[number])
+                  }
+                  className="min-h-9 cursor-pointer rounded-lg border border-border bg-surface px-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={safePageIndex <= 0}
+                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-lg border border-border px-3 text-sm font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                Trước
+              </button>
+              <span className="min-w-[4.5rem] text-center text-sm tabular-nums text-muted-foreground">
+                {safePageIndex + 1} / {tablePageCount}
+              </span>
+              <button
+                type="button"
+                disabled={safePageIndex >= tablePageCount - 1}
+                onClick={() => setPageIndex((p) => Math.min(tablePageCount - 1, p + 1))}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-lg border border-border px-3 text-sm font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Sau
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
           {COLUMNS.map((column) => {

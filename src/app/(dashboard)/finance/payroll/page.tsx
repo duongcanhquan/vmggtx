@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { SectionTabs } from '@/components/shared/SectionTabs'
 import { useOrgStore } from '@/lib/store/useOrgStore'
-import { runMonthlyPayroll, type PayrollTableRow } from './actions'
+import { runMonthlyPayroll, setPayrollStatus, type PayrollTableRow } from './actions'
 
 // ============================================================
 // Chạy Bảng Lương Tháng (/finance/payroll) - Kế toán / Campus Admin
@@ -55,14 +55,17 @@ export default function FinancePayrollPage() {
   const [year, setYear] = useState(now.getFullYear())
 
   const [running, setRunning] = useState(false)
+  const [statusBusy, setStatusBusy] = useState(false)
   const [rows, setRows] = useState<PayrollTableRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [ranPeriod, setRanPeriod] = useState<string | null>(null)
+  const [statusMsg, setStatusMsg] = useState<string | null>(null)
 
   async function handleRun() {
     if (!currentOrgId) return
     setRunning(true)
     setError(null)
+    setStatusMsg(null)
     setRows([])
 
     const result = await runMonthlyPayroll(currentOrgId, month, year)
@@ -74,6 +77,23 @@ export default function FinancePayrollPage() {
     }
     setRows(result.rows)
     setRanPeriod(`${month}/${year}`)
+  }
+
+  async function handleStatus(next: 'approved' | 'paid') {
+    if (!currentOrgId) return
+    setStatusBusy(true)
+    setStatusMsg(null)
+    const result = await setPayrollStatus(currentOrgId, month, year, next)
+    setStatusBusy(false)
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+    setStatusMsg(
+      next === 'approved'
+        ? `Đã duyệt ${result.updated ?? 0} dòng lương (draft → approved).`
+        : `Đã đánh dấu đã chi ${result.updated ?? 0} dòng (approved → paid).`
+    )
   }
 
   const savedRows = rows.filter((row) => row.outcome === 'saved')
@@ -175,7 +195,29 @@ export default function FinancePayrollPage() {
                 ? 'Đang chạy Engine…'
                 : `Chạy Bảng Lương Tháng ${month}/${year}`}
             </button>
+            <button
+              type="button"
+              onClick={() => handleStatus('approved')}
+              disabled={statusBusy || running}
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm font-semibold hover:bg-muted disabled:opacity-60"
+            >
+              Duyệt draft → approved
+            </button>
+            <button
+              type="button"
+              onClick={() => handleStatus('paid')}
+              disabled={statusBusy || running}
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm font-semibold hover:bg-muted disabled:opacity-60"
+            >
+              Đánh dấu đã chi
+            </button>
           </section>
+
+          {statusMsg && (
+            <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              {statusMsg}
+            </p>
+          )}
 
           {error && (
             <div

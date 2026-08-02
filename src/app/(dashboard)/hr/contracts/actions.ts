@@ -105,7 +105,8 @@ export async function getViewerPermissions(): Promise<{
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return { canViewFinancials: true, demo: true } // demo: không che để xem giao diện
+    // [QA-FIX C] Chưa login → KHÔNG mở số lương (trước đây demo:true lộ UI)
+    if (!user) return { canViewFinancials: false, demo: false }
 
     const { data } = await supabase
       .from('profiles')
@@ -114,7 +115,7 @@ export async function getViewerPermissions(): Promise<{
       .maybeSingle()
     return { canViewFinancials: data?.can_view_financials === true, demo: false }
   } catch {
-    return { canViewFinancials: true, demo: true }
+    return { canViewFinancials: false, demo: false }
   }
 }
 
@@ -140,11 +141,14 @@ export async function getTeachersInScope(
       .in('org_id', ids)
       .is('deleted_at', null)
       .order('full_name')
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) {
+      console.error('[QA-FIX C] getTeachersInScope:', error.message)
+      return { data: [], demo: false }
+    }
 
-    return { data, demo: false }
+    return { data: data ?? [], demo: false }
   } catch {
-    return { data: MOCK_TEACHERS, demo: true }
+    return { data: [], demo: false }
   }
 }
 
@@ -178,14 +182,28 @@ export async function getContracts(
       .in('org_id', ids)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) {
+      console.error('[QA-FIX C] getContracts:', error.message)
+      return { data: [], demo: false }
+    }
+    if (!data || data.length === 0) {
+      return { data: [], demo: false }
+    }
 
     // Ghép tên giáo viên + tên cơ sở (view không embed được qua FK)
     const teacherIds = Array.from(new Set(data.map((row) => row.teacher_id)))
     const contractOrgIds = Array.from(new Set(data.map((row) => row.org_id)))
     const [teacherResult, orgResult] = await Promise.all([
-      supabase.from('profiles').select('id, full_name').in('id', teacherIds),
-      supabase.from('organizations').select('id, name').in('id', contractOrgIds),
+      supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', teacherIds)
+        .is('deleted_at', null),
+      supabase
+        .from('organizations')
+        .select('id, name')
+        .in('id', contractOrgIds)
+        .is('deleted_at', null),
     ])
     const teacherNameById = new Map(
       (teacherResult.data ?? []).map((t) => [t.id, t.full_name])
@@ -214,7 +232,8 @@ export async function getContracts(
     }))
     return { data: rows, demo: false }
   } catch {
-    return { data: MOCK_CONTRACTS, demo: true }
+    console.error('[QA-FIX C] getContracts exception')
+    return { data: [], demo: false }
   }
 }
 
@@ -265,16 +284,32 @@ export async function upsertTeacherContract(formData: FormData): Promise<ActionR
       return { error: 'Bạn chưa đăng nhập. Chức năng này yêu cầu quyền Campus Admin.' }
     }
 
+    // [QA-FIX C] Menu payroll_contracts = campus_admin + accountant
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', currentUser.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    const role = profile?.role ?? ''
+    const roleAllowed =
+      role === 'super_admin' || role === 'campus_admin' || role === 'accountant'
+    if (!roleAllowed) {
+      return {
+        error:
+          'TỪ CHỐI: Chỉ Quản lý cơ sở hoặc Kế toán được tạo/sửa hợp đồng giáo viên.',
+      }
+    }
     const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
       p_user_id: currentUser.id,
       p_target_org_id: orgId,
-      p_required_role: 'campus_admin',
+      p_required_role: role === 'accountant' ? 'accountant' : 'campus_admin',
     })
     if (authzError) return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     if (authorized !== true) {
       return {
         error:
-          'TỪ CHỐI: Bạn không phải Campus Admin, hoặc cơ sở này không thuộc quyền quản lý của bạn.',
+          'TỪ CHỐI: Cơ sở này không thuộc quyền quản lý của bạn.',
       }
     }
 

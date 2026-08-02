@@ -1,61 +1,81 @@
-# DECISIONS - Quyết định kiến trúc đã chốt (KHÔNG làm trái nếu user chưa đổi ý)
+# DECISIONS - Quy?t ??nh ki?n tr?c ?? ch?t (KH?NG l?m tr?i n?u user ch?a ??i ?)
 
-Mỗi quyết định 1-3 dòng. Thêm mới vào CUỐI danh sách với mã D tiếp theo.
+M?i quy?t ??nh 1-3 d?ng. Th?m m?i v?o CU?I danh s?ch v?i m? D ti?p theo.
 
-- **D01** Multi-tenant CHUNG 1 database, cách ly bằng `org_id` + RLS (ltree subtree).
-  KHÔNG tách database per cơ sở (đã tư vấn kỹ 2026-08-01, user đồng thuận hướng này).
-- **D02** Phụ huynh KHÔNG có tài khoản Supabase - đăng nhập /parent/login bằng cookie HMAC
-  `parent_session`. Middleware nhận diện qua cookie, không qua auth.getUser().
-- **D03** Mã học viên: cột import bắt buộc tiêu đề chính xác `MaSV`; quy tắc sinh mã
-  cấu hình per-cơ sở trong org_settings (3 rule mẫu).
-- **D04** Cấu hình cơ sở để trong `org_settings.config` (JSONB) + kế thừa theo cây
-  (settingsResolver), KHÔNG tạo bảng riêng cho từng nhóm cài đặt.
-- **D05** AI per-tenant: key từ `org_ai_settings`, fallback env. RAG bắt buộc lọc org_id.
-  Mọi lời gọi AI có try/catch + timeout + fallback "AI đang bảo trì".
-- **D06** File lớn (bài giảng, bài nộp) lưu Cloudflare R2 qua presigned URL, KHÔNG lưu Supabase storage.
-- **D07** Lương giáo viên CHỈ tính buổi `completed` VÀ có điểm danh. Dự báo ngân sách dùng
-  buổi `scheduled` tương lai qua cùng engine.
-- **D08** Phân quyền 2 tầng: ROUTE_RULES tĩnh trong middleware = trần cứng; ma trận menu động
-  (migration 043) chỉ SIẾT thêm, fail-open khi RPC chưa có. Campus admin bị "cap" bởi quyền chính mình.
-- **D09** Layout dashboard lưu `user_preferences` per-user, fallback `global_layout_templates`
-  (is_forced = khóa kéo thả). KHÔNG lưu layout vào org_settings nữa.
-- **D10** Governance: super_admin CHỈ kiến trúc (menu SUPER_MENU 5 mục, không vận hành chi tiết);
-  campus_admin toàn quyền vận hành subtree. "Phó giám đốc" = campus_admin gắn org con, KHÔNG tạo role mới.
-- **D11** Cây tổ chức: tối đa 3 cấp dưới 1 Cơ sở (campus→nhánh→nhánh con), chặn tầng 4 trong
-  createOrganization (đếm ngược lên campus gần nhất).
-- **D12** Kế hoạch thương mại: bán account theo cơ sở bằng tầng LICENSE (gói = tổ hợp menu_keys
-  + hạn dùng + giới hạn HV) trên chung 1 DB; instance riêng chỉ là gói premium về sau.
-  ĐÃ TRIỂN KHAI (migration 044): không license = fail-open full quyền; license áp dụng
-  kế thừa xuống nhánh con; module cap được GIAO vào get_my_menu_keys.
-- **D13** Commit trên Windows PowerShell: build sạch trước, message qua file .git-commit-msg.txt
-  (không dấu), không dùng && / heredoc.
-- **D14** Phân tách cổng theo domain path:
-  - Gốc (`/login`) = landing marketing; Super Admin qua `/login/admin` (icon sách ẩn).
-  - KHÔNG có hub danh sách cơ sở công khai (`/coso` redirect → `/login`).
-  - Mỗi trường nhận link trực tiếp `/coso/{slug}/login` (tab Nhà trường | Gia đình).
+- **D01** Multi-tenant CHUNG 1 database, c?ch ly b?ng `org_id` + RLS (ltree subtree).
+  KH?NG t?ch database per c? s? (?? t? v?n k? 2026-08-01, user ??ng thu?n h??ng n?y).
+- **D02** Ph? huynh KH?NG c? t?i kho?n Supabase - ??ng nh?p /parent/login b?ng cookie HMAC
+  `parent_session`. Middleware nh?n di?n qua cookie, kh?ng qua auth.getUser().
+- **D03** M? h?c vi?n: c?t import b?t bu?c ti?u ?? ch?nh x?c `MaSV`; quy t?c sinh m?
+  c?u h?nh per-c? s? trong org_settings (3 rule m?u).
+- **D04** C?u h?nh c? s? ?? trong `org_settings.config` (JSONB) + k? th?a theo c?y
+  (settingsResolver), KH?NG t?o b?ng ri?ng cho t?ng nh?m c?i ??t.
+- **D05** AI per-tenant: key t? `org_ai_settings`, fallback env. RAG b?t bu?c l?c org_id.
+  M?i l?i g?i AI c? try/catch + timeout + fallback "AI ?ang b?o tr?".
+- **D06** File l?n (b?i gi?ng, b?i n?p) l?u Cloudflare R2 qua presigned URL, KH?NG l?u Supabase storage.
+- **D07** L??ng gi?o vi?n CH? t?nh bu?i `completed` V? c? ?i?m danh. D? b?o ng?n s?ch d?ng
+  bu?i `scheduled` t??ng lai qua c?ng engine.
+- **D08** Ph?n quy?n 2 t?ng: ROUTE_RULES t?nh trong middleware = tr?n c?ng; ma tr?n menu ??ng
+  (migration 043) ch? SI?T th?m, fail-open khi RPC ch?a c?. Campus admin b? "cap" b?i quy?n ch?nh m?nh.
+- **D09** Layout dashboard l?u `user_preferences` per-user, fallback `global_layout_templates`
+  (is_forced = kh?a k?o th?). KH?NG l?u layout v?o org_settings n?a.
+- **D10** Governance: super_admin CH? ki?n tr?c (menu SUPER_MENU 5 m?c, kh?ng v?n h?nh chi ti?t);
+  campus_admin to?n quy?n v?n h?nh subtree. "Ph? gi?m ??c" = campus_admin g?n org con, KH?NG t?o role m?i.
+- **D11** C?y t? ch?c: t?i ?a 3 c?p d??i 1 C? s? (campus?nh?nh?nh?nh con), ch?n t?ng 4 trong
+  createOrganization (??m ng??c l?n campus g?n nh?t).
+- **D12** K? ho?ch th??ng m?i: b?n account theo c? s? b?ng t?ng LICENSE (g?i = t? h?p menu_keys
+  + h?n d?ng + gi?i h?n HV) tr?n chung 1 DB; instance ri?ng ch? l? g?i premium v? sau.
+  ?? TRI?N KHAI (migration 044): kh?ng license = fail-open full quy?n; license ?p d?ng
+  k? th?a xu?ng nh?nh con; module cap ???c GIAO v?o get_my_menu_keys.
+- **D13** Commit tr?n Windows PowerShell: build s?ch tr??c, message qua file .git-commit-msg.txt
+  (kh?ng d?u), kh?ng d?ng && / heredoc.
+- **D14** Ph?n t?ch c?ng theo domain path:
+  - G?c (`/login`) = landing marketing; Super Admin qua `/login/admin` (icon s?ch ?n).
+  - KH?NG c? hub danh s?ch c? s? c?ng khai (`/coso` redirect ? `/login`).
+  - M?i tr??ng nh?n link tr?c ti?p `/coso/{slug}/login` (tab Nh? tr??ng | Gia ??nh).
   - HV: MaSV/email+pass; PH: email+pass qua `parent_accounts` + cookie HMAC.
-  - Tương lai có thể tách 2 tab thành 2 cổng URL riêng — chưa làm.
-  - Subdomain `*.domain` rewrite thẳng vào `/coso/{slug}/login` nếu bật.
-- **D15** Logo thương hiệu theo `organizations.logo_url` / `logo_key` (migration 051):
-  upload tại `/settings` (campus_admin+), lưu R2 (D06) hoặc data URL ≤200KB nếu chưa R2;
-  phục vụ công khai qua `/api/org-logo/[orgId]`; hiển thị thống nhất cổng `/coso` + AuthShell
-  + Dashboard/Portal/Teacher/Student/Parent. Nhánh không có logo thì kế thừa tổ tiên.
-- **D16** Đồng bộ vận hành (QA 2026-08-02):
-  - Cổng HV canonical = `/portal`; `/student` redirect. License `module_keys` CAP cả campus_admin
-    (middleware + DashboardShell) khi `get_my_menu_keys` ≠ null; fail-open nếu chưa có license.
-  - Redirect middleware tách `?query` khỏi pathname (tránh encode `%3F`).
-  - Sai campus lúc login HV → signOut, không soft-admit vào portal.
-- **D17** Hub báo cáo theo vai trò (MenuKey `reports`):
-  `/reports` (campus/học vụ/KT), `/reports/academic`, `/reports/exams`,
+  - T??ng lai c? th? t?ch 2 tab th?nh 2 c?ng URL ri?ng ? ch?a l?m.
+  - Subdomain `*.domain` rewrite th?ng v?o `/coso/{slug}/login` n?u b?t.
+- **D15** Logo th??ng hi?u theo `organizations.logo_url` / `logo_key` (migration 051):
+  upload t?i `/settings` (campus_admin+), l?u R2 (D06) ho?c data URL ?200KB n?u ch?a R2;
+  ph?c v? c?ng khai qua `/api/org-logo/[orgId]`; hi?n th? th?ng nh?t c?ng `/coso` + AuthShell
+  + Dashboard/Portal/Teacher/Student/Parent. Nh?nh kh?ng c? logo th? k? th?a t? ti?n.
+- **D16** ??ng b? v?n h?nh (QA 2026-08-02):
+  - C?ng HV canonical = `/portal`; `/student` redirect. License `module_keys` CAP c? campus_admin
+    (middleware + DashboardShell) khi `get_my_menu_keys` ? null; fail-open n?u ch?a c? license.
+  - Redirect middleware t?ch `?query` kh?i pathname (tr?nh encode `%3F`).
+  - Sai campus l?c login HV ? signOut, kh?ng soft-admit v?o portal.
+- **D17** Hub b?o c?o theo vai tr? (MenuKey `reports`):
+  `/reports` (campus/h?c v?/KT), `/reports/academic`, `/reports/exams`,
   `/teacher/insights`, `/parent/insights`. Recharts + bento KPI; overview
-  «Doanh thu đã thu» = tổng `payments` (không MOCK học phí).
-- **D18** CRM tuyển sinh chuyên nghiệp (migration 052): pipeline giữ 5 trạng thái
-  (`new → contacted → test_scheduled → enrolled | lost`); lead có nguồn/độ nóng/
-  follow-up/hẹn/lost_reason; chống trùng SĐT live per org; nhật ký chăm sóc bắt buộc
-  qua UI; mất lead bắt buộc lý do; convert → student qua modal (không kéo thẳng);
-  KHÔNG trả MOCK khi DB trống — trả rỗng + lỗi.
-- **D19** CRM AI + hồ sơ đầy đủ (migration 053): cấu hình module trong `org_settings`
-  (`crm_ai_*`, bắt buộc PH/CCCD/ngành nghề); AI qua `/api/ai/copilot` taskType
-  `crm_assist` + RAG `match_lesson_materials` (ưu tiên metadata admissions); hồ sơ
-  lead/HV gồm CCCD, PH, sở thích, ngành nghề; entity custom field `lead`; convert
+  ?Doanh thu ?? thu? = t?ng `payments` (kh?ng MOCK h?c ph?).
+- **D18** CRM tuy?n sinh chuy?n nghi?p (migration 052): pipeline gi? 5 tr?ng th?i
+  (`new ? contacted ? test_scheduled ? enrolled | lost`); lead c? ngu?n/?? n?ng/
+  follow-up/h?n/lost_reason; ch?ng tr?ng S?T live per org; nh?t k? ch?m s?c b?t bu?c
+  qua UI; m?t lead b?t bu?c l? do; convert ? student qua modal (kh?ng k?o th?ng);
+  KH?NG tr? MOCK khi DB tr?ng ? tr? r?ng + l?i.
+- **D19** CRM AI + h? s? ??y ?? (migration 053): c?u h?nh module trong `org_settings`
+  (`crm_ai_*`, b?t bu?c PH/CCCD/ng?nh ngh?); AI qua `/api/ai/copilot` taskType
+  `crm_assist` + RAG `match_lesson_materials` (?u ti?n metadata admissions); h? s?
+  lead/HV g?m CCCD, PH, s? th?ch, ng?nh ngh?; entity custom field `lead`; convert
   copy sang `profiles`.
+
+- **D20** Man hinh van hanh hoc vu trong DashboardShell (vd. Bang diem tong) KHONG dat duoi `/staff/*` ? `/staff` dung PortalShell rieng, se doi menu. Bang diem tong = `/academic/transcripts`; `/staff/transcripts` redirect.
+
+- **D21** Xep lich TKB: man hinh chinh `/academic/schedule` trong DashboardShell (khong dat create session chi trong `/staff/*`). Menu `Lich cua toi` = xem; `Xep lich / TKB` = giao vu phan cong. Lich GV gom ca `substitute_teacher_id`.
+
+- **D22** Canh bao hoc vu van hanh day du (055): severity early|danger theo nguong org_settings (absence_early_warning / max_absence_warning / gpa_*); status new -> notified -> in_progress -> resolved + handler_notes; AI goi y tuy chon.
+
+- **D23** Chuc danh + mau quyen (056): giu role ky thuat (cong/RLS D08/D10); `job_titles` per org = mau `menu_keys`; gan `profiles.job_title_id`; quyen hieu luc = title ? `user_menu_permissions` (kiem nhiem van chinh lech tung nguoi). Khong tao role moi kieu "Pho GD".
+
+- **D24** TKB thong minh theo tang: (1) `org_holidays` + skip/block; (2) luoi tuan keo-tha + xung dot do; (3) `class_schedule_plans` + greedy auto; (4) toi uu nang cao (load GV lien tuyen, facility_id, HV clash) = sau. Man chinh van `/academic/schedule` (D21).
+
+- **D25** Phan cong cong viec noi bo (059): bang `work_tasks` + `work_task_assignees` ? tach biet e-ticket/don GV. UI `/academic/tasks` (quan ly) + `/teacher/tasks` (viec duoc giao). Chi ADD, khong doi schema cu.
+
+- **D26** Gap audit P2?P5 (ADD-only): P2 lich thi read-only cong GV/HV + In/PDF bang diem (HTML print, khong doi API diem); P3 `class_sessions.facility_id` nullable (060) giu `room`; P4 ADD COLUMN curriculum tren `subjects` (061) + `/academic/subjects`; P5 bang moi `tuition_rules` (062) sinh draft `invoices` pending ? khong doi cot invoices cu.
+
+- **D27** Lop hai tang (migration A): classes = hoc phan; ADD class_groups + group_id + class_teachers + 	eacher_subjects/	eaching_major. Rubric LMS split-screen = phase sau (spec 2026-08-02-class-groups-lms-rubric).
+
+- **D27b** Rubric LMS (065): 1 rubric/assignment; draft trong lms_submission_grades; final dong bo lms_submissions.score/feedback. Autosave localStorage + debounce server.
+
+- **D28** HR nhan su: /campus-admin/users loai student; phep nam theo org; ngay cong hybrid; luong VP theo ngay cong / GV theo tiet+diem danh; tach teacher_requests. Spec 2026-08-02-hr-personnel-leave.

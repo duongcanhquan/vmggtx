@@ -20,10 +20,12 @@ import {
   addLeadActivity,
   claimLead,
   getLeadActivities,
+  getLeadPaymentInfo,
   softDeleteLead,
   updateLead,
   type LeadActivityRow,
   type LeadCard,
+  type LeadPaymentInfo,
   type Option,
   SOURCE_LABELS,
 } from './actions'
@@ -64,6 +66,65 @@ const PRIORITY_LABELS: Record<string, string> = {
   cold: 'Lạnh',
 }
 
+const POTENTIAL_LABELS: Record<string, string> = {
+  high: 'Cao',
+  medium: 'Trung bình',
+  low: 'Thấp',
+  unknown: 'Chưa rõ',
+}
+
+const POTENTIAL_OPTIONS = [
+  { value: 'high', label: 'Cao' },
+  { value: 'medium', label: 'Trung bình' },
+  { value: 'low', label: 'Thấp' },
+  { value: 'unknown', label: 'Chưa rõ' },
+] as const
+
+const GENDER_LABELS: Record<string, string> = {
+  male: 'Nam',
+  female: 'Nữ',
+  other: 'Khác',
+}
+
+const RELATION_LABELS: Record<string, string> = {
+  father: 'Bố',
+  mother: 'Mẹ',
+  guardian: 'Người giám hộ',
+  other: 'Khác',
+}
+
+function Field({ label, value }: { label: string; value?: string | number | null }) {
+  const text =
+    value === null || value === undefined || String(value).trim() === ''
+      ? '—'
+      : String(value)
+  return (
+    <div className="rounded-xl border border-border bg-background px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-0.5 whitespace-pre-wrap text-sm font-medium text-foreground">
+        {text}
+      </p>
+    </div>
+  )
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-2">
+      <h3 className="font-heading text-sm font-bold text-foreground">{title}</h3>
+      <div className="grid gap-2 sm:grid-cols-2">{children}</div>
+    </section>
+  )
+}
+
 function toLocalInput(iso: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)
@@ -91,9 +152,13 @@ export function LeadDetailDrawer({
   onChanged: () => void
   onToast: (type: 'success' | 'error', message: string) => void
 }) {
-  const [tab, setTab] = useState<'care' | 'edit' | 'ai'>('care')
+  const [tab, setTab] = useState<
+    'profile' | 'care' | 'edit' | 'payment' | 'ai'
+  >('profile')
   const [activities, setActivities] = useState<LeadActivityRow[]>([])
   const [loadingActs, setLoadingActs] = useState(true)
+  const [payment, setPayment] = useState<LeadPaymentInfo | null>(null)
+  const [loadingPay, setLoadingPay] = useState(false)
   const [busy, setBusy] = useState(false)
   const readonly = lead.status === 'enrolled'
 
@@ -112,6 +177,23 @@ export function LeadDetailDrawer({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chi reload khi doi lead
   }, [lead.id])
+
+  useEffect(() => {
+    if (tab !== 'payment') return
+    let cancelled = false
+    ;(async () => {
+      setLoadingPay(true)
+      const res = await getLeadPaymentInfo(lead.id)
+      if (cancelled) return
+      setPayment(res.data)
+      setLoadingPay(false)
+      if (res.error) onToast('error', res.error)
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, lead.id])
 
   async function loadActs() {
     setLoadingActs(true)
@@ -149,6 +231,15 @@ export function LeadDetailDrawer({
       interests: lead.interests ?? '',
       preferredSchedule: lead.preferred_schedule ?? '',
       callSummary: lead.call_summary ?? '',
+      strengths: lead.strengths ?? '',
+      weaknesses: lead.weaknesses ?? '',
+      needs: lead.needs ?? '',
+      potentialRating:
+        (lead.potential_rating as '' | 'high' | 'medium' | 'low' | 'unknown') ||
+        '',
+      depositAmount:
+        lead.deposit_amount != null ? String(lead.deposit_amount) : '',
+      paymentNotes: lead.payment_notes ?? '',
       parentName: lead.parent_name ?? '',
       parentPhone: lead.parent_phone ?? '',
       parentRelation:
@@ -203,6 +294,12 @@ export function LeadDetailDrawer({
     fd.set('interests', values.interests ?? '')
     fd.set('preferredSchedule', values.preferredSchedule ?? '')
     fd.set('callSummary', values.callSummary ?? '')
+    fd.set('strengths', values.strengths ?? '')
+    fd.set('weaknesses', values.weaknesses ?? '')
+    fd.set('needs', values.needs ?? '')
+    fd.set('potentialRating', values.potentialRating || '')
+    fd.set('depositAmount', values.depositAmount ?? '')
+    fd.set('paymentNotes', values.paymentNotes ?? '')
     fd.set('parentName', values.parentName ?? '')
     fd.set('parentPhone', values.parentPhone ?? '')
     fd.set('parentRelation', values.parentRelation || '')
@@ -257,7 +354,7 @@ export function LeadDetailDrawer({
         className="absolute inset-0 bg-foreground/30"
         onClick={onClose}
       />
-      <div className="relative flex h-full w-full max-w-lg flex-col border-l border-border bg-surface shadow-2xl">
+      <div className="relative flex h-full w-full max-w-2xl flex-col border-l border-border bg-surface shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <h2 className="truncate font-heading text-lg font-bold">{lead.full_name}</h2>
@@ -295,11 +392,13 @@ export function LeadDetailDrawer({
           </button>
         </header>
 
-        <div className="flex gap-1 border-b border-border px-5 pt-2">
+        <div className="flex gap-1 overflow-x-auto border-b border-border px-3 pt-2 [scrollbar-width:none]">
           {(
             [
+              ['profile', 'Tổng quan'],
               ['care', 'Chăm sóc'],
-              ['edit', 'Hồ sơ'],
+              ['edit', 'Chỉnh sửa'],
+              ['payment', 'Đóng tiền'],
               ['ai', 'AI'],
             ] as const
           ).map(([key, label]) => (
@@ -307,7 +406,7 @@ export function LeadDetailDrawer({
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              className={`min-h-10 cursor-pointer rounded-t-lg px-3 text-sm font-semibold ${
+              className={`min-h-10 shrink-0 cursor-pointer rounded-t-lg px-3 text-sm font-semibold ${
                 tab === key
                   ? 'border-b-2 border-primary text-primary'
                   : 'text-muted-foreground hover:text-foreground'
@@ -319,6 +418,99 @@ export function LeadDetailDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
+          {tab === 'profile' && (
+            <div className="space-y-5">
+              <Section title="Hồ sơ cá nhân">
+                <Field label="Họ tên" value={lead.full_name} />
+                <Field label="SĐT" value={lead.phone} />
+                <Field label="Email" value={lead.email} />
+                <Field label="Ngày sinh" value={lead.date_of_birth} />
+                <Field
+                  label="Giới tính"
+                  value={lead.gender ? GENDER_LABELS[lead.gender] ?? lead.gender : null}
+                />
+                <Field label="CCCD/CMND" value={lead.cccd} />
+                <Field label="Địa chỉ" value={lead.address} />
+                <Field label="Trường đang học" value={lead.current_school} />
+                <Field label="Trình độ" value={lead.education_level} />
+              </Section>
+              <Section title="Gia đình">
+                <Field label="Phụ huynh 1" value={lead.parent_name} />
+                <Field label="SĐT PH 1" value={lead.parent_phone} />
+                <Field
+                  label="Quan hệ PH 1"
+                  value={
+                    lead.parent_relation
+                      ? RELATION_LABELS[lead.parent_relation] ?? lead.parent_relation
+                      : null
+                  }
+                />
+                <Field label="Email PH 1" value={lead.parent_email} />
+                <Field label="Phụ huynh 2" value={lead.parent2_name} />
+                <Field label="SĐT PH 2" value={lead.parent2_phone} />
+                <Field
+                  label="Quan hệ PH 2"
+                  value={
+                    lead.parent2_relation
+                      ? RELATION_LABELS[lead.parent2_relation] ??
+                        lead.parent2_relation
+                      : null
+                  }
+                />
+              </Section>
+              <Section title="Nguyện vọng">
+                <Field label="Môn quan tâm" value={lead.subject_name} />
+                <Field label="Ngành / chương trình" value={lead.career_interest} />
+                <Field label="Sở thích / tính cách" value={lead.interests} />
+                <Field label="Lịch học mong muốn" value={lead.preferred_schedule} />
+                <Field
+                  label="Nguồn"
+                  value={lead.source ? SOURCE_LABELS[lead.source] : null}
+                />
+                <Field
+                  label="Độ nóng"
+                  value={PRIORITY_LABELS[lead.priority] ?? lead.priority}
+                />
+              </Section>
+              <Section title="Tư vấn (gọi điện / đánh giá)">
+                <Field label="Tóm tắt cuộc gọi" value={lead.call_summary} />
+                <Field label="Điểm mạnh" value={lead.strengths} />
+                <Field label="Điểm yếu" value={lead.weaknesses} />
+                <Field label="Nhu cầu" value={lead.needs} />
+                <Field
+                  label="Tiềm năng"
+                  value={
+                    lead.potential_rating
+                      ? POTENTIAL_LABELS[lead.potential_rating] ??
+                        lead.potential_rating
+                      : null
+                  }
+                />
+                <Field label="Ghi chú chung" value={lead.notes} />
+                <Field label="TV phụ trách" value={lead.counselor_name} />
+                <Field label="Số tương tác" value={lead.activity_count} />
+              </Section>
+              <Section title="Đóng tiền (tóm tắt)">
+                <Field
+                  label="Đặt cọc"
+                  value={
+                    lead.deposit_amount != null
+                      ? lead.deposit_amount.toLocaleString('vi-VN') + ' ₫'
+                      : null
+                  }
+                />
+                <Field label="Ghi chú tiền" value={lead.payment_notes} />
+              </Section>
+              <button
+                type="button"
+                onClick={() => setTab('edit')}
+                className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-border text-sm font-semibold hover:bg-muted"
+              >
+                Chỉnh sửa hồ sơ
+              </button>
+            </div>
+          )}
+
           {tab === 'care' && (
             <div className="space-y-5">
               {(lead.next_follow_up_at || lead.appointment_at) && (
@@ -664,6 +856,52 @@ export function LeadDetailDrawer({
                     </label>
                     <textarea id="edit-call" rows={2} className={`${inputClass} min-h-16 py-2`} {...editForm.register('callSummary')} />
                   </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tư vấn / đánh giá</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-strengths">
+                      Điểm mạnh
+                    </label>
+                    <textarea id="edit-strengths" rows={2} className={`${inputClass} min-h-16 py-2`} {...editForm.register('strengths')} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-weaknesses">
+                      Điểm yếu
+                    </label>
+                    <textarea id="edit-weaknesses" rows={2} className={`${inputClass} min-h-16 py-2`} {...editForm.register('weaknesses')} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-needs">
+                      Nhu cầu
+                    </label>
+                    <textarea id="edit-needs" rows={2} className={`${inputClass} min-h-16 py-2`} {...editForm.register('needs')} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-potential">
+                      Tiềm năng
+                    </label>
+                    <select id="edit-potential" className={inputClass} {...editForm.register('potentialRating')}>
+                      <option value="">— Chưa đánh giá —</option>
+                      {POTENTIAL_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-deposit">
+                      Đặt cọc (VND)
+                    </label>
+                    <input id="edit-deposit" type="number" min={0} className={inputClass} {...editForm.register('depositAmount')} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-paynotes">
+                      Ghi chú đóng tiền
+                    </label>
+                    <textarea id="edit-paynotes" rows={2} className={`${inputClass} min-h-16 py-2`} {...editForm.register('paymentNotes')} />
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
@@ -718,12 +956,82 @@ export function LeadDetailDrawer({
               )}
             </form>
           )}
+
+          {tab === 'payment' && (
+            <div className="space-y-4">
+              <section className="rounded-xl border border-border bg-card p-4">
+                <h3 className="mb-3 text-sm font-semibold">Thông tin đặt cọc / ghi chú</h3>
+                <dl className="grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Đặt cọc</dt>
+                    <dd className="text-sm font-semibold tabular-nums">
+                      {lead.deposit_amount != null && lead.deposit_amount > 0
+                        ? `${lead.deposit_amount.toLocaleString('vi-VN')} ₫`
+                        : '—'}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-muted-foreground">Ghi chú đóng tiền</dt>
+                    <dd className="whitespace-pre-wrap text-sm">{lead.payment_notes?.trim() || '—'}</dd>
+                  </div>
+                </dl>
+                {!readonly && (
+                  <button
+                    type="button"
+                    onClick={() => setTab('edit')}
+                    className="mt-3 text-sm font-medium text-primary hover:underline"
+                  >
+                    Chỉnh sửa trong tab Sửa
+                  </button>
+                )}
+              </section>
+
+              {lead.converted_student_id ? (
+                <section className="rounded-xl border border-border bg-card p-4">
+                  <h3 className="mb-3 text-sm font-semibold">Hoá đơn học viên đã chuyển đổi</h3>
+                  {loadingPay ? (
+                    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      Đang tải…
+                    </p>
+                  ) : payment?.invoices.length ? (
+                    <ul className="space-y-2">
+                      {payment.invoices.map((inv) => (
+                        <li
+                          key={inv.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                        >
+                          <div>
+                            <p className="font-medium">{inv.note?.trim() || 'Hóa đơn'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {inv.due_date ? `Hạn: ${inv.due_date}` : 'Không có hạn'}
+                              {inv.paid > 0
+                                ? ` · Đã thu: ${inv.paid.toLocaleString('vi-VN')} ₫`
+                                : ''}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold tabular-nums">{inv.amount.toLocaleString('vi-VN')} ₫</p>
+                            <p className="text-xs text-muted-foreground">{inv.status}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Chưa có hóa đơn liên kết.</p>
+                  )}
+                </section>
+              ) : (
+                <p className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  Lead chưa chuyển thành học viên — chỉ có thông tin đặt cọc / ghi chú phía trên. Sau khi chuyển đổi, hóa đơn học phí sẽ hiện tại đây.
+                </p>
+              )}
+            </div>
+          )}
+
+          {tab === 'ai' && <LeadAiAssist orgId={lead.org_id} leadId={lead.id} />}
         </div>
 
-
-          {tab === 'ai' && (
-            <LeadAiAssist orgId={lead.org_id} leadId={lead.id} />
-          )}
         <footer className="flex flex-wrap gap-2 border-t border-border px-5 py-3">
           {!lead.counselor_id && !readonly && (
             <button

@@ -37,6 +37,12 @@ export const SETTING_DEFAULTS = {
   // Các key đã dùng từ migration 016 - resolver thay thế dần RPC
   auto_attendance_sms: true,
   max_absence_warning: 3,
+  /** Vắng không phép từ ngưỡng này = cảnh báo SỚM (nhỏ hơn max_absence_warning) */
+  absence_early_warning: 2,
+  /** ĐTB dưới mức này = cảnh báo NGUY HIỂM học lực */
+  gpa_warning_limit: 5,
+  /** ĐTB dưới mức này (nhưng >= gpa_warning_limit) = cảnh báo SỚM học lực */
+  gpa_early_warning: 6,
   /** Tổng điểm rèn luyện THÁNG dưới mốc này -> auto ticket Tư vấn Tâm lý (038) */
   behavior_alert_threshold: -15,
   grading_locked_days: 7,

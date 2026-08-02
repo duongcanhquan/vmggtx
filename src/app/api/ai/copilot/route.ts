@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAIConfig, type TenantAIConfig } from '@/lib/ai/getTenantAIConfig'
 import { DEFAULT_ORG_CONFIG, orgConfigSchema } from '@/lib/validation/schemas'
+import { assertClassAccess } from '@/lib/auth/assertClassAccess'
 
 export const maxDuration = 60
 
@@ -197,27 +198,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Lớp học không tồn tại.' }, { status: 404 })
     }
 
-    if (cls.teacher_id !== user.id) {
-      const [{ data: enrollment }, { data: staffAuthorized }] = await Promise.all([
-        supabase
-          .from('enrollments')
-          .select('id')
-          .eq('class_id', cls.id)
-          .eq('student_id', user.id)
-          .is('deleted_at', null)
-          .maybeSingle(),
-        supabase.rpc('is_authorized', {
-          p_user_id: user.id,
-          p_target_org_id: cls.org_id,
-          p_required_role: 'academic_staff',
-        }),
-      ])
-      if (!enrollment && staffAuthorized !== true) {
-        return NextResponse.json(
-          { error: 'TỪ CHỐI: Bạn không thuộc lớp học này.' },
-          { status: 403 }
-        )
-      }
+    // [QA-FIX C] Đồng bộ LMS: co-teacher + cohort
+    const allowed = await assertClassAccess(
+      supabase,
+      user.id,
+      cls.id,
+      cls.org_id,
+      cls.teacher_id
+    )
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'TỪ CHỐI: Bạn không thuộc lớp học này.' },
+        { status: 403 }
+      )
     }
 
     orgId = cls.org_id
@@ -252,6 +245,37 @@ export async function POST(request: NextRequest) {
       )
     }
     orgId = requestedOrgId
+
+    // [QA-FIX B] Role-gate mọi taskType (không chỉ crm_assist) — chặn student đọc KB/HR
+    if (taskType === 'lesson_plan') {
+      const allowedRoles = [
+        'super_admin',
+        'campus_admin',
+        'academic_staff',
+        'teacher',
+      ]
+      if (!allowedRoles.includes(profile.role)) {
+        return NextResponse.json(
+          { error: 'TỪ CHỐI: Chỉ giáo viên/học vụ được dùng AI soạn giáo án.' },
+          { status: 403 }
+        )
+      }
+    }
+
+    if (taskType === 'hr_query') {
+      const allowedRoles = [
+        'super_admin',
+        'campus_admin',
+        'academic_staff',
+        'accountant',
+      ]
+      if (!allowedRoles.includes(profile.role)) {
+        return NextResponse.json(
+          { error: 'TỪ CHỐI: Chỉ quản trị/học vụ/kế toán được hỏi AI nhân sự.' },
+          { status: 403 }
+        )
+      }
+    }
 
     if (taskType === 'crm_assist') {
       // admission_staff+ trong org

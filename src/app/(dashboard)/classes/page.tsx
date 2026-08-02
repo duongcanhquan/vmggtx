@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, BookOpen, AlertCircle, Building2, Sparkles } from 'lucide-react'
+import { Plus, BookOpen, AlertCircle, Building2, Sparkles, MonitorPlay } from 'lucide-react'
 import { useCampusStore } from '@/lib/store/useCampusStore'
 import { getClasses, type ClassRow } from './actions'
 
@@ -45,13 +45,34 @@ export default function ClassesPage() {
             Quản lý Lớp học
           </h1>
         </div>
-        <Link
-          href="/classes/new"
-          className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Tạo lớp mới
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/classes/groups"
+            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Lớp hành chính
+          </Link>
+          <Link
+            href="/academic/lms"
+            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            <MonitorPlay className="h-4 w-4" aria-hidden="true" />
+            LMS Online
+          </Link>
+          <Link
+            href="/academic/schedule"
+            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Xếp lịch / TKB
+          </Link>
+          <Link
+            href="/classes/new"
+            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Tạo lớp mới
+          </Link>
+        </div>
       </div>
 
       {/* Chưa chọn cơ sở */}
@@ -96,8 +117,10 @@ export default function ClassesPage() {
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-border bg-slate-50 text-xs uppercase tracking-wide text-muted-foreground">
-                <th scope="col" className="px-5 py-3.5 font-semibold">Tên lớp</th>
-                <th scope="col" className="px-5 py-3.5 font-semibold">Giáo viên ID</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">Học phần</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">Cơ sở</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">Môn</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">Giáo viên</th>
                 <th scope="col" className="px-5 py-3.5 font-semibold">Ngày bắt đầu</th>
                 <th scope="col" className="px-5 py-3.5 font-semibold">Ngày kết thúc</th>
                 <th scope="col" className="px-5 py-3.5 font-semibold">
@@ -111,20 +134,52 @@ export default function ClassesPage() {
                   key={cls.id}
                   className="border-b border-border transition-colors duration-150 last:border-0 hover:bg-indigo-50/50"
                 >
-                  <td className="px-5 py-3.5 font-medium text-foreground">{cls.name}</td>
-                  <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground">
-                    {cls.teacher_id ?? '—'}
+                  <td className="max-w-[12rem] px-5 py-3.5 font-medium text-foreground">
+                    <span className="block truncate" title={cls.name}>
+                      {cls.name}
+                    </span>
+                  </td>
+                  <td className="max-w-[10rem] px-5 py-3.5 text-muted-foreground">
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="truncate" title={cls.org_name}>
+                        {cls.org_name}
+                      </span>
+                    </span>
+                  </td>
+                  <td className="max-w-[8rem] px-5 py-3.5">
+                    <span className="block truncate" title={cls.subject_name}>
+                      {cls.subject_name}
+                    </span>
+                  </td>
+                  <td className="max-w-[10rem] px-5 py-3.5 font-medium">
+                    {cls.teacher_name === '—' ? (
+                      <span className="text-muted-foreground">Chưa gán</span>
+                    ) : (
+                      <span className="block truncate" title={cls.teacher_name}>
+                        {cls.teacher_name}
+                      </span>
+                    )}
                   </td>
                   <td className="px-5 py-3.5 tabular-nums">{formatDate(cls.start_date)}</td>
                   <td className="px-5 py-3.5 tabular-nums">{formatDate(cls.end_date)}</td>
                   <td className="px-5 py-3.5">
-                    <Link
-                      href={`/classes/${cls.id}/tutor`}
-                      className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-secondary transition-colors duration-200 hover:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                      Gia sư AI
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/academic/lms?classId=${cls.id}`}
+                        className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <MonitorPlay className="h-3.5 w-3.5" aria-hidden="true" />
+                        LMS
+                      </Link>
+                      <Link
+                        href={`/classes/${cls.id}/tutor`}
+                        className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-secondary transition-colors duration-200 hover:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                        Gia sư AI
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

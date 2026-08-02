@@ -269,6 +269,11 @@ export default function TeacherSchedulePage() {
                         <p className="mt-1 text-sm font-medium leading-snug text-foreground">
                           {session.class_name}
                         </p>
+                        {session.is_substitute && (
+                          <span className="mt-1 inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                            Dạy thay
+                          </span>
+                        )}
                         <span
                           className={`mt-1.5 inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${orgBadgeClass(session.org_name)}`}
                         >

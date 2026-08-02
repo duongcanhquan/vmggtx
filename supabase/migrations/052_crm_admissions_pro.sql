@@ -89,10 +89,12 @@ create policy "lead_activities_update"
     )
   );
 
--- Grant CRM (049): chỉ tạo khi đã có bảng user_menu_permissions
+-- Grant CRM (049): lead_activities — dùng has_menu_grant (menu_keys[]),
+-- KHÔNG dùng cột menu_key (không tồn tại) / deleted_at trên ump.
 do $$
 begin
-  if to_regclass('public.user_menu_permissions') is null then
+  if to_regclass('public.user_menu_permissions') is null
+     or to_regprocedure('public.has_menu_grant(uuid, text)') is null then
     raise notice '052: bo qua grant_crm_lead_activities (chua co 049)';
     return;
   end if;
@@ -101,21 +103,11 @@ begin
     create policy "grant_crm_lead_activities"
       on public.lead_activities for all
       using (
-        exists (
-          select 1 from public.user_menu_permissions ump
-          where ump.user_id = auth.uid()
-            and ump.menu_key = ''crm''
-            and ump.deleted_at is null
-        )
+        public.has_menu_grant(auth.uid(), 'crm')
         and public.is_org_in_my_subtree(org_id)
       )
       with check (
-        exists (
-          select 1 from public.user_menu_permissions ump
-          where ump.user_id = auth.uid()
-            and ump.menu_key = ''crm''
-            and ump.deleted_at is null
-        )
+        public.has_menu_grant(auth.uid(), 'crm')
         and public.is_org_in_my_subtree(org_id)
       )
   $p$;

@@ -154,7 +154,12 @@ export default async function StudentPortalHomePage() {
                       unread ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'
                     }`}
                   >
-                    {isTuition && '💰 '}
+                    {isTuition && (
+                      <Wallet
+                        className="mr-1 inline h-3.5 w-3.5 text-amber-600"
+                        aria-hidden="true"
+                      />
+                    )}
                     {notice.title}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{notice.body}</p>
