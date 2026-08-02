@@ -5,7 +5,7 @@
 
 .lp-root {
   color: #f4f6ff;
-  background: #060912;
+  background: transparent;
   overflow-x: hidden;
 }
 
@@ -432,53 +432,62 @@
 
 /* ---- Công thức nền (toán / lý / hóa / Anh) ---- */
 .lp-formula-field {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 1;
   overflow: hidden;
   pointer-events: none;
-  /* Làm mờ hơn ở giữa trang — chỗ thường có chữ nội dung */
+  /* Giữa trang gần như trống — công thức chỉ hiện mép / góc */
   mask-image: radial-gradient(
-    ellipse 55% 60% at 50% 45%,
+    ellipse 48% 55% at 50% 48%,
     transparent 0%,
-    transparent 35%,
-    #000 70%,
-    #000 100%
+    transparent 42%,
+    rgba(0, 0, 0, 0.45) 62%,
+    #000 82%
   );
 }
 .lp-formula {
+  --lp-f-delay: 0s;
+  --lp-f-dur: 12s;
   position: absolute;
   font-family: ui-serif, Georgia, 'Times New Roman', serif;
   font-weight: 500;
   letter-spacing: 0.02em;
-  color: rgba(148, 210, 220, 0.22);
+  color: rgba(167, 230, 235, 0.55);
   white-space: nowrap;
   user-select: none;
   will-change: transform, opacity;
-  animation-name: lp-formula-pulse, lp-formula-drift-a;
-  animation-timing-function: ease-in-out, ease-in-out;
-  animation-iteration-count: infinite, infinite;
+  text-shadow: 0 0 24px rgba(94, 234, 212, 0.12);
+  animation:
+    lp-formula-pulse var(--lp-f-dur) ease-in-out var(--lp-f-delay) infinite,
+    lp-formula-drift-a calc(var(--lp-f-dur) * 1.15) ease-in-out var(--lp-f-delay) infinite;
 }
 .lp-formula-a {
   animation-name: lp-formula-pulse, lp-formula-drift-a;
 }
 .lp-formula-b {
   animation-name: lp-formula-pulse, lp-formula-drift-b;
-  color: rgba(236, 199, 90, 0.18);
+  color: rgba(236, 199, 90, 0.5);
+  text-shadow: 0 0 24px rgba(236, 199, 90, 0.1);
 }
 .lp-formula-c {
   animation-name: lp-formula-pulse, lp-formula-drift-c;
-  color: rgba(147, 197, 253, 0.2);
+  color: rgba(147, 197, 253, 0.52);
+  text-shadow: 0 0 24px rgba(96, 165, 250, 0.1);
 }
 @keyframes lp-formula-pulse {
   0%,
   100% {
-    opacity: 0.15;
+    opacity: 0.12;
   }
-  40% {
-    opacity: 0.55;
+  35% {
+    opacity: 0.85;
   }
-  70% {
-    opacity: 0.28;
+  55% {
+    opacity: 0.35;
+  }
+  75% {
+    opacity: 0.7;
   }
 }
 @keyframes lp-formula-drift-a {
@@ -487,7 +496,7 @@
     transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translate3d(12px, -18px, 0);
+    transform: translate3d(18px, -22px, 0);
   }
 }
 @keyframes lp-formula-drift-b {
@@ -496,25 +505,33 @@
     transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translate3d(-14px, 10px, 0);
+    transform: translate3d(-20px, 14px, 0);
   }
 }
 @keyframes lp-formula-drift-c {
   0%,
   100% {
-    transform: translate3d(0, 0, 0) rotate(-2deg);
+    transform: translate3d(0, 0, 0) rotate(-3deg);
   }
   50% {
-    transform: translate3d(8px, 14px, 0) rotate(2deg);
+    transform: translate3d(12px, 18px, 0) rotate(3deg);
   }
 }
 
 @media (max-width: 767px) {
-  .lp-formula-field .lp-formula:nth-child(n + 10) {
+  .lp-formula-field .lp-formula:nth-child(n + 9) {
     display: none;
   }
   .lp-formula {
-    font-size: 0.85rem !important;
+    font-size: 0.9rem !important;
+  }
+  .lp-formula-field {
+    mask-image: radial-gradient(
+      ellipse 70% 65% at 50% 45%,
+      transparent 0%,
+      transparent 50%,
+      #000 85%
+    );
   }
 }
 

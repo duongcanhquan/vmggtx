@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowRight, BookOpen, GraduationCap } from 'lucide-react'
 import './landing.css'
 
-/** Công thức / kiến thức mờ làm nền — đặt mép & góc (tránh vùng chữ chính) */
+/** Công thức mờ làm nền — mép/góc viewport (tránh vùng chữ giữa trang) */
 const FORMULA_FIELD: {
   text: string
   top?: string
@@ -17,24 +17,28 @@ const FORMULA_FIELD: {
   dur: string
   drift: 'a' | 'b' | 'c'
 }[] = [
-  { text: 'E = mc²', top: '12%', left: '3%', size: '1.35rem', delay: '0s', dur: '11s', drift: 'a' },
-  { text: 'a² + b² = c²', top: '28%', left: '1.5%', size: '1.05rem', delay: '2s', dur: '14s', drift: 'b' },
-  { text: '∫ f(x) dx', top: '48%', left: '4%', size: '1.2rem', delay: '4s', dur: '12s', drift: 'c' },
-  { text: 'F = ma', top: '68%', left: '2%', size: '1.15rem', delay: '1s', dur: '13s', drift: 'a' },
-  { text: 'PV = nRT', bottom: '14%', left: '5%', size: '1rem', delay: '3.5s', dur: '15s', drift: 'b' },
-  { text: 'H₂O', top: '18%', right: '4%', size: '1.4rem', delay: '1.5s', dur: '10s', drift: 'c' },
-  { text: 'V = IR', top: '36%', right: '2%', size: '1.1rem', delay: '5s', dur: '12s', drift: 'a' },
-  { text: 'λ = h / p', top: '55%', right: '3.5%', size: '1.05rem', delay: '0.8s', dur: '14s', drift: 'b' },
-  { text: 'C₆H₁₂O₆', top: '72%', right: '2%', size: '0.95rem', delay: '2.8s', dur: '11s', drift: 'c' },
-  { text: 'Present Perfect', bottom: '22%', right: '4%', size: '0.9rem', delay: '4.2s', dur: '16s', drift: 'a' },
-  { text: 'limₓ→∞', top: '8%', left: '22%', size: '0.95rem', delay: '6s', dur: '13s', drift: 'b' },
-  { text: 'Σ nᵢ', top: '10%', right: '22%', size: '1.05rem', delay: '3s', dur: '12s', drift: 'c' },
-  { text: 'Subject + Verb', bottom: '8%', left: '18%', size: '0.85rem', delay: '5.5s', dur: '15s', drift: 'a' },
-  { text: 'NaCl → Na⁺ + Cl⁻', bottom: '10%', right: '16%', size: '0.9rem', delay: '2.2s', dur: '14s', drift: 'b' },
-  { text: '√(x² + y²)', top: '42%', left: '8%', size: '0.9rem', delay: '7s', dur: '17s', drift: 'c' },
-  { text: 'Δx · Δp ≥ ℏ/2', top: '62%', right: '8%', size: '0.85rem', delay: '1.2s', dur: '13s', drift: 'a' },
-  { text: 'adverb / adjective', top: '88%', left: '38%', size: '0.8rem', delay: '4.8s', dur: '18s', drift: 'b' },
-  { text: 'e^{iπ} + 1 = 0', top: '22%', left: '12%', size: '0.9rem', delay: '8s', dur: '16s', drift: 'c' },
+  { text: 'E = mc²', top: '14%', left: '2%', size: '1.5rem', delay: '0s', dur: '10s', drift: 'a' },
+  { text: 'a² + b² = c²', top: '32%', left: '1%', size: '1.15rem', delay: '1.8s', dur: '13s', drift: 'b' },
+  { text: '∫ f(x) dx', top: '50%', left: '3%', size: '1.3rem', delay: '3.5s', dur: '11s', drift: 'c' },
+  { text: 'F = ma', top: '68%', left: '1.5%', size: '1.25rem', delay: '0.6s', dur: '12s', drift: 'a' },
+  { text: 'lim x→∞', top: '84%', left: '4%', size: '1.05rem', delay: '5s', dur: '14s', drift: 'b' },
+  { text: 'H₂O', top: '16%', right: '3%', size: '1.55rem', delay: '1s', dur: '9s', drift: 'c' },
+  { text: 'V = IR', top: '34%', right: '1.5%', size: '1.2rem', delay: '4s', dur: '11s', drift: 'a' },
+  { text: 'PV = nRT', top: '52%', right: '2.5%', size: '1.1rem', delay: '2.2s', dur: '13s', drift: 'b' },
+  { text: 'C₆H₁₂O₆', top: '70%', right: '1%', size: '1.05rem', delay: '3s', dur: '10s', drift: 'c' },
+  { text: 'λ = h / p', top: '86%', right: '3%', size: '1rem', delay: '6s', dur: '15s', drift: 'a' },
+  { text: 'Present Perfect', top: '22%', right: '14%', size: '0.95rem', delay: '2.5s', dur: '14s', drift: 'b' },
+  { text: 'Subject + Verb', bottom: '12%', left: '12%', size: '0.95rem', delay: '4.5s', dur: '13s', drift: 'c' },
+  { text: 'NaCl → Na⁺ + Cl⁻', bottom: '18%', right: '12%', size: '0.95rem', delay: '1.5s', dur: '12s', drift: 'a' },
+  { text: '√(x² + y²)', top: '44%', left: '6%', size: '1rem', delay: '7s', dur: '16s', drift: 'b' },
+  { text: 'Δx · Δp ≥ ℏ/2', top: '58%', right: '7%', size: '0.95rem', delay: '0.9s', dur: '12s', drift: 'c' },
+  { text: 'e^(iπ) + 1 = 0', top: '8%', left: '18%', size: '1rem', delay: '5.5s', dur: '15s', drift: 'a' },
+  { text: 'CO₂ + H₂O', top: '78%', left: '8%', size: '1.05rem', delay: '3.8s', dur: '11s', drift: 'b' },
+  { text: 'Past Simple', top: '40%', right: '5%', size: '0.95rem', delay: '8s', dur: '14s', drift: 'c' },
+  { text: 'Σ (1/n²) = π²/6', bottom: '28%', left: '2%', size: '0.9rem', delay: '2.8s', dur: '17s', drift: 'a' },
+  { text: 'adverb · adjective', bottom: '8%', right: '20%', size: '0.9rem', delay: '4.2s', dur: '16s', drift: 'b' },
+  { text: 'sin²θ + cos²θ = 1', top: '26%', left: '5%', size: '0.95rem', delay: '6.5s', dur: '13s', drift: 'c' },
+  { text: 'pH = −log[H⁺]', top: '62%', left: '4%', size: '0.95rem', delay: '1.2s', dur: '12s', drift: 'a' },
 ]
 
 function FormulaField() {
@@ -44,15 +48,17 @@ function FormulaField() {
         <span
           key={`${f.text}-${i}`}
           className={`lp-formula lp-formula-${f.drift}`}
-          style={{
-            top: f.top,
-            left: f.left,
-            right: f.right,
-            bottom: f.bottom,
-            fontSize: f.size,
-            animationDelay: f.delay,
-            animationDuration: f.dur,
-          }}
+          style={
+            {
+              top: f.top,
+              left: f.left,
+              right: f.right,
+              bottom: f.bottom,
+              fontSize: f.size,
+              '--lp-f-delay': f.delay,
+              '--lp-f-dur': f.dur,
+            } as CSSProperties
+          }
         >
           {f.text}
         </span>
@@ -178,15 +184,16 @@ export function MarketingShell({
   return (
     <div className="lp-root relative min-h-dvh">
       <ScrollProgress />
-      <div className="lp-mesh fixed inset-0 -z-10" aria-hidden="true">
+      <div className="lp-mesh fixed inset-0 z-0" aria-hidden="true">
         <div className="lp-orb lp-orb-a" />
         <div className="lp-orb lp-orb-b" />
         <div className="lp-orb lp-orb-c" />
-        <FormulaField />
         <Particles />
       </div>
+      {/* Công thức nền: trên mesh, dưới nội dung — thấy ở mép trang */}
+      <FormulaField />
 
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#060912]/90">
+      <header className="relative z-20 sticky top-0 border-b border-white/5 bg-[#060912]/90">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6">
           <Link href="/login" className="flex items-center gap-2.5">
             <span className="lp-pulse-ring flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-teal-600 text-white">
@@ -225,9 +232,9 @@ export function MarketingShell({
         </div>
       </header>
 
-      {children}
+      <div className="relative z-10">{children}</div>
 
-      <footer className="border-t border-white/5 py-8 text-center text-xs text-white/35">
+      <footer className="relative z-10 border-t border-white/5 py-8 text-center text-xs text-white/35">
         <p>© {new Date().getFullYear()} EDU SYSTEM — Quản lý trường học đa cơ sở</p>
       </footer>
 
