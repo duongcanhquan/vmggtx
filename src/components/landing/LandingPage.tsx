@@ -31,23 +31,23 @@ const MARQUEE = [
 const ROLE_CARDS = [
   {
     icon: GraduationCap,
-    label: 'Thầy cô',
-    title: 'Ít giấy tờ hơn mỗi buổi dạy',
-    line: 'Lịch dạy, điểm danh, sổ đầu bài và bài học online — gọn trong một chỗ, dùng trên điện thoại.',
+    label: 'Giảng viên',
+    title: 'Giảm giấy tờ. Tăng thời gian dạy.',
+    line: 'Lịch dạy, điểm danh, sổ đầu bài, bài học online — thao tác trên điện thoại.',
     tone: 'from-sky-500/25 to-transparent',
   },
   {
     icon: Users,
     label: 'Học viên',
-    title: 'Hồ sơ đủ, học online rõ',
-    line: 'Bài giảng, bài tập, kiểm tra, hỏi AI — biết mình đã học đến đâu.',
+    title: 'Học – nộp bài – theo dõi tiến độ.',
+    line: 'Bài giảng, bài tập, kiểm tra online và hỏi AI trong phạm vi bài học.',
     tone: 'from-teal-500/25 to-transparent',
   },
   {
     icon: HeartHandshake,
-    label: 'Gia đình',
-    title: 'Sổ liên lạc trên điện thoại',
-    line: 'Lịch học, điểm, học phí, dặn dò — phụ huynh xem được mà không phải hỏi thầy cô.',
+    label: 'Phụ huynh',
+    title: 'Sổ liên lạc số trên điện thoại.',
+    line: 'Lịch học, điểm, học phí, dặn dò — cập nhật tức thì.',
     tone: 'from-amber-500/20 to-transparent',
   },
 ]
@@ -135,8 +135,8 @@ export function LandingPage() {
               </span>
             </h1>
             <p className="lp-instant mt-5 max-w-2xl text-lg leading-relaxed text-white/80 sm:text-xl">
-              Từ tuyển sinh, xếp lớp, giảng dạy đến điểm số, phụ huynh và học phí —
-              <span className="lp-mark ml-1 font-semibold text-white">gọn trong một hệ thống.</span>
+              Tuyển sinh · Lớp học · Điểm danh · Học online · Học phí · Phụ huynh.
+              <span className="lp-mark ml-1 font-semibold text-white">Một nền tảng. Đủ để vận hành.</span>
             </p>
             <div className="lp-instant mt-8 flex flex-wrap gap-3">
               <Link
@@ -175,17 +175,16 @@ export function LandingPage() {
           <div className="relative mx-auto max-w-6xl">
             <div className="max-w-3xl">
               <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-teal-300">
-                Hành trình nhà trường
+                Quy trình chuẩn
               </p>
               <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold leading-[1.1] text-white sm:text-5xl md:text-6xl">
-                Từ tuyển sinh đến{' '}
+                6 bước vận hành.{' '}
                 <span className="bg-gradient-to-r from-amber-200 to-teal-200 bg-clip-text text-transparent">
-                  vận hành hàng ngày
+                  Một chuỗi liền mạch.
                 </span>
               </h2>
               <p className="lp-reveal lp-d2 mt-5 text-lg leading-relaxed text-white/65 sm:text-xl">
-                Các bước nối tiếp nhau — không phải nhiều phần rời rạc. Mỗi việc được ghi nhận{' '}
-                <span className="font-semibold text-white">đúng lúc, đúng người, đúng cơ sở.</span>
+                Từ tiếp nhận học viên đến thu học phí — dữ liệu đi theo đúng quy trình, đúng cơ sở.
               </p>
             </div>
 
@@ -219,10 +218,10 @@ export function LandingPage() {
         <section className="px-4 py-12 sm:px-6 sm:py-20">
           <div className="mx-auto max-w-6xl">
             <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-amber-200/90">
-              Ba phía cùng dùng
+              Đối tượng sử dụng
             </p>
             <h2 className="lp-reveal lp-d1 mt-4 max-w-3xl font-heading text-4xl font-bold text-white sm:text-5xl">
-              Thầy cô · Học viên · Gia đình
+              Ba cổng. Một hệ thống.
             </h2>
             <div className="mt-10 grid gap-4 sm:grid-cols-3 sm:gap-5">
               {ROLE_CARDS.map((card, i) => {
@@ -283,11 +282,10 @@ export function LandingPage() {
               </div>
               <div>
                 <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
-                  Đơn giản với nhà trường — phức tạp để phía sau
+                  Đa cơ sở. Phân quyền rõ. Dữ liệu tách biệt.
                 </h2>
                 <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/65 sm:text-lg">
-                  Nhiều cơ sở, phân quyền rõ, dữ liệu không lẫn nhau. Học online và AI chỉ trong phạm
-                  vi cơ sở của bạn. Bạn thấy kết quả; phần kỹ thuật chạy phía sau.
+                  Học online và AI gắn đúng từng cơ sở. Nhà trường vận hành — hệ thống lo phần kỹ thuật.
                 </p>
               </div>
             </div>
@@ -299,13 +297,13 @@ export function LandingPage() {
           <div className="mx-auto max-w-6xl">
             <div className="max-w-3xl">
               <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-teal-300/90">
-                Danh mục tính năng
+                Năng lực sản phẩm
               </p>
               <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold text-white sm:text-5xl">
-                Bạn dùng được gì mỗi ngày
+                Tính năng rõ. Giá trị dùng ngay.
               </h2>
               <p className="lp-reveal lp-d2 mt-4 text-lg text-white/60">
-                Chọn nhóm bên trái. Mỗi dòng là một việc nhà trường làm thật.
+                5 nhóm chức năng — mỗi dòng là năng lực vận hành thực tế của nhà trường.
               </p>
             </div>
 
@@ -346,7 +344,7 @@ export function LandingPage() {
                     href={`/gioi-thieu/${group.chapter}`}
                     className="inline-flex items-center gap-1.5 text-base font-semibold text-teal-200 transition hover:gap-2.5"
                   >
-                    Đọc câu chuyện đầy đủ
+                    Xem chi tiết
                     <ChevronRight className="h-5 w-5" aria-hidden="true" />
                   </Link>
                 </div>
@@ -355,7 +353,7 @@ export function LandingPage() {
                 <div className="mt-6 grid gap-3">
                   <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-amber-200/90">
                     <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                    Điểm nhấn
+                    Năng lực nổi bật
                   </p>
                   {group.highlights.map((h, hi) => (
                     <div
@@ -402,10 +400,10 @@ export function LandingPage() {
           <div className="mx-auto max-w-6xl">
             <div className="max-w-3xl">
               <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-amber-200/90">
-                Năm chương trải nghiệm
+                Giải pháp theo chủ đề
               </p>
               <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold text-white sm:text-5xl">
-                Đọc sâu từng phần theo nhu cầu của bạn
+                5 trụ cột. Chọn đúng nhu cầu của bạn.
               </h2>
             </div>
 
@@ -442,7 +440,7 @@ export function LandingPage() {
                         <h3 className="font-heading text-2xl font-bold text-white">{pillar.title}</h3>
                         <p className="mt-2 text-base text-white/65">{pillar.desc}</p>
                         <span className="mt-4 inline-flex items-center gap-1.5 text-base font-semibold text-teal-200 transition group-hover:gap-2.5">
-                          Đọc chương
+                          Khám phá
                           <ArrowRight className="h-4 w-4" aria-hidden="true" />
                         </span>
                       </div>
@@ -459,10 +457,10 @@ export function LandingPage() {
           <div className="lp-reveal relative mx-auto max-w-5xl overflow-hidden rounded-[1.75rem] border border-white/12 bg-gradient-to-br from-sky-700/35 via-[#0a1224]/95 to-teal-900/35 px-6 py-14 text-center sm:px-12">
             <div className="lp-grid-tech absolute inset-0 opacity-30" aria-hidden="true" />
             <h2 className="relative font-heading text-4xl font-bold text-white sm:text-5xl">
-              Sẵn sàng bắt đầu?
+              Bắt đầu với cổng cơ sở của bạn
             </h2>
             <p className="relative mx-auto mt-4 max-w-xl text-base text-white/70 sm:text-lg">
-              Chọn cổng cơ sở để đăng nhập — vào đúng đơn vị của bạn ngay từ đầu.
+              Đăng nhập đúng đơn vị. Dữ liệu và phân quyền sẵn sàng ngay.
             </p>
             <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link

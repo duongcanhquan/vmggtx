@@ -408,31 +408,31 @@ export const EDU_JOURNEY = [
   {
     step: '01',
     title: 'Tuyển sinh',
-    line: 'Học viên tiềm năng vào hệ thống — có người phụ trách, có chiến dịch, biết được bao nhiêu người đăng ký thành công.',
+    line: 'Quản lý hồ sơ tiềm năng, chiến dịch và người phụ trách. Theo dõi tỷ lệ chuyển thành học viên.',
   },
   {
     step: '02',
     title: 'Xếp lớp',
-    line: 'Ghi danh, sĩ số, gán giảng viên — học viên vào đúng lớp từ ngày đầu.',
+    line: 'Ghi danh, kiểm soát sĩ số, gán giảng viên — vào lớp đúng ngay từ đầu.',
   },
   {
     step: '03',
     title: 'Giảng dạy',
-    line: 'Lịch dạy, điểm danh, sổ đầu bài, bài học online — mỗi buổi được ghi nhận đủ.',
+    line: 'Lịch dạy, điểm danh, sổ đầu bài, bài học online — ghi nhận đầy đủ từng buổi.',
   },
   {
     step: '04',
     title: 'Đánh giá',
-    line: 'Điểm số, thi cử, thi lại — khóa sổ rồi mới công bố.',
+    line: 'Điểm số, thi cử, thi lại. Khóa sổ trước khi công bố kết quả.',
   },
   {
     step: '05',
     title: 'Kết nối gia đình',
-    line: 'Sổ liên lạc: lịch, điểm, học phí, dặn dò — phụ huynh xem trên điện thoại.',
+    line: 'Sổ liên lạc số: lịch, điểm, học phí, dặn dò — phụ huynh xem trên điện thoại.',
   },
   {
     step: '06',
     title: 'Vận hành',
-    line: 'Học phí, tài sản, phân quyền — nhà trường chạy êm phía sau lớp học.',
+    line: 'Học phí, tài sản, phân quyền — vận hành ổn định phía sau lớp học.',
   },
 ]
