@@ -174,18 +174,9 @@ export function LandingPage() {
           <div className="lp-grid-tech pointer-events-none absolute inset-0 opacity-80" aria-hidden="true" />
           <div className="relative mx-auto max-w-6xl">
             <div className="max-w-3xl">
-              <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-teal-300">
-                Quy trình chuẩn
-              </p>
-              <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold leading-[1.1] text-white sm:text-5xl md:text-6xl">
-                6 bước vận hành.{' '}
-                <span className="bg-gradient-to-r from-amber-200 to-teal-200 bg-clip-text text-transparent">
-                  Một chuỗi liền mạch.
-                </span>
+              <h2 className="lp-reveal font-heading text-4xl font-bold leading-[1.1] text-white sm:text-5xl md:text-6xl">
+                Quy trình vận hành
               </h2>
-              <p className="lp-reveal lp-d2 mt-5 text-lg leading-relaxed text-white/65 sm:text-xl">
-                Từ tiếp nhận học viên đến thu học phí — dữ liệu đi theo đúng quy trình, đúng cơ sở.
-              </p>
             </div>
 
             <div className="lp-reveal lp-d3 relative mt-14 pl-2 sm:pl-4">
@@ -217,11 +208,8 @@ export function LandingPage() {
         {/* ===== BA VAI TRÒ — icon + typography, không ảnh ===== */}
         <section className="px-4 py-12 sm:px-6 sm:py-20">
           <div className="mx-auto max-w-6xl">
-            <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-amber-200/90">
-              Đối tượng sử dụng
-            </p>
-            <h2 className="lp-reveal lp-d1 mt-4 max-w-3xl font-heading text-4xl font-bold text-white sm:text-5xl">
-              Ba cổng. Một hệ thống.
+            <h2 className="lp-reveal max-w-3xl font-heading text-4xl font-bold text-white sm:text-5xl">
+              Giảng viên · Học viên · Phụ huynh
             </h2>
             <div className="mt-10 grid gap-4 sm:grid-cols-3 sm:gap-5">
               {ROLE_CARDS.map((card, i) => {
@@ -296,15 +284,9 @@ export function LandingPage() {
         <section id="tinh-nang" className="px-4 py-14 sm:px-6 sm:py-20">
           <div className="mx-auto max-w-6xl">
             <div className="max-w-3xl">
-              <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-teal-300/90">
-                Năng lực sản phẩm
-              </p>
-              <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold text-white sm:text-5xl">
-                Tính năng rõ. Giá trị dùng ngay.
+              <h2 className="lp-reveal font-heading text-4xl font-bold text-white sm:text-5xl">
+                Tính năng
               </h2>
-              <p className="lp-reveal lp-d2 mt-4 text-lg text-white/60">
-                5 nhóm chức năng — mỗi dòng là năng lực vận hành thực tế của nhà trường.
-              </p>
             </div>
 
             <div className="lp-reveal lp-d3 mt-10 grid gap-5 lg:grid-cols-[260px_1fr]">
@@ -399,11 +381,8 @@ export function LandingPage() {
         <section id="chuong" className="px-4 py-14 sm:px-6 sm:py-20">
           <div className="mx-auto max-w-6xl">
             <div className="max-w-3xl">
-              <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-amber-200/90">
-                Giải pháp theo chủ đề
-              </p>
-              <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold text-white sm:text-5xl">
-                5 trụ cột. Chọn đúng nhu cầu của bạn.
+              <h2 className="lp-reveal font-heading text-4xl font-bold text-white sm:text-5xl">
+                Giải pháp
               </h2>
             </div>
 
