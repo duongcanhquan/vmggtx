@@ -438,9 +438,6 @@ export function LandingPage() {
             <h2 className="relative font-heading text-4xl font-bold text-white sm:text-5xl">
               Bắt đầu với cổng cơ sở của bạn
             </h2>
-            <p className="relative mx-auto mt-4 max-w-xl text-base text-white/70 sm:text-lg">
-              Đăng nhập đúng đơn vị. Dữ liệu và phân quyền sẵn sàng ngay.
-            </p>
             <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/coso"
