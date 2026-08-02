@@ -27,6 +27,7 @@ import {
   type Option,
   SOURCE_LABELS,
 } from './actions'
+import { LeadAiAssist } from './LeadAiAssist'
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -90,7 +91,7 @@ export function LeadDetailDrawer({
   onChanged: () => void
   onToast: (type: 'success' | 'error', message: string) => void
 }) {
-  const [tab, setTab] = useState<'care' | 'edit'>('care')
+  const [tab, setTab] = useState<'care' | 'edit' | 'ai'>('care')
   const [activities, setActivities] = useState<LeadActivityRow[]>([])
   const [loadingActs, setLoadingActs] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -138,8 +139,25 @@ export function LeadDetailDrawer({
       interestedSubjectId: lead.interested_subject_id ?? '',
       source: lead.source ?? '',
       priority: lead.priority || 'warm',
+      dateOfBirth: lead.date_of_birth ?? '',
+      gender: (lead.gender as '' | 'male' | 'female' | 'other') || '',
+      cccd: lead.cccd ?? '',
+      address: lead.address ?? '',
+      currentSchool: lead.current_school ?? '',
+      educationLevel: lead.education_level ?? '',
+      careerInterest: lead.career_interest ?? '',
+      interests: lead.interests ?? '',
+      preferredSchedule: lead.preferred_schedule ?? '',
+      callSummary: lead.call_summary ?? '',
       parentName: lead.parent_name ?? '',
       parentPhone: lead.parent_phone ?? '',
+      parentRelation:
+        (lead.parent_relation as '' | 'father' | 'mother' | 'guardian' | 'other') || '',
+      parentEmail: lead.parent_email ?? '',
+      parent2Name: lead.parent2_name ?? '',
+      parent2Phone: lead.parent2_phone ?? '',
+      parent2Relation:
+        (lead.parent2_relation as '' | 'father' | 'mother' | 'guardian' | 'other') || '',
       nextFollowUpAt: toLocalInput(lead.next_follow_up_at),
       appointmentAt: toLocalInput(lead.appointment_at),
       notes: lead.notes ?? '',
@@ -175,8 +193,23 @@ export function LeadDetailDrawer({
     fd.set('interestedSubjectId', values.interestedSubjectId ?? '')
     fd.set('source', values.source || '')
     fd.set('priority', values.priority || 'warm')
+    fd.set('dateOfBirth', values.dateOfBirth || '')
+    fd.set('gender', values.gender || '')
+    fd.set('cccd', values.cccd ?? '')
+    fd.set('address', values.address ?? '')
+    fd.set('currentSchool', values.currentSchool ?? '')
+    fd.set('educationLevel', values.educationLevel ?? '')
+    fd.set('careerInterest', values.careerInterest ?? '')
+    fd.set('interests', values.interests ?? '')
+    fd.set('preferredSchedule', values.preferredSchedule ?? '')
+    fd.set('callSummary', values.callSummary ?? '')
     fd.set('parentName', values.parentName ?? '')
     fd.set('parentPhone', values.parentPhone ?? '')
+    fd.set('parentRelation', values.parentRelation || '')
+    fd.set('parentEmail', values.parentEmail ?? '')
+    fd.set('parent2Name', values.parent2Name ?? '')
+    fd.set('parent2Phone', values.parent2Phone ?? '')
+    fd.set('parent2Relation', values.parent2Relation || '')
     fd.set('nextFollowUpAt', values.nextFollowUpAt || '')
     fd.set('appointmentAt', values.appointmentAt || '')
     fd.set('notes', values.notes ?? '')
@@ -247,6 +280,9 @@ export function LeadDetailDrawer({
                   Quá hạn follow-up
                 </span>
               )}
+              <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                Hồ sơ {lead.profile_completeness}%
+              </span>
             </p>
           </div>
           <button
@@ -264,6 +300,7 @@ export function LeadDetailDrawer({
             [
               ['care', 'Chăm sóc'],
               ['edit', 'Hồ sơ'],
+              ['ai', 'AI'],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -537,6 +574,96 @@ export function LeadDetailDrawer({
                     />
                     <FieldError message={editForm.formState.errors.parentPhone?.message} />
                   </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-prel">
+                      Quan hệ PH
+                    </label>
+                    <select id="edit-prel" className={`${inputClass} cursor-pointer`} {...editForm.register('parentRelation')}>
+                      <option value="">—</option>
+                      <option value="father">Bố</option>
+                      <option value="mother">Mẹ</option>
+                      <option value="guardian">Người giám hộ</option>
+                      <option value="other">Khác</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-pemail">
+                      Email PH
+                    </label>
+                    <input id="edit-pemail" type="email" className={inputClass} {...editForm.register('parentEmail')} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-dob">
+                      Ngày sinh
+                    </label>
+                    <input id="edit-dob" type="date" className={inputClass} {...editForm.register('dateOfBirth')} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-gender">
+                      Giới tính
+                    </label>
+                    <select id="edit-gender" className={`${inputClass} cursor-pointer`} {...editForm.register('gender')}>
+                      <option value="">—</option>
+                      <option value="male">Nam</option>
+                      <option value="female">Nữ</option>
+                      <option value="other">Khác</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-cccd">
+                      CCCD/CMND
+                    </label>
+                    <input id="edit-cccd" className={inputClass} {...editForm.register('cccd')} />
+                    <FieldError message={editForm.formState.errors.cccd?.message} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-school">
+                      Trường đang học
+                    </label>
+                    <input id="edit-school" className={inputClass} {...editForm.register('currentSchool')} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-addr">
+                      Địa chỉ
+                    </label>
+                    <input id="edit-addr" className={inputClass} {...editForm.register('address')} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-career">
+                      Ngành nghề quan tâm
+                    </label>
+                    <input id="edit-career" className={inputClass} {...editForm.register('careerInterest')} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-edu">
+                      Trình độ
+                    </label>
+                    <input id="edit-edu" className={inputClass} {...editForm.register('educationLevel')} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-interests">
+                      Sở thích / tính cách
+                    </label>
+                    <textarea id="edit-interests" rows={2} className={`${inputClass} min-h-16 py-2`} {...editForm.register('interests')} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-sched">
+                      Lịch học mong muốn
+                    </label>
+                    <input id="edit-sched" className={inputClass} {...editForm.register('preferredSchedule')} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-p2name">
+                      Phụ huynh 2
+                    </label>
+                    <input id="edit-p2name" className={inputClass} {...editForm.register('parent2Name')} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-call">
+                      Tóm tắt cuộc gọi
+                    </label>
+                    <textarea id="edit-call" rows={2} className={`${inputClass} min-h-16 py-2`} {...editForm.register('callSummary')} />
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
@@ -593,6 +720,10 @@ export function LeadDetailDrawer({
           )}
         </div>
 
+
+          {tab === 'ai' && (
+            <LeadAiAssist orgId={lead.org_id} leadId={lead.id} />
+          )}
         <footer className="flex flex-wrap gap-2 border-t border-border px-5 py-3">
           {!lead.counselor_id && !readonly && (
             <button

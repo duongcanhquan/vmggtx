@@ -133,8 +133,23 @@ function NewLeadModal({
       interestedSubjectId: '',
       source: 'hotline',
       priority: 'warm',
+      dateOfBirth: '',
+      gender: '',
+      cccd: '',
+      address: '',
+      currentSchool: '',
+      educationLevel: '',
+      careerInterest: '',
+      interests: '',
+      preferredSchedule: '',
+      callSummary: '',
       parentName: '',
       parentPhone: '',
+      parentRelation: '',
+      parentEmail: '',
+      parent2Name: '',
+      parent2Phone: '',
+      parent2Relation: '',
       nextFollowUpAt: '',
       appointmentAt: '',
       notes: '',
@@ -152,8 +167,23 @@ function NewLeadModal({
     formData.set('interestedSubjectId', values.interestedSubjectId ?? '')
     formData.set('source', values.source || 'other')
     formData.set('priority', values.priority || 'warm')
+    formData.set('dateOfBirth', values.dateOfBirth || '')
+    formData.set('gender', values.gender || '')
+    formData.set('cccd', values.cccd ?? '')
+    formData.set('address', values.address ?? '')
+    formData.set('currentSchool', values.currentSchool ?? '')
+    formData.set('educationLevel', values.educationLevel ?? '')
+    formData.set('careerInterest', values.careerInterest ?? '')
+    formData.set('interests', values.interests ?? '')
+    formData.set('preferredSchedule', values.preferredSchedule ?? '')
+    formData.set('callSummary', values.callSummary ?? '')
     formData.set('parentName', values.parentName ?? '')
     formData.set('parentPhone', values.parentPhone ?? '')
+    formData.set('parentRelation', values.parentRelation || '')
+    formData.set('parentEmail', values.parentEmail ?? '')
+    formData.set('parent2Name', values.parent2Name ?? '')
+    formData.set('parent2Phone', values.parent2Phone ?? '')
+    formData.set('parent2Relation', values.parent2Relation || '')
     formData.set('nextFollowUpAt', values.nextFollowUpAt || '')
     formData.set('appointmentAt', values.appointmentAt || '')
     formData.set('notes', values.notes ?? '')
@@ -285,13 +315,13 @@ function NewLeadModal({
             </div>
             <div>
               <label htmlFor="lead-pname" className="mb-1.5 block text-sm font-medium">
-                Tên phụ huynh
+                Tên phụ huynh <span className="text-destructive">*</span>
               </label>
               <input id="lead-pname" className={inputClass} {...register('parentName')} />
             </div>
             <div>
               <label htmlFor="lead-pphone" className="mb-1.5 block text-sm font-medium">
-                SĐT phụ huynh
+                SĐT phụ huynh <span className="text-destructive">*</span>
               </label>
               <input
                 id="lead-pphone"
@@ -299,6 +329,51 @@ function NewLeadModal({
                 {...register('parentPhone')}
               />
               <FieldError message={errors.parentPhone?.message} />
+            </div>
+            <div>
+              <label htmlFor="lead-prel" className="mb-1.5 block text-sm font-medium">
+                Quan hệ PH
+              </label>
+              <select
+                id="lead-prel"
+                className={`${inputClass} cursor-pointer`}
+                {...register('parentRelation')}
+              >
+                <option value="">—</option>
+                <option value="father">Bố</option>
+                <option value="mother">Mẹ</option>
+                <option value="guardian">Người giám hộ</option>
+                <option value="other">Khác</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="lead-cccd" className="mb-1.5 block text-sm font-medium">
+                CCCD/CMND
+              </label>
+              <input
+                id="lead-cccd"
+                className={`${inputClass} ${errors.cccd ? inputErrorClass : ''}`}
+                {...register('cccd')}
+              />
+              <FieldError message={errors.cccd?.message} />
+            </div>
+            <div>
+              <label htmlFor="lead-career" className="mb-1.5 block text-sm font-medium">
+                Ngành nghề / CT quan tâm
+              </label>
+              <input id="lead-career" className={inputClass} {...register('careerInterest')} />
+            </div>
+            <div>
+              <label htmlFor="lead-school" className="mb-1.5 block text-sm font-medium">
+                Trường đang học
+              </label>
+              <input id="lead-school" className={inputClass} {...register('currentSchool')} />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="lead-interests" className="mb-1.5 block text-sm font-medium">
+                Sở thích / tính cách
+              </label>
+              <input id="lead-interests" className={inputClass} {...register('interests')} />
             </div>
             <div>
               <label htmlFor="lead-follow" className="mb-1.5 block text-sm font-medium">
@@ -1180,14 +1255,13 @@ export default function CrmLeadsPage() {
                           {lead.notes}
                         </p>
                       )}
-                      {lead.activity_count > 0 && (
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {lead.activity_count} lần chăm sóc
-                          {lead.last_activity_at
-                            ? ` · ${new Date(lead.last_activity_at).toLocaleDateString('vi-VN')}`
-                            : ''}
-                        </p>
-                      )}
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Hồ sơ {lead.profile_completeness}%
+                        {lead.activity_count > 0
+                          ? ` · ${lead.activity_count} lần chăm sóc`
+                          : ''}
+                        {lead.career_interest ? ` · ${lead.career_interest}` : ''}
+                      </p>
                       <select
                         value={lead.counselor_id ?? ''}
                         onChange={(e) => {

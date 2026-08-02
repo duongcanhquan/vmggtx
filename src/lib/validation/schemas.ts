@@ -459,7 +459,10 @@ export const LEAD_ACTIVITY_TYPES = [
   'status_change',
 ] as const
 
-/** Form tạo / sửa Lead */
+export const LEAD_GENDERS = ['male', 'female', 'other'] as const
+export const LEAD_PARENT_RELATIONS = ['father', 'mother', 'guardian', 'other'] as const
+
+/** Form tạo / sửa Lead (hồ sơ tuyển sinh đầy đủ — migration 052/053) */
 export const leadSchema = z.object({
   fullName: safeText('Họ tên', 2, 120),
   phone: phoneVNSchema,
@@ -472,6 +475,59 @@ export const leadSchema = z.object({
   interestedSubjectId: z.string().uuid('Môn quan tâm không hợp lệ.').optional().or(z.literal('')),
   source: z.enum(LEAD_SOURCES).optional().or(z.literal('')),
   priority: z.enum(LEAD_PRIORITIES).optional().default('warm'),
+  dateOfBirth: optionalDateSchema,
+  gender: z.enum(LEAD_GENDERS).optional().or(z.literal('')),
+  cccd: z
+    .string()
+    .trim()
+    .optional()
+    .default('')
+    .refine(
+      (v) => !v || /^\d{9}$|^\d{12}$/.test(v.replace(/\s/g, '')),
+      'CCCD/CMND phải gồm 9 hoặc 12 chữ số.'
+    ),
+  address: z
+    .string()
+    .trim()
+    .max(300, 'Địa chỉ tối đa 300 ký tự.')
+    .optional()
+    .default(''),
+  currentSchool: z
+    .string()
+    .trim()
+    .max(160, 'Trường đang học tối đa 160 ký tự.')
+    .optional()
+    .default(''),
+  educationLevel: z
+    .string()
+    .trim()
+    .max(80, 'Trình độ tối đa 80 ký tự.')
+    .optional()
+    .default(''),
+  careerInterest: z
+    .string()
+    .trim()
+    .max(200, 'Ngành nghề quan tâm tối đa 200 ký tự.')
+    .optional()
+    .default(''),
+  interests: z
+    .string()
+    .trim()
+    .max(500, 'Sở thích tối đa 500 ký tự.')
+    .optional()
+    .default(''),
+  preferredSchedule: z
+    .string()
+    .trim()
+    .max(200, 'Lịch học mong muốn tối đa 200 ký tự.')
+    .optional()
+    .default(''),
+  callSummary: z
+    .string()
+    .trim()
+    .max(1000, 'Tóm tắt cuộc gọi tối đa 1000 ký tự.')
+    .optional()
+    .default(''),
   parentName: z
     .string()
     .trim()
@@ -487,6 +543,29 @@ export const leadSchema = z.object({
       (v) => !v || /^0\d{9}$/.test(v.replace(/\D/g, '')),
       'SĐT phụ huynh phải gồm 10 số bắt đầu bằng 0.'
     ),
+  parentRelation: z.enum(LEAD_PARENT_RELATIONS).optional().or(z.literal('')),
+  parentEmail: z
+    .string()
+    .trim()
+    .email('Email phụ huynh không hợp lệ.')
+    .optional()
+    .or(z.literal('')),
+  parent2Name: z
+    .string()
+    .trim()
+    .max(120, 'Tên phụ huynh 2 tối đa 120 ký tự.')
+    .optional()
+    .default(''),
+  parent2Phone: z
+    .string()
+    .trim()
+    .optional()
+    .default('')
+    .refine(
+      (v) => !v || /^0\d{9}$/.test(v.replace(/\D/g, '')),
+      'SĐT phụ huynh 2 phải gồm 10 số bắt đầu bằng 0.'
+    ),
+  parent2Relation: z.enum(LEAD_PARENT_RELATIONS).optional().or(z.literal('')),
   nextFollowUpAt: z.string().optional().or(z.literal('')),
   appointmentAt: z.string().optional().or(z.literal('')),
   notes: z
@@ -619,6 +698,23 @@ export const orgConfigSchema = z.object({
       { id: 'branch_ranking', visible: true },
       { id: 'absent_today', visible: true },
     ]),
+  /** CRM / Tuyển sinh (migration 053) */
+  crm_ai_enabled: z.boolean().default(true),
+  crm_require_cccd: z.boolean().default(false),
+  crm_require_parent: z.boolean().default(true),
+  crm_require_career: z.boolean().default(false),
+  crm_ai_tone: z.enum(['friendly', 'professional']).default('friendly'),
+  crm_default_follow_up_hours: z.coerce
+    .number()
+    .int()
+    .min(1, 'Follow-up tối thiểu 1 giờ.')
+    .max(168, 'Follow-up tối đa 168 giờ (7 ngày).')
+    .default(24),
+  crm_ai_system_note: z
+    .string()
+    .trim()
+    .max(800, 'Ghi chú AI tối đa 800 ký tự.')
+    .default(''),
 })
 
 export type OrgConfig = z.infer<typeof orgConfigSchema>
@@ -642,6 +738,13 @@ export const DEFAULT_ORG_CONFIG: OrgConfig = {
     { id: 'branch_ranking', visible: true },
     { id: 'absent_today', visible: true },
   ],
+  crm_ai_enabled: true,
+  crm_require_cccd: false,
+  crm_require_parent: true,
+  crm_require_career: false,
+  crm_ai_tone: 'friendly',
+  crm_default_follow_up_hours: 24,
+  crm_ai_system_note: '',
 }
 
 // ====== Cài đặt toàn cục của SuperAdmin (/admin/settings) ======

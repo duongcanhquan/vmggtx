@@ -38,8 +38,23 @@ export type LeadCard = {
   source: LeadSource | null
   priority: LeadPriority
   notes: string | null
+  date_of_birth: string | null
+  gender: string | null
+  cccd: string | null
+  address: string | null
+  current_school: string | null
+  education_level: string | null
+  career_interest: string | null
+  interests: string | null
+  preferred_schedule: string | null
+  call_summary: string | null
   parent_name: string | null
   parent_phone: string | null
+  parent_relation: string | null
+  parent_email: string | null
+  parent2_name: string | null
+  parent2_phone: string | null
+  parent2_relation: string | null
   next_follow_up_at: string | null
   appointment_at: string | null
   lost_reason: string | null
@@ -54,6 +69,7 @@ export type LeadCard = {
   activity_count: number
   last_activity_at: string | null
   is_overdue: boolean
+  profile_completeness: number
 }
 
 export type LeadActivityRow = {
@@ -101,11 +117,119 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
 }
 
 const LEAD_SELECT =
-  'id, org_id, full_name, phone, email, status, source, priority, notes, parent_name, parent_phone, next_follow_up_at, appointment_at, lost_reason, counselor_id, interested_subject_id, converted_student_id, created_at, updated_at, subjects(name), profiles!leads_counselor_id_fkey(full_name)'
+  'id, org_id, full_name, phone, email, status, source, priority, notes, date_of_birth, gender, cccd, address, current_school, education_level, career_interest, interests, preferred_schedule, call_summary, parent_name, parent_phone, parent_relation, parent_email, parent2_name, parent2_phone, parent2_relation, next_follow_up_at, appointment_at, lost_reason, counselor_id, interested_subject_id, converted_student_id, created_at, updated_at, subjects(name), profiles!leads_counselor_id_fkey(full_name)'
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '')
 }
+
+
+function leadFormFromData(formData: FormData) {
+  return {
+    fullName: String(formData.get('fullName') ?? ''),
+    phone: String(formData.get('phone') ?? ''),
+    email: String(formData.get('email') ?? ''),
+    interestedSubjectId: String(formData.get('interestedSubjectId') ?? ''),
+    source: String(formData.get('source') ?? '') || undefined,
+    priority: String(formData.get('priority') ?? 'warm') || 'warm',
+    dateOfBirth: String(formData.get('dateOfBirth') ?? ''),
+    gender: String(formData.get('gender') ?? ''),
+    cccd: String(formData.get('cccd') ?? ''),
+    address: String(formData.get('address') ?? ''),
+    currentSchool: String(formData.get('currentSchool') ?? ''),
+    educationLevel: String(formData.get('educationLevel') ?? ''),
+    careerInterest: String(formData.get('careerInterest') ?? ''),
+    interests: String(formData.get('interests') ?? ''),
+    preferredSchedule: String(formData.get('preferredSchedule') ?? ''),
+    callSummary: String(formData.get('callSummary') ?? ''),
+    parentName: String(formData.get('parentName') ?? ''),
+    parentPhone: String(formData.get('parentPhone') ?? ''),
+    parentRelation: String(formData.get('parentRelation') ?? ''),
+    parentEmail: String(formData.get('parentEmail') ?? ''),
+    parent2Name: String(formData.get('parent2Name') ?? ''),
+    parent2Phone: String(formData.get('parent2Phone') ?? ''),
+    parent2Relation: String(formData.get('parent2Relation') ?? ''),
+    nextFollowUpAt: String(formData.get('nextFollowUpAt') ?? ''),
+    appointmentAt: String(formData.get('appointmentAt') ?? ''),
+    notes: String(formData.get('notes') ?? ''),
+  }
+}
+
+function leadRowFromValues(values: import('@/lib/validation/schemas').LeadFormValues, phone: string) {
+  return {
+    full_name: values.fullName,
+    phone,
+    interested_subject_id: values.interestedSubjectId || null,
+    notes: values.notes || null,
+    email: values.email || null,
+    source: values.source || 'other',
+    priority: values.priority || 'warm',
+    date_of_birth: values.dateOfBirth || null,
+    gender: values.gender || null,
+    cccd: values.cccd ? values.cccd.replace(/\s/g, '') : null,
+    address: values.address || null,
+    current_school: values.currentSchool || null,
+    education_level: values.educationLevel || null,
+    career_interest: values.careerInterest || null,
+    interests: values.interests || null,
+    preferred_schedule: values.preferredSchedule || null,
+    call_summary: values.callSummary || null,
+    parent_name: values.parentName || null,
+    parent_phone: values.parentPhone ? normalizePhone(values.parentPhone) : null,
+    parent_relation: values.parentRelation || null,
+    parent_email: values.parentEmail || null,
+    parent2_name: values.parent2Name || null,
+    parent2_phone: values.parent2Phone ? normalizePhone(values.parent2Phone) : null,
+    parent2_relation: values.parent2Relation || null,
+    next_follow_up_at: values.nextFollowUpAt || null,
+    appointment_at: values.appointmentAt || null,
+  }
+}
+
+async function assertCrmRequiredFields(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+  values: import('@/lib/validation/schemas').LeadFormValues
+): Promise<string | null> {
+  try {
+    const { data: eff } = await supabase.rpc('get_org_effective_config', { p_org_id: orgId })
+    const cfg = (eff || {}) as Record<string, unknown>
+    if (cfg.crm_require_parent === true) {
+      if (!values.parentName?.trim() || !values.parentPhone?.trim()) {
+        return 'Cau hinh CRM bat buoc nhap ten + SĐT phu huynh.'
+      }
+    }
+    if (cfg.crm_require_cccd === true && !values.cccd?.trim()) {
+      return 'Cau hinh CRM bat buoc nhap CCCD/CMND.'
+    }
+    if (cfg.crm_require_career === true && !values.careerInterest?.trim()) {
+      return 'Cau hinh CRM bat buoc nhap nganh nghe / chuong trinh quan tam.'
+    }
+  } catch {
+    /* fail-open */
+  }
+  return null
+}
+
+function computeProfileCompleteness(row: Record<string, unknown>): number {
+  const checks = [
+    row.full_name,
+    row.phone,
+    row.email,
+    row.cccd,
+    row.date_of_birth,
+    row.address,
+    row.career_interest,
+    row.interests,
+    row.parent_name,
+    row.parent_phone,
+    row.current_school || row.education_level,
+    row.preferred_schedule,
+  ]
+  const filled = checks.filter((v) => v != null && String(v).trim() !== '').length
+  return Math.round((filled / checks.length) * 100)
+}
+
 
 function emptyFunnel(): LeadFunnelStats {
   return {
@@ -146,8 +270,23 @@ function mapLeadRow(
     source: (row.source as LeadSource | null) ?? null,
     priority: ((row.priority as LeadPriority) || 'warm') as LeadPriority,
     notes: (row.notes as string | null) ?? null,
+    date_of_birth: (row.date_of_birth as string | null) ?? null,
+    gender: (row.gender as string | null) ?? null,
+    cccd: (row.cccd as string | null) ?? null,
+    address: (row.address as string | null) ?? null,
+    current_school: (row.current_school as string | null) ?? null,
+    education_level: (row.education_level as string | null) ?? null,
+    career_interest: (row.career_interest as string | null) ?? null,
+    interests: (row.interests as string | null) ?? null,
+    preferred_schedule: (row.preferred_schedule as string | null) ?? null,
+    call_summary: (row.call_summary as string | null) ?? null,
     parent_name: (row.parent_name as string | null) ?? null,
     parent_phone: (row.parent_phone as string | null) ?? null,
+    parent_relation: (row.parent_relation as string | null) ?? null,
+    parent_email: (row.parent_email as string | null) ?? null,
+    parent2_name: (row.parent2_name as string | null) ?? null,
+    parent2_phone: (row.parent2_phone as string | null) ?? null,
+    parent2_relation: (row.parent2_relation as string | null) ?? null,
     next_follow_up_at: nextFollow,
     appointment_at: (row.appointment_at as string | null) ?? null,
     lost_reason: (row.lost_reason as string | null) ?? null,
@@ -165,6 +304,7 @@ function mapLeadRow(
     activity_count: activityMeta?.count ?? 0,
     last_activity_at: activityMeta?.lastAt ?? null,
     is_overdue: isOverdue,
+    profile_completeness: computeProfileCompleteness(row),
   }
 }
 
@@ -636,19 +776,7 @@ export async function createLead(formData: FormData): Promise<ActionResult> {
   if (!orgParsed.success) return zodFail(orgParsed.error)
   const orgId = orgParsed.data
 
-  const parsed = leadSchema.safeParse({
-    fullName: String(formData.get('fullName') ?? ''),
-    phone: String(formData.get('phone') ?? ''),
-    email: String(formData.get('email') ?? ''),
-    interestedSubjectId: String(formData.get('interestedSubjectId') ?? ''),
-    source: String(formData.get('source') ?? '') || undefined,
-    priority: String(formData.get('priority') ?? 'warm') || 'warm',
-    parentName: String(formData.get('parentName') ?? ''),
-    parentPhone: String(formData.get('parentPhone') ?? ''),
-    nextFollowUpAt: String(formData.get('nextFollowUpAt') ?? ''),
-    appointmentAt: String(formData.get('appointmentAt') ?? ''),
-    notes: String(formData.get('notes') ?? ''),
-  })
+  const parsed = leadSchema.safeParse(leadFormFromData(formData))
   if (!parsed.success) return zodFail(parsed.error)
   const values = parsed.data
   const phone = normalizePhone(values.phone)
@@ -689,21 +817,28 @@ export async function createLead(formData: FormData): Promise<ActionResult> {
       .maybeSingle()
     const counselorId = profile?.role === 'admission_staff' ? currentUser.id : null
 
+    const requiredErr = await assertCrmRequiredFields(supabase, orgId, values)
+    if (requiredErr) return { error: requiredErr }
+
+    let nextFollow = values.nextFollowUpAt || null
+    if (!nextFollow) {
+      try {
+        const { data: eff } = await supabase.rpc('get_org_effective_config', { p_org_id: orgId })
+        const hours = Number((eff as Record<string, unknown>)?.crm_default_follow_up_hours ?? 24)
+        if (hours > 0) {
+          nextFollow = new Date(Date.now() + hours * 3600_000).toISOString()
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     const insertRow: Record<string, unknown> = {
       org_id: orgId,
-      full_name: values.fullName,
-      phone,
-      interested_subject_id: values.interestedSubjectId || null,
-      notes: values.notes || null,
       status: 'new',
       counselor_id: counselorId,
-      email: values.email || null,
-      source: values.source || 'other',
-      priority: values.priority || 'warm',
-      parent_name: values.parentName || null,
-      parent_phone: values.parentPhone ? normalizePhone(values.parentPhone) : null,
-      next_follow_up_at: values.nextFollowUpAt || null,
-      appointment_at: values.appointmentAt || null,
+      ...leadRowFromValues(values, phone),
+      next_follow_up_at: nextFollow,
     }
 
     let { data: created, error } = await supabase
@@ -768,19 +903,7 @@ export async function updateLead(formData: FormData): Promise<ActionResult> {
   )
   if (!leadIdParsed.success) return zodFail(leadIdParsed.error)
 
-  const parsed = leadSchema.safeParse({
-    fullName: String(formData.get('fullName') ?? ''),
-    phone: String(formData.get('phone') ?? ''),
-    email: String(formData.get('email') ?? ''),
-    interestedSubjectId: String(formData.get('interestedSubjectId') ?? ''),
-    source: String(formData.get('source') ?? '') || undefined,
-    priority: String(formData.get('priority') ?? 'warm') || 'warm',
-    parentName: String(formData.get('parentName') ?? ''),
-    parentPhone: String(formData.get('parentPhone') ?? ''),
-    nextFollowUpAt: String(formData.get('nextFollowUpAt') ?? ''),
-    appointmentAt: String(formData.get('appointmentAt') ?? ''),
-    notes: String(formData.get('notes') ?? ''),
-  })
+  const parsed = leadSchema.safeParse(leadFormFromData(formData))
   if (!parsed.success) return zodFail(parsed.error)
   const values = parsed.data
   const phone = normalizePhone(values.phone)
@@ -815,18 +938,11 @@ export async function updateLead(formData: FormData): Promise<ActionResult> {
       if (dup) return { error: `SĐT trung lead "${dup.full_name}".` }
     }
 
+    const requiredErr = await assertCrmRequiredFields(supabase, existing.org_id, values)
+    if (requiredErr) return { error: requiredErr }
+
     const patch: Record<string, unknown> = {
-      full_name: values.fullName,
-      phone,
-      interested_subject_id: values.interestedSubjectId || null,
-      notes: values.notes || null,
-      email: values.email || null,
-      source: values.source || 'other',
-      priority: values.priority || 'warm',
-      parent_name: values.parentName || null,
-      parent_phone: values.parentPhone ? normalizePhone(values.parentPhone) : null,
-      next_follow_up_at: values.nextFollowUpAt || null,
-      appointment_at: values.appointmentAt || null,
+      ...leadRowFromValues(values, phone),
     }
 
     let { error } = await supabase
@@ -1134,7 +1250,9 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
 
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('id, org_id, full_name, phone, status, converted_student_id')
+      .select(
+        'id, org_id, full_name, phone, email, status, converted_student_id, date_of_birth, gender, cccd, address, career_interest, interests, parent_name, parent_phone, parent_email, parent_relation, current_school, education_level, preferred_schedule, call_summary, notes'
+      )
       .eq('id', values.leadId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -1219,6 +1337,24 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
       role: 'student',
       org_id: lead.org_id,
       status: 'active',
+      address: lead.address || null,
+      date_of_birth: lead.date_of_birth || null,
+      gender: lead.gender || null,
+      cccd: lead.cccd || null,
+      parent_name: lead.parent_name || null,
+      parent_phone: lead.parent_phone || null,
+      parent_email: lead.parent_email || null,
+      parent_relation: lead.parent_relation || null,
+      career_interest: lead.career_interest || null,
+      interests: lead.interests || null,
+      custom_metadata: {
+        from_crm_lead_id: lead.id,
+        current_school: lead.current_school || null,
+        education_level: lead.education_level || null,
+        preferred_schedule: lead.preferred_schedule || null,
+        call_summary: lead.call_summary || null,
+        crm_notes: lead.notes || null,
+      },
     }
     const newProfileWithCode = studentCode
       ? { ...newProfile, student_code: studentCode }
@@ -1226,6 +1362,22 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
     let { error: profileError } = await admin.from('profiles').insert(newProfileWithCode)
     if (profileError && /student_code/i.test(profileError.message)) {
       const retry = await admin.from('profiles').insert(newProfile)
+      profileError = retry.error
+    }
+    // Truoc migration 053: bo cot moi neu DB chua co
+    if (profileError && /column|42703/i.test(profileError.message)) {
+      const baseProfile = {
+        id: studentId,
+        full_name: lead.full_name,
+        email: values.email,
+        phone,
+        role: 'student',
+        org_id: lead.org_id,
+        status: 'active',
+        address: lead.address || null,
+        ...(studentCode ? { student_code: studentCode } : {}),
+      }
+      const retry = await admin.from('profiles').insert(baseProfile)
       profileError = retry.error
     }
     if (profileError) {

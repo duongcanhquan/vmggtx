@@ -163,3 +163,8 @@
 - actions: bo MOCK, chong trung SDT, CRUD, claim, soft-delete, activities, funnel.
 - UI: drawer cham soc, filter nguon/do nong/qua han, modal ly do mat + hen test.
 - Seed/check-db/checklist + STATE. Can chay 052 tren DB that.
+
+## 2026-08-02 | CRM AI + ho so day du (D19)
+- Migration 053: CCCD/PH/so thich/nganh nghe + profiles sync; entity lead; CRM org_settings.
+- Copilot taskType crm_assist (RAG admissions, summarize, script, follow-up).
+- Settings tab Tuyen sinh; drawer tab AI; form lead mo rong.

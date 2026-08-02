@@ -7,37 +7,33 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAIConfig, type TenantAIConfig } from '@/lib/ai/getTenantAIConfig'
+import { DEFAULT_ORG_CONFIG, orgConfigSchema } from '@/lib/validation/schemas'
 
 export const maxDuration = 60
 
 // ============================================================
-// CORE AI COPILOT - API duy nhất xử lý MỌI yêu cầu AI của hệ thống.
-//
-// - Multi-tenant: API Key + Model lấy từ getAIConfig(orgId)
-//   (key của org -> org Mẹ -> env), provider khởi tạo ĐỘNG
-//   (OpenAI / Google Gemini / Anthropic Claude).
-// - RAG Isolation: mọi context đều qua match_lesson_materials
-//   với p_org_id BẮT BUỘC (migration 018).
-// - taskType quyết định vai trò + nguồn context:
-//     tutor       : học sinh hỏi bài  (RAG theo LỚP)
-//     lesson_plan : giáo viên tạo giáo án (RAG toàn cơ sở = syllabus)
-//     hr_query    : tra cứu quy chế nội bộ (RAG toàn cơ sở)
+// CORE AI COPILOT
+// taskType:
+//   tutor | lesson_plan | hr_query | crm_assist
+// crm_assist + mode: rag | counsel_script | summarize | draft_followup
 // ============================================================
 
 const AI_MAINTENANCE_MESSAGE = 'Trợ lý AI đang bảo trì, vui lòng quay lại sau'
 
-const TASK_TYPES = ['tutor', 'lesson_plan', 'hr_query'] as const
+const TASK_TYPES = ['tutor', 'lesson_plan', 'hr_query', 'crm_assist'] as const
+const CRM_MODES = ['rag', 'counsel_script', 'summarize', 'draft_followup'] as const
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1, 'Thiếu prompt.').max(4000, 'Prompt tối đa 4000 ký tự.'),
   taskType: z.enum(TASK_TYPES),
   orgId: z.string().uuid().optional(),
   classId: z.string().uuid().optional(),
+  leadId: z.string().uuid().optional(),
+  mode: z.enum(CRM_MODES).optional().default('rag'),
 })
 
 type MatchedMaterial = { content: string; metadata?: Record<string, unknown> }
 
-// ---------- Khởi tạo Provider ĐỘNG theo cấu hình tenant ----------
 function buildChatModel(config: TenantAIConfig): LanguageModel | null {
   switch (config.provider) {
     case 'google': {
@@ -58,8 +54,16 @@ function buildChatModel(config: TenantAIConfig): LanguageModel | null {
   }
 }
 
-// ---------- System Prompt theo taskType ----------
-function buildSystemPrompt(taskType: (typeof TASK_TYPES)[number], context: string) {
+function buildSystemPrompt(
+  taskType: (typeof TASK_TYPES)[number],
+  context: string,
+  extras?: {
+    leadContext?: string
+    crmTone?: 'friendly' | 'professional'
+    crmNote?: string
+    mode?: (typeof CRM_MODES)[number]
+  }
+) {
   switch (taskType) {
     case 'tutor':
       return `Bạn là gia sư của trung tâm GDTX, trả lời bằng tiếng Việt, ngắn gọn và dễ hiểu.
@@ -79,12 +83,82 @@ CHỈ trả lời dựa trên quy chế/tài liệu nội bộ dưới đây. N�
 
 QUY CHẾ / TÀI LIỆU NỘI BỘ:
 ${context}`
+    case 'crm_assist': {
+      const tone =
+        extras?.crmTone === 'professional'
+          ? 'Giọng điệu chuyên nghiệp, lịch sự, ngắn gọn.'
+          : 'Giọng điệu thân thiện, gần gũi, vẫn chuyên nghiệp.'
+      const note = extras?.crmNote?.trim()
+        ? `\nGHI CHÚ CẤU HÌNH CƠ SỞ:\n${extras.crmNote.trim()}\n`
+        : ''
+      const leadBlock = extras?.leadContext
+        ? `\nHỒ SƠ LEAD HIỆN TẠI:\n${extras.leadContext}\n`
+        : ''
+      const modeHint =
+        extras?.mode === 'summarize'
+          ? 'Nhiệm vụ: TÓM TẮT hồ sơ + nhật ký chăm sóc, nêu điểm nóng, rủi ro mất lead, bước follow-up đề xuất (3-5 gạch đầu dòng).'
+          : extras?.mode === 'counsel_script'
+            ? 'Nhiệm vụ: soạn KỊCH BẢN GỌI ĐIỆN / ZALO (mở đầu → khai thác nhu cầu → giới thiệu chương trình/học phí theo tài liệu → xử lý từ chối → chốt lịch hẹn).'
+            : extras?.mode === 'draft_followup'
+              ? 'Nhiệm vụ: soạn TIN NHẮN / EMAIL follow-up ngắn (≤120 từ), có CTA rõ (gọi lại / đến test / đăng ký).'
+              : 'Nhiệm vụ: trả lời câu hỏi tuyển sinh dựa trên TÀI LIỆU RAG + hồ sơ lead. Không bịa học phí/khuyến mãi nếu tài liệu không có.'
+
+      return `Bạn là trợ lý AI TUYỂN SINH của trung tâm giáo dục, trả lời bằng tiếng Việt.
+${tone}
+${modeHint}
+Ưu tiên thông tin từ tài liệu tuyển sinh/chương trình/học phí dưới đây. Nếu thiếu dữ liệu, nói rõ và đề xuất tư vấn viên xác nhận với cơ sở.
+KHÔNG bịa chính sách; KHÔNG tiết lộ thông tin nội bộ không liên quan tuyển sinh.
+${note}${leadBlock}
+TÀI LIỆU TUYỂN SINH / CHƯƠNG TRÌNH (RAG):
+${context}`
+    }
   }
 }
 
+function formatLeadContext(lead: Record<string, unknown>, activities: string[]): string {
+  const lines = [
+    `Họ tên: ${lead.full_name ?? '—'}`,
+    `SĐT: ${lead.phone ?? '—'}`,
+    `Email: ${lead.email ?? '—'}`,
+    `Trạng thái: ${lead.status ?? '—'}`,
+    `Nguồn: ${lead.source ?? '—'}`,
+    `Độ nóng: ${lead.priority ?? '—'}`,
+    `CCCD: ${lead.cccd ?? '—'}`,
+    `Ngày sinh: ${lead.date_of_birth ?? '—'}`,
+    `Giới tính: ${lead.gender ?? '—'}`,
+    `Địa chỉ: ${lead.address ?? '—'}`,
+    `Trường đang học: ${lead.current_school ?? '—'}`,
+    `Trình độ: ${lead.education_level ?? '—'}`,
+    `Ngành nghề quan tâm: ${lead.career_interest ?? '—'}`,
+    `Sở thích/tính cách: ${lead.interests ?? '—'}`,
+    `Lịch học mong muốn: ${lead.preferred_schedule ?? '—'}`,
+    `PH1: ${lead.parent_name ?? '—'} (${lead.parent_relation ?? ''}) ${lead.parent_phone ?? ''} ${lead.parent_email ?? ''}`,
+    `PH2: ${lead.parent2_name ?? '—'} (${lead.parent2_relation ?? ''}) ${lead.parent2_phone ?? ''}`,
+    `Tóm tắt cuộc gọi: ${lead.call_summary ?? '—'}`,
+    `Ghi chú: ${lead.notes ?? '—'}`,
+    `Hẹn follow-up: ${lead.next_follow_up_at ?? '—'}`,
+    `Hẹn test: ${lead.appointment_at ?? '—'}`,
+  ]
+  if (activities.length) {
+    lines.push('Nhật ký gần đây:')
+    for (const a of activities.slice(0, 8)) lines.push(`- ${a}`)
+  }
+  return lines.join('\n')
+}
+
+function prioritizeAdmissionsMaterials(materials: MatchedMaterial[]): MatchedMaterial[] {
+  const score = (m: MatchedMaterial) => {
+    const meta = m.metadata || {}
+    const cat = String(meta.category || meta.subject || meta.tags || '').toLowerCase()
+    if (cat.includes('admission') || cat.includes('crm') || cat.includes('tuyen')) return 2
+    if (cat.includes('tuition') || cat.includes('hoc phi') || cat.includes('chuong trinh'))
+      return 1
+    return 0
+  }
+  return [...materials].sort((a, b) => score(b) - score(a))
+}
+
 export async function POST(request: NextRequest) {
-  // ===== BƯỚC 0: XÁC THỰC - không cho gọi API ẩn danh =====
-  // [SECURITY AUDIT] getUser() verify JWT với Supabase (getSession chỉ đọc cookie)
   const supabase = createClient()
   const {
     data: { user },
@@ -93,7 +167,6 @@ export async function POST(request: NextRequest) {
     return new NextResponse('Bạn cần đăng nhập để sử dụng Trợ lý AI.', { status: 401 })
   }
 
-  // ===== BƯỚC 1: VALIDATE INPUT (zod) =====
   const rawBody = await request.json().catch(() => null)
   const parsed = bodySchema.safeParse(rawBody)
   if (!parsed.success) {
@@ -102,14 +175,13 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
-  const { prompt, taskType, classId } = parsed.data
+  const { prompt, taskType, classId, leadId, mode } = parsed.data
 
-  // ===== BƯỚC 2: XÁC ĐỊNH org_id ĐÁNG TIN CẬY =====
-  // - tutor: org lấy từ LỚP HỌC (server-side truth, không tin client).
-  // - lesson_plan / hr_query: orgId client gửi lên phải nằm trong phạm
-  //   vi của user (chống mượn API Key của cơ sở khác để đốt chi phí).
   let orgId: string
   let ragClassId: string | null = null
+  let leadContext = ''
+  let crmTone: 'friendly' | 'professional' = 'friendly'
+  let crmNote = ''
 
   if (taskType === 'tutor') {
     if (!classId) {
@@ -125,8 +197,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Lớp học không tồn tại.' }, { status: 404 })
     }
 
-    // [SECURITY AUDIT] Chống "mượn" API key tenant qua classId lạ:
-    // caller phải LÀ học viên ghi danh lớp / GV của lớp / Staff của org
     if (cls.teacher_id !== user.id) {
       const [{ data: enrollment }, { data: staffAuthorized }] = await Promise.all([
         supabase
@@ -182,9 +252,80 @@ export async function POST(request: NextRequest) {
       )
     }
     orgId = requestedOrgId
+
+    if (taskType === 'crm_assist') {
+      // admission_staff+ trong org
+      const allowedRoles = [
+        'super_admin',
+        'campus_admin',
+        'academic_staff',
+        'admission_staff',
+      ]
+      if (!allowedRoles.includes(profile.role)) {
+        return NextResponse.json(
+          { error: 'TỪ CHỐI: Chỉ nhân sự tuyển sinh/học vụ dùng AI CRM.' },
+          { status: 403 }
+        )
+      }
+
+      const { data: eff } = await supabase.rpc('get_org_effective_config', {
+        p_org_id: orgId,
+      })
+      const cfgParsed = orgConfigSchema.safeParse(eff ?? {})
+      const cfg = cfgParsed.success ? cfgParsed.data : DEFAULT_ORG_CONFIG
+      if (!cfg.crm_ai_enabled) {
+        return NextResponse.json(
+          { error: 'AI tuyển sinh đang tắt tại Cài đặt → Tuyển sinh / CRM.' },
+          { status: 403 }
+        )
+      }
+      crmTone = cfg.crm_ai_tone
+      crmNote = cfg.crm_ai_system_note || ''
+
+      if (leadId) {
+        const { data: lead } = await supabase
+          .from('leads')
+          .select(
+            'id, org_id, full_name, phone, email, status, source, priority, cccd, date_of_birth, gender, address, current_school, education_level, career_interest, interests, preferred_schedule, call_summary, notes, parent_name, parent_phone, parent_email, parent_relation, parent2_name, parent2_phone, parent2_relation, next_follow_up_at, appointment_at'
+          )
+          .eq('id', leadId)
+          .is('deleted_at', null)
+          .maybeSingle()
+        if (!lead) {
+          return NextResponse.json(
+            { error: 'Lead không tồn tại hoặc không có quyền.' },
+            { status: 404 }
+          )
+        }
+        if (lead.org_id !== orgId) {
+          // allow subtree
+          const { data: leadInScope } = await supabase.rpc('is_org_in_my_subtree', {
+            p_target_org_id: lead.org_id,
+          })
+          if (profile.role !== 'super_admin' && leadInScope !== true) {
+            return NextResponse.json({ error: 'Lead ngoài phạm vi.' }, { status: 403 })
+          }
+        }
+
+        const { data: acts } = await supabase
+          .from('lead_activities')
+          .select('activity_type, description, created_at')
+          .eq('lead_id', leadId)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(8)
+
+        const actLines = (acts || []).map(
+          (a) =>
+            `[${a.activity_type}] ${new Date(a.created_at).toLocaleString('vi-VN')}: ${a.description || ''}`
+        )
+        leadContext = formatLeadContext(lead as Record<string, unknown>, actLines)
+
+        // Default prompt augmentation for structured modes
+      }
+    }
   }
 
-  // ===== [STUDENT 360] Ghi nhật ký câu hỏi tutor (fire-and-forget) =====
   if (taskType === 'tutor') {
     void (async () => {
       try {
@@ -197,23 +338,18 @@ export async function POST(request: NextRequest) {
           question: prompt.slice(0, 2000),
         })
       } catch {
-        // bảng chưa migrate / user chưa có profile -> bỏ qua
+        /* ignore */
       }
     })()
   }
 
-  // ===== BƯỚC 3-5: cấu hình tenant + RAG + stream (bọc try/catch) =====
   try {
     const tenantConfig = await getAIConfig(orgId)
-
-    // Khởi tạo Provider động (OpenAI / Google / Anthropic)
     const aiModel = buildChatModel(tenantConfig)
     if (!aiModel) {
       return new NextResponse(AI_MAINTENANCE_MESSAGE, { status: 503 })
     }
 
-    // ===== BƯỚC 4: RAG context - embedding luôn cần key OpenAI
-    // (cột vector cố định 1536 chiều = text-embedding-3-small)
     const embeddingKey =
       tenantConfig.provider === 'openai' && tenantConfig.apiKey
         ? tenantConfig.apiKey
@@ -222,21 +358,23 @@ export async function POST(request: NextRequest) {
     let context = '(Chưa có tài liệu nào trong kho tri thức của cơ sở)'
     if (embeddingKey) {
       const embeddingClient = createOpenAI({ apiKey: embeddingKey })
+      const embedQuery =
+        taskType === 'crm_assist' && leadContext
+          ? `${prompt}\n${leadContext.slice(0, 800)}`
+          : prompt
       const { embedding } = await embed({
         model: embeddingClient.embedding('text-embedding-3-small'),
-        value: prompt,
+        value: embedQuery,
         abortSignal: AbortSignal.timeout(30_000),
       })
 
-      // [CÁCH LY TUYỆT ĐỐI] p_org_id bắt buộc; tutor khoanh theo lớp,
-      // lesson_plan / hr_query tìm TOÀN CƠ SỞ (filter_class_id null)
       const { data: materials, error: rpcError } = await supabase.rpc(
         'match_lesson_materials',
         {
           query_embedding: embedding,
           p_org_id: orgId,
           filter_class_id: ragClassId,
-          match_count: taskType === 'tutor' ? 5 : 8,
+          match_count: taskType === 'tutor' ? 5 : taskType === 'crm_assist' ? 10 : 8,
         }
       )
       if (rpcError) {
@@ -244,7 +382,10 @@ export async function POST(request: NextRequest) {
         return new NextResponse(AI_MAINTENANCE_MESSAGE, { status: 503 })
       }
 
-      const found = (materials as MatchedMaterial[] | null) ?? []
+      let found = (materials as MatchedMaterial[] | null) ?? []
+      if (taskType === 'crm_assist') {
+        found = prioritizeAdmissionsMaterials(found)
+      }
       if (found.length > 0) {
         context = found
           .map((m, i) => `[Tài liệu ${i + 1}] ${m.content}`)
@@ -252,11 +393,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ===== BƯỚC 5: stream câu trả lời =====
+    let finalPrompt = prompt
+    if (taskType === 'crm_assist') {
+      if (mode === 'summarize') {
+        finalPrompt =
+          prompt.trim() ||
+          'Hãy tóm tắt hồ sơ lead và nhật ký chăm sóc, đề xuất bước tiếp theo.'
+      } else if (mode === 'counsel_script') {
+        finalPrompt =
+          prompt.trim() ||
+          'Soạn kịch bản gọi điện tư vấn phù hợp hồ sơ lead và tài liệu tuyển sinh.'
+      } else if (mode === 'draft_followup') {
+        finalPrompt =
+          prompt.trim() ||
+          'Soạn tin nhắn follow-up ngắn để chốt lịch hẹn / nhắc đăng ký.'
+      }
+    }
+
     const result = streamText({
       model: aiModel,
-      system: buildSystemPrompt(taskType, context),
-      prompt,
+      system: buildSystemPrompt(taskType, context, {
+        leadContext,
+        crmTone,
+        crmNote,
+        mode,
+      }),
+      prompt: finalPrompt,
+      abortSignal: AbortSignal.timeout(55_000),
     })
 
     return result.toDataStreamResponse({

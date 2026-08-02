@@ -54,3 +54,8 @@ Mỗi quyết định 1-3 dòng. Thêm mới vào CUỐI danh sách với mã D 
   follow-up/hẹn/lost_reason; chống trùng SĐT live per org; nhật ký chăm sóc bắt buộc
   qua UI; mất lead bắt buộc lý do; convert → student qua modal (không kéo thẳng);
   KHÔNG trả MOCK khi DB trống — trả rỗng + lỗi.
+- **D19** CRM AI + hồ sơ đầy đủ (migration 053): cấu hình module trong `org_settings`
+  (`crm_ai_*`, bắt buộc PH/CCCD/ngành nghề); AI qua `/api/ai/copilot` taskType
+  `crm_assist` + RAG `match_lesson_materials` (ưu tiên metadata admissions); hồ sơ
+  lead/HV gồm CCCD, PH, sở thích, ngành nghề; entity custom field `lead`; convert
+  copy sang `profiles`.

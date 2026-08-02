@@ -65,11 +65,14 @@ export const MODULE_CATALOG: ModuleInfo[] = [
     key: 'crm',
     label: 'Tuyển sinh (CRM)',
     group: 'students',
-    summary: 'Pipeline lead từ tiếp nhận đến nhập học, báo cáo theo người tuyển sinh.',
+    summary:
+      'Pipeline lead đầy đủ hồ sơ (PH, CCCD, sở thích, ngành nghề), AI hỗ trợ tư vấn + RAG tuyển sinh.',
     howItWorks:
-      'Nhân viên tuyển sinh ghi nhận lead, theo dõi trạng thái (mới → liên hệ → hẹn → nhập học), ghi log hoạt động. Trưởng bộ phận xem báo cáo chuyển đổi theo nhân viên, nguồn, thời gian.',
+      'Nhân viên ghi nhận lead (hồ sơ đầy đủ), chăm sóc theo Kanban, hỏi AI/RAG chính sách học phí & chương trình. Cài đặt module tại /settings (tab Tuyển sinh). Tài liệu RAG upload tại /ai/knowledge-base (metadata category=admissions).',
     features: [
       { key: 'pipeline', label: 'Pipeline lead', description: 'Kanban trạng thái + log chăm sóc từng lead.' },
+      { key: 'profile', label: 'Hồ sơ tuyển sinh', description: 'CCCD, phụ huynh, sở thích, ngành nghề, lịch học.' },
+      { key: 'ai_assist', label: 'AI tư vấn tuyển sinh', description: 'Tóm tắt lead, gợi ý kịch bản gọi, RAG FAQ.' },
       { key: 'reports', label: 'Báo cáo tuyển sinh', description: 'Tổng kết theo người tuyển sinh, nguồn, tỉ lệ chốt.' },
     ],
   },

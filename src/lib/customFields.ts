@@ -9,7 +9,7 @@ import { z, type ZodTypeAny } from 'zod'
 // validation không bao giờ lệch nhau.
 // ============================================================
 
-export const CUSTOM_FIELD_ENTITIES = ['student', 'teacher', 'class'] as const
+export const CUSTOM_FIELD_ENTITIES = ['student', 'teacher', 'class', 'lead'] as const
 export type CustomFieldEntity = (typeof CUSTOM_FIELD_ENTITIES)[number]
 
 export const CUSTOM_FIELD_TYPES = ['text', 'number', 'date', 'boolean', 'select'] as const
@@ -19,6 +19,7 @@ export const ENTITY_LABELS: Record<CustomFieldEntity, string> = {
   student: 'Học sinh',
   teacher: 'Giáo viên',
   class: 'Lớp học',
+  lead: 'Lead tuyển sinh',
 }
 
 export const FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {

@@ -9,6 +9,7 @@ import {
   ListPlus,
   Loader2,
   Lock,
+  Megaphone,
   MessageSquareMore,
   Save,
   Settings as SettingsIcon,
@@ -38,13 +39,14 @@ import { OrgLogoCard } from '@/components/settings/OrgLogoCard'
 //   (hàm SQL get_org_effective_config, migration 016).
 // ============================================================
 
-type TabId = 'academic' | 'communication' | 'finance' | 'identity'
+type TabId = 'academic' | 'communication' | 'finance' | 'identity' | 'crm'
 
 const TABS: { id: TabId; label: string; icon: typeof BookOpenCheck }[] = [
   { id: 'academic', label: 'Học vụ', icon: BookOpenCheck },
   { id: 'communication', label: 'Giao tiếp / SMS', icon: MessageSquareMore },
   { id: 'finance', label: 'Tài chính', icon: Wallet },
   { id: 'identity', label: 'Mã học viên', icon: IdCard },
+  { id: 'crm', label: 'Tuyển sinh', icon: Megaphone },
 ]
 
 /** Toggle Switch tự dựng theo chuẩn Shadcn Switch (dự án chưa cài Shadcn) */
@@ -418,6 +420,91 @@ export default function SettingsPage() {
                 checked={config.require_manager_approval_for_refunds}
                 onChange={(v) => patch('require_manager_approval_for_refunds', v)}
               />
+            )}
+
+            {activeTab === 'crm' && (
+              <>
+                <ToggleSwitch
+                  id="set-crm-ai"
+                  label="Bật AI hỗ trợ tuyển sinh"
+                  description="Cho phép tư vấn viên dùng AI tóm tắt lead, kịch bản gọi và RAG FAQ tuyển sinh."
+                  checked={config.crm_ai_enabled}
+                  onChange={(v) => patch('crm_ai_enabled', v)}
+                />
+                <ToggleSwitch
+                  id="set-crm-parent"
+                  label="Bắt buộc thông tin phụ huynh"
+                  description="Tạo/sửa lead phải có tên + SĐT phụ huynh."
+                  checked={config.crm_require_parent}
+                  onChange={(v) => patch('crm_require_parent', v)}
+                />
+                <ToggleSwitch
+                  id="set-crm-cccd"
+                  label="Bắt buộc CCCD/CMND"
+                  description="Thu thập CCCD trên hồ sơ lead trước khi lưu."
+                  checked={config.crm_require_cccd}
+                  onChange={(v) => patch('crm_require_cccd', v)}
+                />
+                <ToggleSwitch
+                  id="set-crm-career"
+                  label="Bắt buộc ngành nghề / chương trình quan tâm"
+                  description="Giúp AI và báo cáo phân khúc nhu cầu tốt hơn."
+                  checked={config.crm_require_career}
+                  onChange={(v) => patch('crm_require_career', v)}
+                />
+                <NumberSetting
+                  id="set-crm-followup"
+                  label="Follow-up mặc định sau khi tạo lead"
+                  description="Tự gán mốc follow-up nếu tư vấn viên không nhập."
+                  value={config.crm_default_follow_up_hours}
+                  onChange={(v) => patch('crm_default_follow_up_hours', v)}
+                  suffix="giờ"
+                  min={1}
+                  max={168}
+                />
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <label htmlFor="set-crm-tone" className="text-sm font-semibold">
+                    Giọng điệu AI tư vấn
+                  </label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Áp dụng khi soạn kịch bản gọi / tin follow-up.
+                  </p>
+                  <select
+                    id="set-crm-tone"
+                    value={config.crm_ai_tone}
+                    onChange={(e) =>
+                      patch('crm_ai_tone', e.target.value as OrgConfig['crm_ai_tone'])
+                    }
+                    className="mt-3 min-h-11 w-full cursor-pointer rounded-xl border border-border bg-surface px-3 text-sm"
+                  >
+                    <option value="friendly">Thân thiện</option>
+                    <option value="professional">Chuyên nghiệp</option>
+                  </select>
+                </div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <label htmlFor="set-crm-note" className="text-sm font-semibold">
+                    Ghi chú hệ thống cho AI tuyển sinh
+                  </label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    VD: ưu tiên khóa 3 tháng, không cam kết học phí ngoài bảng giá đã upload RAG.
+                  </p>
+                  <textarea
+                    id="set-crm-note"
+                    rows={3}
+                    value={config.crm_ai_system_note}
+                    onChange={(e) => patch('crm_ai_system_note', e.target.value)}
+                    className="mt-3 min-h-20 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm"
+                  />
+                </div>
+                <p className="rounded-xl border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
+                  Tài liệu FAQ tuyển sinh / học phí: upload tại{' '}
+                  <Link href="/ai/knowledge-base" className="font-semibold text-primary underline">
+                    /ai/knowledge-base
+                  </Link>{' '}
+                  với metadata <code className="rounded bg-muted px-1">category=admissions</code>.
+                  Trường động lead: entity «Lead tuyển sinh» tại Trường dữ liệu động.
+                </p>
+              </>
             )}
 
             {activeTab === 'identity' && (
