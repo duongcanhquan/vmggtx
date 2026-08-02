@@ -123,6 +123,16 @@ function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '')
 }
 
+/** datetime-local / date → ISO timestamptz (tránh lệch múi giờ khi ghi DB) */
+function toTimestamptz(value: string | null | undefined): string | null {
+  if (!value || !String(value).trim()) return null
+  const raw = String(value).trim()
+  // YYYY-MM-DD only (date of birth) — giữ nguyên
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
+}
 
 function leadFormFromData(formData: FormData) {
   return {
@@ -181,8 +191,8 @@ function leadRowFromValues(values: import('@/lib/validation/schemas').LeadFormVa
     parent2_name: values.parent2Name || null,
     parent2_phone: values.parent2Phone ? normalizePhone(values.parent2Phone) : null,
     parent2_relation: values.parent2Relation || null,
-    next_follow_up_at: values.nextFollowUpAt || null,
-    appointment_at: values.appointmentAt || null,
+    next_follow_up_at: toTimestamptz(values.nextFollowUpAt),
+    appointment_at: toTimestamptz(values.appointmentAt),
   }
 }
 
@@ -196,14 +206,14 @@ async function assertCrmRequiredFields(
     const cfg = (eff || {}) as Record<string, unknown>
     if (cfg.crm_require_parent === true) {
       if (!values.parentName?.trim() || !values.parentPhone?.trim()) {
-        return 'Cau hinh CRM bat buoc nhap ten + SĐT phu huynh.'
+        return 'Cấu hình CRM bắt buộc nhập tên + SĐT phụ huynh.'
       }
     }
     if (cfg.crm_require_cccd === true && !values.cccd?.trim()) {
-      return 'Cau hinh CRM bat buoc nhap CCCD/CMND.'
+      return 'Cấu hình CRM bắt buộc nhập CCCD/CMND.'
     }
     if (cfg.crm_require_career === true && !values.careerInterest?.trim()) {
-      return 'Cau hinh CRM bat buoc nhap nganh nghe / chuong trinh quan tam.'
+      return 'Cấu hình CRM bắt buộc nhập ngành nghề / chương trình quan tâm.'
     }
   } catch {
     /* fail-open */
@@ -388,15 +398,31 @@ export async function getLeads(
               email: null,
               source: null,
               priority: 'warm',
+              date_of_birth: null,
+              gender: null,
+              cccd: null,
+              address: null,
+              current_school: null,
+              education_level: null,
+              career_interest: null,
+              interests: null,
+              preferred_schedule: null,
+              call_summary: null,
               parent_name: null,
               parent_phone: null,
+              parent_relation: null,
+              parent_email: null,
+              parent2_name: null,
+              parent2_phone: null,
+              parent2_relation: null,
               next_follow_up_at: null,
               appointment_at: null,
               lost_reason: null,
             })
           ),
           demo: false,
-          error: 'Migration 052 chua chay — dang hien thi cot co ban. Hay chay 052_crm_admissions_pro.sql.',
+          error:
+            'Migration 052/053 chưa chạy — đang hiển thị cột cơ bản. Hãy chạy 052 rồi 053 trên Supabase.',
         }
       }
       return { data: [], demo: false, error: error.message }
@@ -405,13 +431,20 @@ export async function getLeads(
     const leadIds = (data || []).map((r) => r.id)
     const activityMeta = new Map<string, { count: number; lastAt: string | null }>()
     if (leadIds.length > 0) {
-      const { data: acts } = await supabase
+      let actsQuery = await supabase
         .from('lead_activities')
         .select('lead_id, created_at')
         .in('lead_id', leadIds)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-      for (const a of acts || []) {
+      if (actsQuery.error && /deleted_at|42703/i.test(actsQuery.error.message)) {
+        actsQuery = await supabase
+          .from('lead_activities')
+          .select('lead_id, created_at')
+          .in('lead_id', leadIds)
+          .order('created_at', { ascending: false })
+      }
+      for (const a of actsQuery.data || []) {
         const cur = activityMeta.get(a.lead_id)
         if (!cur) activityMeta.set(a.lead_id, { count: 1, lastAt: a.created_at })
         else cur.count += 1
@@ -820,7 +853,8 @@ export async function createLead(formData: FormData): Promise<ActionResult> {
     const requiredErr = await assertCrmRequiredFields(supabase, orgId, values)
     if (requiredErr) return { error: requiredErr }
 
-    let nextFollow = values.nextFollowUpAt || null
+    const rowValues = leadRowFromValues(values, phone)
+    let nextFollow = rowValues.next_follow_up_at
     if (!nextFollow) {
       try {
         const { data: eff } = await supabase.rpc('get_org_effective_config', { p_org_id: orgId })
@@ -837,7 +871,7 @@ export async function createLead(formData: FormData): Promise<ActionResult> {
       org_id: orgId,
       status: 'new',
       counselor_id: counselorId,
-      ...leadRowFromValues(values, phone),
+      ...rowValues,
       next_follow_up_at: nextFollow,
     }
 
@@ -1004,8 +1038,17 @@ export async function softDeleteLead(leadId: string): Promise<ActionResult> {
       .maybeSingle()
     if (!lead) return { error: 'Lead khong ton tai hoac khong co quyen.' }
     if (lead.status === 'enrolled') {
-      return { error: 'Lead da nhap hoc — khong xoa.' }
+      return { error: 'Lead đã nhập học — không xóa.' }
     }
+
+    // Ghi nhật ký TRƯỚC soft-delete (RLS activities yêu cầu lead còn sống)
+    await logActivity(supabase, {
+      leadId: idParsed.data,
+      orgId: lead.org_id,
+      userId: user.id,
+      type: 'note',
+      description: 'Soft-delete lead (ẩn khỏi pipeline).',
+    })
 
     const { error, count } = await supabase
       .from('leads')
@@ -1013,20 +1056,12 @@ export async function softDeleteLead(leadId: string): Promise<ActionResult> {
       .eq('id', idParsed.data)
       .is('deleted_at', null)
     if (error) return { error: error.message }
-    if (count === 0) return { error: 'Khong xoa duoc lead (thieu quyen?).' }
-
-    await logActivity(supabase, {
-      leadId: idParsed.data,
-      orgId: lead.org_id,
-      userId: user.id,
-      type: 'note',
-      description: 'Soft-delete lead (an khoi pipeline).',
-    })
+    if (count === 0) return { error: 'Không xóa được lead (thiếu quyền?).' }
 
     revalidatePath('/crm/leads')
     return {}
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Loi xoa lead.' }
+    return { error: e instanceof Error ? e.message : 'Lỗi xóa lead.' }
   }
 }
 
@@ -1083,10 +1118,10 @@ export async function updateLeadStatus(
       patch.lost_reason = null
     }
     if (parsed.data.status === 'test_scheduled' && parsed.data.appointmentAt) {
-      patch.appointment_at = parsed.data.appointmentAt
+      patch.appointment_at = toTimestamptz(parsed.data.appointmentAt)
     }
     if (parsed.data.nextFollowUpAt) {
-      patch.next_follow_up_at = parsed.data.nextFollowUpAt
+      patch.next_follow_up_at = toTimestamptz(parsed.data.nextFollowUpAt)
     }
 
     let { error, count } = await supabase
@@ -1194,7 +1229,7 @@ export async function addLeadActivity(formData: FormData): Promise<ActionResult>
 
     const leadPatch: Record<string, unknown> = {}
     if (parsed.data.nextFollowUpAt) {
-      leadPatch.next_follow_up_at = parsed.data.nextFollowUpAt
+      leadPatch.next_follow_up_at = toTimestamptz(parsed.data.nextFollowUpAt)
     }
     // Auto-advance new → contacted on first care touch
     if (lead.status === 'new' && parsed.data.activityType !== 'note') {
@@ -1248,7 +1283,7 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
     } = await supabase.auth.getUser()
     if (!currentUser) return { error: 'Ban chua dang nhap.' }
 
-    const { data: lead, error: leadError } = await supabase
+    let { data: lead, error: leadError } = await supabase
       .from('leads')
       .select(
         'id, org_id, full_name, phone, email, status, converted_student_id, date_of_birth, gender, cccd, address, career_interest, interests, parent_name, parent_phone, parent_email, parent_relation, current_school, education_level, preferred_schedule, call_summary, notes'
@@ -1256,9 +1291,38 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
       .eq('id', values.leadId)
       .is('deleted_at', null)
       .maybeSingle()
-    if (leadError) return { error: `Loi doc lead: ${leadError.message}` }
+    if (leadError && /column|42703/i.test(leadError.message)) {
+      const legacy = await supabase
+        .from('leads')
+        .select('id, org_id, full_name, phone, status, converted_student_id, notes')
+        .eq('id', values.leadId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      lead = legacy.data
+        ? ({
+            ...legacy.data,
+            email: null,
+            date_of_birth: null,
+            gender: null,
+            cccd: null,
+            address: null,
+            career_interest: null,
+            interests: null,
+            parent_name: null,
+            parent_phone: null,
+            parent_email: null,
+            parent_relation: null,
+            current_school: null,
+            education_level: null,
+            preferred_schedule: null,
+            call_summary: null,
+          } as typeof lead)
+        : null
+      leadError = legacy.error
+    }
+    if (leadError) return { error: `Lỗi đọc lead: ${leadError.message}` }
     if (!lead) {
-      return { error: 'Lead khong ton tai hoac ban khong co quyen tren lead nay.' }
+      return { error: 'Lead không tồn tại hoặc bạn không có quyền trên lead này.' }
     }
     if (lead.converted_student_id) {
       return { error: 'Lead nay da duoc chuyen hoa thanh hoc sinh truoc do.' }

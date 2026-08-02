@@ -1345,6 +1345,7 @@ export default function CrmLeadsPage() {
 
       {detailLead && (
         <LeadDetailDrawer
+          key={detailLead.id}
           lead={detailLead}
           subjects={subjects}
           sources={sources}

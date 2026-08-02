@@ -168,3 +168,8 @@
 - Migration 053: CCCD/PH/so thich/nganh nghe + profiles sync; entity lead; CRM org_settings.
 - Copilot taskType crm_assist (RAG admissions, summarize, script, follow-up).
 - Settings tab Tuyen sinh; drawer tab AI; form lead mo rong.
+
+## 2026-08-02 | CRM bugfix pass
+- Soft-delete: log activity TRUOC khi an lead (RLS).
+- datetime-local -> ISO timestamptz; createLead khong ghi de follow-up thô.
+- AI form luon mode rag; drawer key=lead.id; fallback cot/activities/convert.

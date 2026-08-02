@@ -40,30 +40,33 @@ export function LeadAiAssist({
 }) {
   const [mode, setMode] = useState<Mode>('rag')
 
-  const {
-    completion,
-    input,
-    setInput,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    stop,
-    error,
-    complete,
-  } = useCompletion({
+  const { completion, input, setInput, isLoading, stop, error, complete } = useCompletion({
     api: '/api/ai/copilot',
     body: { taskType: 'crm_assist', orgId, leadId, mode },
   })
 
+  async function runMode(nextMode: Mode, prompt: string) {
+    setMode(nextMode)
+    await complete(prompt, {
+      body: { taskType: 'crm_assist', orgId, leadId, mode: nextMode },
+    })
+  }
+
   async function runQuick(item: (typeof QUICK)[number]) {
-    setMode(item.mode)
     if (item.mode === 'rag' && !item.prompt) {
+      setMode('rag')
       setInput('Học phí và lịch khai giảng chương trình phù hợp lead này?')
       return
     }
-    await complete(item.prompt || 'Hỗ trợ tư vấn tuyển sinh cho lead này.', {
-      body: { taskType: 'crm_assist', orgId, leadId, mode: item.mode },
-    })
+    await runMode(item.mode, item.prompt || 'Hỗ trợ tư vấn tuyển sinh cho lead này.')
+  }
+
+  async function onAsk(e: React.FormEvent) {
+    e.preventDefault()
+    const q = input.trim()
+    if (!q || isLoading) return
+    // Form tự do luôn dùng mode RAG (tránh kẹt mode summarize sau nút nhanh)
+    await runMode('rag', q)
   }
 
   if (!enabled) {
@@ -71,6 +74,14 @@ export function LeadAiAssist({
       <p className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
         AI tuyển sinh đang tắt. Bật tại <strong>Cài đặt → Tuyển sinh / CRM</strong>. Upload tài
         liệu FAQ tại <strong>/ai/knowledge-base</strong> (metadata category=admissions).
+      </p>
+    )
+  }
+
+  if (!orgId || !leadId) {
+    return (
+      <p className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+        Thiếu org/lead — không thể gọi AI.
       </p>
     )
   }
@@ -95,7 +106,7 @@ export function LeadAiAssist({
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-2">
+      <form onSubmit={(e) => void onAsk(e)} className="space-y-2">
         <label htmlFor="crm-ai-q" className="sr-only">
           Câu hỏi AI
         </label>
@@ -103,10 +114,7 @@ export function LeadAiAssist({
           id="crm-ai-q"
           rows={3}
           value={input}
-          onChange={(e) => {
-            setMode('rag')
-            handleInputChange(e)
-          }}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Hỏi về học phí, chương trình, lịch khai giảng… (RAG theo tài liệu cơ sở)"
           className="min-h-20 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
