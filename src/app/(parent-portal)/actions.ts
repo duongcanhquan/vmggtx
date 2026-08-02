@@ -455,8 +455,9 @@ export async function getAttendanceSummary(): Promise<AttendanceSummary> {
       unexcused,
       presentRate: total > 0 ? Math.round((present / total) * 100) : 100,
     }
-  } catch {
-    return MOCK_ATTENDANCE
+  } catch (e) {
+    console.error('[parent] getAttendanceSummary', e)
+    return { total: 0, present: 0, excused: 0, unexcused: 0, presentRate: 0 }
   }
 }
 
@@ -494,8 +495,9 @@ export async function getRecentGrades(): Promise<RecentGrade[]> {
         created_at: row.created_at,
       }
     })
-  } catch {
-    return MOCK_GRADES
+  } catch (e) {
+    console.error('[parent] getRecentGrades', e)
+    return []
   }
 }
 
@@ -540,8 +542,9 @@ export async function getWeekSessions(): Promise<WeekSession[]> {
         end_time: row.end_time,
       }
     })
-  } catch {
-    return MOCK_WEEK
+  } catch (e) {
+    console.error('[parent] getWeekSessions', e)
+    return []
   }
 }
 
@@ -768,8 +771,9 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
 
     notices.sort((a, b) => (a.date < b.date ? 1 : -1))
     return notices.length > 0 ? notices : []
-  } catch {
-    return MOCK_NOTICES
+  } catch (e) {
+    console.error('[parent] getParentNotices', e)
+    return []
   }
 }
 
@@ -832,8 +836,9 @@ export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
           : null
     }
     return Array.from(byClass.values())
-  } catch {
-    return MOCK_GRADE_REPORT
+  } catch (e) {
+    console.error('[parent] getParentGradeReport', e)
+    return []
   }
 }
 
@@ -974,29 +979,7 @@ export async function getParentInsights(): Promise<{
   const studentId = getSessionStudentId()
   if (!studentId) return { data: empty, loadError: 'Chưa đăng nhập phụ huynh.' }
   if (studentId === DEMO_STUDENT_ID) {
-    return {
-      data: {
-        presentRate: 92,
-        totalSessions: 24,
-        unexcused: 1,
-        avgScore: 8.2,
-        gradeTrend: [
-          { label: 'Kiểm tra 1', score: 7.5 },
-          { label: 'Kiểm tra 2', score: 8 },
-          { label: 'Giữa kỳ', score: 8.5 },
-          { label: 'Cuối kỳ', score: 9 },
-        ],
-        attendanceBars: [
-          { label: 'T2', present: 2, absent: 0 },
-          { label: 'T3', present: 1, absent: 1 },
-          { label: 'T4', present: 2, absent: 0 },
-          { label: 'T5', present: 2, absent: 0 },
-          { label: 'T6', present: 1, absent: 0 },
-        ],
-        openWarnings: 0,
-      },
-      loadError: null,
-    }
+    return { data: empty, loadError: 'Tai khoan demo — khong co du lieu that.' }
   }
 
   try {

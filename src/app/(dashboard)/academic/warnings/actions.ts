@@ -78,6 +78,29 @@ export async function scanAttendanceWarningsAdmin(
   orgId: string
 ): Promise<{ error: string } | { error?: undefined; count: number }> {
   try {
+    // Admin client bỏ qua RLS — bắt buộc xác thực caller trước khi quét.
+    // teacher+ (sau điểm danh) hoặc academic_staff (quét thủ công).
+    const authClient = createClient()
+    const {
+      data: { user },
+    } = await authClient.auth.getUser()
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
+
+    const { data: authorized, error: authzError } = await authClient.rpc(
+      'is_authorized',
+      {
+        p_user_id: user.id,
+        p_target_org_id: orgId,
+        p_required_role: 'teacher',
+      }
+    )
+    if (authzError) {
+      return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
+    }
+    if (authorized !== true) {
+      return { error: 'TỪ CHỐI: Bạn không có quyền quét cảnh báo cơ sở này.' }
+    }
+
     const admin = createAdminClient()
     const orgIds = await getSubtreeOrgIds(admin, orgId)
     const { value: unexcusedLimit } = await resolveSetting(

@@ -50,6 +50,7 @@ async function authorizeForStudent(studentId: string): Promise<
     .select('id, org_id')
     .eq('id', studentId)
     .eq('role', 'student')
+    .is('deleted_at', null)
     .maybeSingle()
   if (!student) return { error: 'Học sinh không tồn tại.' }
 
@@ -227,9 +228,11 @@ export async function enrollStudentToClass(
         .from('classes')
         .select('org_id')
         .eq('id', classId)
+        .is('deleted_at', null)
         .maybeSingle()
+      if (!cls) return { error: 'Lớp học không tồn tại hoặc đã bị xóa.' }
       const { error } = await supabase.from('enrollments').insert({
-        org_id: cls?.org_id ?? authz.orgId,
+        org_id: cls.org_id ?? authz.orgId,
         class_id: classId,
         student_id: studentId,
         status: 'active',

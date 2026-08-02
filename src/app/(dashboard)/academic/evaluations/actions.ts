@@ -71,6 +71,7 @@ export async function getEvaluationReport(orgId: string): Promise<EvaluationRepo
       .from('evaluation_results')
       .select('teacher_id, rating_teaching, rating_attitude, rating_punctuality, feedback_text')
       .in('org_id', orgIds)
+      .is('deleted_at', null)
     if (error) return { error: `Không đọc được kết quả khảo sát: ${error.message}` }
 
     if (!results || results.length === 0) return { stats: [] }

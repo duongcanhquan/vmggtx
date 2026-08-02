@@ -33,11 +33,6 @@ import { FunLoader } from '@/components/shared/FunLoader'
 // của Staff; server thậm chí không đọc org_id từ form.
 // ============================================================
 
-const MOCK_TEACHERS = [
-  { id: 'mock-t1', full_name: 'Phạm Quang Huy' },
-  { id: 'mock-t2', full_name: 'Lê Minh Anh' },
-]
-
 function formatDate(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('vi-VN', {
@@ -72,11 +67,11 @@ export default function StaffClassesPage() {
   useEffect(() => {
     getStaffContext().then(async (ctx) => {
       setContext(ctx)
-      if (ctx.demo) {
-        setTeachers(MOCK_TEACHERS)
-      } else {
+      if (ctx.orgId) {
         const result = await getTeachersInOrg(ctx.orgId)
-        setTeachers(result.data.length > 0 ? result.data : MOCK_TEACHERS)
+        setTeachers(result.data)
+      } else {
+        setTeachers([])
       }
     })
     loadClasses()
@@ -166,9 +161,6 @@ export default function StaffClassesPage() {
           <p className="text-sm text-indigo-900">
             Phạm vi thao tác:{' '}
             <span className="font-semibold">{context.orgName}</span>
-            {context.demo && (
-              <span className="ml-1 text-indigo-600">(dữ liệu demo)</span>
-            )}
           </p>
         </div>
       )}

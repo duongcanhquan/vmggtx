@@ -94,7 +94,6 @@ type AttendanceTarget = {
 export default function TeacherSchedulePage() {
   const [weekStart, setWeekStart] = useState(() => getMondayISO(new Date()))
   const [sessions, setSessions] = useState<TeachingSession[]>([])
-  const [isDemo, setIsDemo] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const [target, setTarget] = useState<AttendanceTarget | null>(null)
@@ -106,7 +105,6 @@ export default function TeacherSchedulePage() {
     setLoading(true)
     const result = await getMyWeekSessions(weekStart)
     setSessions(result.data)
-    setIsDemo(result.demo)
     setLoading(false)
   }, [weekStart])
 
@@ -211,12 +209,6 @@ export default function TeacherSchedulePage() {
           </button>
         </div>
       </div>
-
-      {isDemo && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị lịch demo (chưa đăng nhập).
-        </p>
-      )}
 
       {/* ===== Lưới tuần: 7 cột desktop, xếp dọc mobile ===== */}
       {loading ? (

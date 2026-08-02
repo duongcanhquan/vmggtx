@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { Toast, type ToastData } from '@/components/shared/Toast'
+import { AcademicAiAssist } from '@/components/academic/AcademicAiAssist'
 import {
   getWarnings,
   runEarlyWarningSystem,
@@ -84,6 +85,17 @@ export default function AcademicWarningsPage() {
   )
   const attendanceCount = warnings.filter((w) => w.warning_type === 'attendance').length
   const gradeCount = warnings.filter((w) => w.warning_type === 'grade').length
+
+  const aiContext = useMemo(() => {
+    if (warnings.length === 0) return 'Chưa có cảnh báo học vụ trong phạm vi org đang chọn.'
+    return warnings
+      .slice(0, 40)
+      .map(
+        (w) =>
+          `- [${w.warning_type}/${w.status}] ${w.student_name} · ${w.class_name}: ${w.description}`
+      )
+      .join('\n')
+  }, [warnings])
 
   async function handleScan() {
     if (!currentOrgId) {
@@ -182,6 +194,20 @@ export default function AcademicWarningsPage() {
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
           Không tải được cảnh báo: {loadError}
         </p>
+      )}
+
+      {currentOrgId && !loadError && (
+        <AcademicAiAssist
+          orgId={currentOrgId}
+          contextPayload={aiContext}
+          title="AI hỗ trợ cảnh báo"
+          defaultPrompt="Ưu tiên xử lý các cảnh báo và soạn khung tin nhắn gửi phụ huynh."
+          suggestions={[
+            'Tóm tắt rủi ro theo mức ưu tiên',
+            'Soạn tin Zalo/PH cho các cảnh báo chưa gửi',
+            'Gợi ý kế hoạch can thiệp 7 ngày',
+          ]}
+        />
       )}
 
       {/* ===== Thẻ tổng hợp ===== */}

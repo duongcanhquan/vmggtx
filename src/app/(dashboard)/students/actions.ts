@@ -132,12 +132,6 @@ ${JSON.stringify(rows.map((r) => ({ fullName: r.fullName, address: r.address }))
 
 type ExistingStudent = { email: string | null; phone: string | null; orgName: string }
 
-// Dữ liệu mẫu để demo khi DB chưa sẵn sàng
-const MOCK_EXISTING: ExistingStudent[] = [
-  { email: 'an.nguyen@example.com', phone: '0901234567', orgName: 'Chi nhánh Cầu Giấy' },
-  { email: 'binh.tran@example.com', phone: '0912345678', orgName: 'Chi nhánh Quận 1' },
-]
-
 async function findExistingStudents(
   emails: string[],
   phones: string[]
@@ -160,7 +154,8 @@ async function findExistingStudents(
       .is('deleted_at', null)
 
     if (error) {
-      return { existing: MOCK_EXISTING, usedDb: false }
+      // Fail-closed: không giả danh sách trùng — chặn import phía validate
+      return { existing: [], usedDb: false }
     }
     return {
       existing: (data ?? []).map((row) => {
@@ -175,7 +170,7 @@ async function findExistingStudents(
       usedDb: true,
     }
   } catch {
-    return { existing: MOCK_EXISTING, usedDb: false }
+    return { existing: [], usedDb: false }
   }
 }
 
@@ -228,6 +223,22 @@ export async function validateImportData(
     checkableRows.map((r) => r.email.trim().toLowerCase()),
     checkableRows.map((r) => normalizePhone(r.phone))
   )
+
+  // Fail-closed: không kết nối DB thì không thể đảm bảo không trùng — chặn import.
+  if (!usedDb) {
+    return {
+      rows: rows.map((row) => ({
+        input: row,
+        normalized: { fullName: row.fullName, address: row.address },
+        status: 'invalid' as const,
+        message:
+          'Không kết nối được CSDL — không thể kiểm tra trùng lặp. Thử lại sau.',
+      })),
+      usedAI: false,
+      usedDb: false,
+    }
+  }
+
   const existingByEmail = new Map(
     existing.filter((e) => e.email).map((e) => [e.email!.toLowerCase(), e])
   )

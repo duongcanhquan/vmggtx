@@ -12,17 +12,6 @@ import { Toast, type ToastData } from '@/components/shared/Toast'
 import { classFormSchema } from '@/lib/validation/schemas'
 import { createClass, getActiveSubjects, getTeachersInOrg } from '../actions'
 
-// Mock cho demo khi DB chưa có dữ liệu
-const MOCK_SUBJECTS = [
-  { id: 'sub-toan', name: 'Toán' },
-  { id: 'sub-van', name: 'Ngữ văn' },
-  { id: 'sub-anh', name: 'Tiếng Anh' },
-]
-const MOCK_TEACHERS = [
-  { id: 'gv-001', full_name: 'Nguyễn Thị Hoa' },
-  { id: 'gv-002', full_name: 'Phạm Văn Long' },
-]
-
 const inputClass =
   'h-11 w-full rounded-xl border border-border bg-surface px-3.5 text-base text-foreground shadow-sm transition-colors duration-200 placeholder:text-slate-400 hover:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm'
 const inputErrorClass =
@@ -46,8 +35,8 @@ export default function NewClassPage() {
   const orgTree = useOrgStore((state) => state.orgTree)
   const currentOrg = currentOrgId ? findOrgNode(orgTree, currentOrgId) : null
 
-  const [subjects, setSubjects] = useState(MOCK_SUBJECTS)
-  const [teachers, setTeachers] = useState(MOCK_TEACHERS)
+  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
+  const [teachers, setTeachers] = useState<{ id: string; full_name: string }[]>([])
   const [toast, setToast] = useState<ToastData | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -74,7 +63,7 @@ export default function NewClassPage() {
   useEffect(() => {
     let cancelled = false
     getActiveSubjects().then((result) => {
-      if (!cancelled && result.data.length > 0) setSubjects(result.data)
+      if (!cancelled) setSubjects(result.data)
     })
     return () => {
       cancelled = true
@@ -82,10 +71,13 @@ export default function NewClassPage() {
   }, [])
 
   useEffect(() => {
-    if (!currentOrgId) return
+    if (!currentOrgId) {
+      setTeachers([])
+      return
+    }
     let cancelled = false
     getTeachersInOrg(currentOrgId).then((result) => {
-      if (!cancelled && result.data.length > 0) setTeachers(result.data)
+      if (!cancelled) setTeachers(result.data)
     })
     return () => {
       cancelled = true

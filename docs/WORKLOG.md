@@ -157,3 +157,9 @@
 - MenuKey reports + /reports cockpit + academic + exams (Recharts bento).
 - /teacher/insights, /parent/insights; ReportKpiTile + ReportCharts.
 - Overview doanh thu = payments that; moduleCatalog reports. Build exit 0.
+
+## 2026-08-02 | ra soat hoc vu + AI academic_assist (D20)
+- Bo MOCK catch parent portal; import fail-closed khi mat DB; auth scan canh bao.
+- createAssessment + UI so diem; softDeleteAssessment; payroll completed.
+- Copilot taskType academic_assist + AcademicAiAssist (warnings/grades/diary).
+- Enrollment active + deleted_at; bo banner demo staff/teacher/attendance.

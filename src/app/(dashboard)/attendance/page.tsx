@@ -27,7 +27,6 @@ const timeFormat = new Intl.DateTimeFormat('vi-VN', {
 export default function AttendancePage() {
   const currentOrgId = useOrgStore((state) => state.currentOrgId)
   const [sessions, setSessions] = useState<TodaySession[]>([])
-  const [isDemo, setIsDemo] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -40,7 +39,6 @@ export default function AttendancePage() {
     getTodaySessions(currentOrgId).then((result) => {
       if (cancelled) return
       setSessions(result.data)
-      setIsDemo(result.demo)
       setLoading(false)
     })
     return () => {
@@ -78,12 +76,6 @@ export default function AttendancePage() {
           </p>
         )}
       </div>
-
-      {isDemo && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Chưa đăng nhập hoặc chưa chọn cơ sở — không tải được lịch buổi học.
-        </p>
-      )}
 
       {loading ? (
         <FunLoader label="Đang tải buổi học hôm nay…" />

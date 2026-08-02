@@ -49,3 +49,8 @@ Mỗi quyết định 1-3 dòng. Thêm mới vào CUỐI danh sách với mã D 
   `/reports` (campus/học vụ/KT), `/reports/academic`, `/reports/exams`,
   `/teacher/insights`, `/parent/insights`. Recharts + bento KPI; overview
   «Doanh thu đã thu» = tổng `payments` (không MOCK học phí).
+- **D20** AI học vụ (`taskType: academic_assist` trên `/api/ai/copilot`):
+  hỗ trợ cảnh báo sớm, sổ điểm, sổ đầu bài; nhận `extraContext` vận hành
+  + RAG nhẹ; tối thiểu role `teacher` trên org. Không MOCK khi lỗi DB
+  (parent/staff/teacher trả empty/`loadError`). Tạo cột điểm qua
+  `createAssessment` trên sổ điểm GV.

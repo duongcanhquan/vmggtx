@@ -19,20 +19,24 @@ export const maxDuration = 60
 // - RAG Isolation: mọi context đều qua match_lesson_materials
 //   với p_org_id BẮT BUỘC (migration 018).
 // - taskType quyết định vai trò + nguồn context:
-//     tutor       : học sinh hỏi bài  (RAG theo LỚP)
-//     lesson_plan : giáo viên tạo giáo án (RAG toàn cơ sở = syllabus)
-//     hr_query    : tra cứu quy chế nội bộ (RAG toàn cơ sở)
+//     tutor            : học sinh hỏi bài  (RAG theo LỚP)
+//     lesson_plan      : giáo viên tạo giáo án (RAG toàn cơ sở = syllabus)
+//     hr_query         : tra cứu quy chế nội bộ (RAG toàn cơ sở)
+//     academic_assist  : giáo vụ/GV — cảnh báo, sổ điểm, sổ đầu bài
+//                        (extraContext có cấu trúc + RAG nhẹ toàn cơ sở)
 // ============================================================
 
 const AI_MAINTENANCE_MESSAGE = 'Trợ lý AI đang bảo trì, vui lòng quay lại sau'
 
-const TASK_TYPES = ['tutor', 'lesson_plan', 'hr_query'] as const
+const TASK_TYPES = ['tutor', 'lesson_plan', 'hr_query', 'academic_assist'] as const
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1, 'Thiếu prompt.').max(4000, 'Prompt tối đa 4000 ký tự.'),
   taskType: z.enum(TASK_TYPES),
   orgId: z.string().uuid().optional(),
   classId: z.string().uuid().optional(),
+  /** Ngữ cảnh vận hành (cảnh báo, điểm…) — tối đa 6000 ký tự */
+  extraContext: z.string().max(6000).optional(),
 })
 
 type MatchedMaterial = { content: string; metadata?: Record<string, unknown> }
@@ -79,6 +83,13 @@ CHỈ trả lời dựa trên quy chế/tài liệu nội bộ dưới đây. N�
 
 QUY CHẾ / TÀI LIỆU NỘI BỘ:
 ${context}`
+    case 'academic_assist':
+      return `Bạn là cố vấn học vụ của hệ thống EDU SYSTEM, trả lời bằng tiếng Việt, ngắn gọn, hành động được.
+Ưu tiên dữ liệu VẬN HÀNH được cung cấp (cảnh báo, điểm, chuyên cần, sổ đầu bài). Tài liệu RAG chỉ bổ sung nếu liên quan.
+Không bịa số liệu. Nếu thiếu dữ liệu, nêu rõ và hỏi thêm. Với tin nhắn phụ huynh: lịch sự, không tiết lộ dữ liệu học viên khác.
+
+DỮ LIỆU VẬN HÀNH + TÀI LIỆU:
+${context}`
   }
 }
 
@@ -102,12 +113,12 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
-  const { prompt, taskType, classId } = parsed.data
+  const { prompt, taskType, classId, extraContext } = parsed.data
 
   // ===== BƯỚC 2: XÁC ĐỊNH org_id ĐÁNG TIN CẬY =====
   // - tutor: org lấy từ LỚP HỌC (server-side truth, không tin client).
-  // - lesson_plan / hr_query: orgId client gửi lên phải nằm trong phạm
-  //   vi của user (chống mượn API Key của cơ sở khác để đốt chi phí).
+  // - lesson_plan / hr_query / academic_assist: orgId client gửi lên phải
+  //   nằm trong phạm vi của user (chống mượn API Key tenant khác).
   let orgId: string
   let ragClassId: string | null = null
 
@@ -181,6 +192,22 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     }
+
+    // academic_assist: tối thiểu teacher trên org (chứa dữ liệu HV nhạy cảm)
+    if (taskType === 'academic_assist') {
+      const { data: staffOk } = await supabase.rpc('is_authorized', {
+        p_user_id: user.id,
+        p_target_org_id: requestedOrgId,
+        p_required_role: 'teacher',
+      })
+      if (staffOk !== true && profile.role !== 'super_admin') {
+        return NextResponse.json(
+          { error: 'TỪ CHỐI: Trợ lý học vụ chỉ dành cho GV / Giáo vụ trở lên.' },
+          { status: 403 }
+        )
+      }
+    }
+
     orgId = requestedOrgId
   }
 
@@ -219,44 +246,67 @@ export async function POST(request: NextRequest) {
         ? tenantConfig.apiKey
         : process.env.OPENAI_API_KEY
 
-    let context = '(Chưa có tài liệu nào trong kho tri thức của cơ sở)'
-    if (embeddingKey) {
-      const embeddingClient = createOpenAI({ apiKey: embeddingKey })
-      const { embedding } = await embed({
-        model: embeddingClient.embedding('text-embedding-3-small'),
-        value: prompt,
-        abortSignal: AbortSignal.timeout(30_000),
-      })
+    let ragBlock = ''
+    // academic_assist ưu tiên extraContext; RAG chỉ bổ sung khi có key embedding
+    const shouldRag =
+      taskType !== 'academic_assist' || !extraContext?.trim() || Boolean(embeddingKey)
+    if (embeddingKey && shouldRag) {
+      try {
+        const embeddingClient = createOpenAI({ apiKey: embeddingKey })
+        const { embedding } = await embed({
+          model: embeddingClient.embedding('text-embedding-3-small'),
+          value: prompt,
+          abortSignal: AbortSignal.timeout(30_000),
+        })
 
-      // [CÁCH LY TUYỆT ĐỐI] p_org_id bắt buộc; tutor khoanh theo lớp,
-      // lesson_plan / hr_query tìm TOÀN CƠ SỞ (filter_class_id null)
-      const { data: materials, error: rpcError } = await supabase.rpc(
-        'match_lesson_materials',
-        {
-          query_embedding: embedding,
-          p_org_id: orgId,
-          filter_class_id: ragClassId,
-          match_count: taskType === 'tutor' ? 5 : 8,
+        // [CÁCH LY TUYỆT ĐỐI] p_org_id bắt buộc; tutor khoanh theo lớp,
+        // các task khác tìm TOÀN CƠ SỞ (filter_class_id null)
+        const { data: materials, error: rpcError } = await supabase.rpc(
+          'match_lesson_materials',
+          {
+            query_embedding: embedding,
+            p_org_id: orgId,
+            filter_class_id: ragClassId,
+            match_count:
+              taskType === 'tutor' ? 5 : taskType === 'academic_assist' ? 4 : 8,
+          }
+        )
+        if (rpcError) {
+          console.error('[AI Copilot] Lỗi RPC match_lesson_materials:', rpcError.message)
+          // academic_assist vẫn chạy được với extraContext thuần
+          if (taskType !== 'academic_assist') {
+            return new NextResponse(AI_MAINTENANCE_MESSAGE, { status: 503 })
+          }
+        } else {
+          const found = (materials as MatchedMaterial[] | null) ?? []
+          if (found.length > 0) {
+            ragBlock = found
+              .map((m, i) => `[Tài liệu ${i + 1}] ${m.content}`)
+              .join('\n---\n')
+          }
         }
-      )
-      if (rpcError) {
-        console.error('[AI Copilot] Lỗi RPC match_lesson_materials:', rpcError.message)
-        return new NextResponse(AI_MAINTENANCE_MESSAGE, { status: 503 })
-      }
-
-      const found = (materials as MatchedMaterial[] | null) ?? []
-      if (found.length > 0) {
-        context = found
-          .map((m, i) => `[Tài liệu ${i + 1}] ${m.content}`)
-          .join('\n---\n')
+      } catch (embedErr) {
+        console.error('[AI Copilot] embedding failed', embedErr)
+        if (taskType !== 'academic_assist') {
+          return new NextResponse(AI_MAINTENANCE_MESSAGE, { status: 503 })
+        }
       }
     }
+
+    const opsBlock = extraContext?.trim()
+      ? `[DỮ LIỆU VẬN HÀNH]\n${extraContext.trim()}`
+      : ''
+    const context =
+      [opsBlock, ragBlock || (opsBlock ? '' : '(Chưa có tài liệu / dữ liệu vận hành)')]
+        .filter(Boolean)
+        .join('\n\n') || '(Chưa có tài liệu / dữ liệu vận hành)'
 
     // ===== BƯỚC 5: stream câu trả lời =====
     const result = streamText({
       model: aiModel,
       system: buildSystemPrompt(taskType, context),
       prompt,
+      abortSignal: AbortSignal.timeout(55_000),
     })
 
     return result.toDataStreamResponse({

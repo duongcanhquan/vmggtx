@@ -28,6 +28,7 @@ import {
   type SessionRoster,
 } from '../../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { AcademicAiAssist } from '@/components/academic/AcademicAiAssist'
 import { BehaviorPanel } from './BehaviorPanel'
 
 // ============================================================
@@ -326,6 +327,29 @@ export default function AttendanceSessionPage({ params }: PageProps) {
             <p className="mt-0.5 text-xs text-muted-foreground">
               Tự động hiển thị lên Sổ Liên Lạc của phụ huynh để nắm tình hình học tập trong ngày.
             </p>
+
+            <div className="mt-3">
+              <AcademicAiAssist
+                orgId={roster.orgId}
+                classId={roster.classId || params.class_id}
+                contextPayload={[
+                  `Lớp: ${roster.className}`,
+                  `Phòng: ${roster.room ?? '—'}`,
+                  `Sĩ số: ${roster.students.length}`,
+                  `Vắng KP hiện tại (UI): ${absentCount}`,
+                  `Nhận xét nội bộ: ${sessionNote || '(trống)'}`,
+                  `Dặn dò PH: ${parentNote || '(trống)'}`,
+                  `Nội dung đã ghi: ${diary.actualContent || '(trống)'}`,
+                ].join('\n')}
+                title="AI soạn sổ đầu bài"
+                defaultPrompt="Soạn nội dung thực dạy (3-5 câu), gợi ý thái độ lớp (tốt/khá/ồn), và 2-3 nhắc nhở ngắn cho buổi sau. Không bịa tên học viên."
+                suggestions={[
+                  'Nháp nội dung thực dạy theo giáo án phổ thông',
+                  'Soạn dặn dò phụ huynh lịch sự',
+                  'Gợi ý nhận xét nội bộ cho giáo vụ',
+                ]}
+              />
+            </div>
 
             <div className="mt-4 space-y-4">
               <label htmlFor="diary-content" className="block text-sm font-medium">

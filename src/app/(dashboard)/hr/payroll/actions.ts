@@ -136,14 +136,16 @@ export async function calculateMonthlyPayroll(
 
     // [ĐA TẦNG] Bắt buộc lọc org_id: chỉ tính tiết dạy trong subtree của
     // org trả lương - buổi dạy ở cơ sở khác do cơ sở đó tự chi trả.
+    // Khớp D07 / payrollService: chỉ buổi completed + có điểm danh
     const { data: sessions, error: sessionError } = await supabase
       .from('class_sessions')
       .select('id, teacher_id, start_time, end_time')
       .in('teacher_id', teacherIds)
       .in('org_id', orgIds)
+      .eq('status', 'completed')
       .gte('start_time', monthStart.toISOString())
       .lt('start_time', monthEnd.toISOString())
-      .lte('end_time', now.toISOString()) // chỉ buổi ĐÃ diễn ra
+      .lte('end_time', now.toISOString())
       .is('deleted_at', null)
     if (sessionError) return { error: `Lỗi đọc buổi dạy: ${sessionError.message}` }
 
