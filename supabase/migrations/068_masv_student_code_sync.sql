@@ -1,5 +1,5 @@
 -- ============================================================
--- 067: Đồng bộ MaSV ↔ student_code (QA-FIX A)
+-- 068: Đồng bộ MaSV ↔ student_code (QA-FIX A)
 --
 -- Vấn đề: createStudent/CRM chỉ ghi student_code; import ghi MaSV
 -- + generate student_code khác → login (MaSV) lệch list (student_code).

@@ -258,3 +258,7 @@
 - C: mock-on-empty off; payroll/accountant; assertClassAccess (co-teacher/cohort).
 - D/E: report paginate; tutor timeout; form validate; toast; truncate; lucide Wallet.
 - Build + tsc sach. Can chay 067 (va 066 HR) tren DB.
+
+## 2026-08-02 | Commit QA High + HR/LMS batch
+- Migration numbering: 067 HR leave, 068 MaSV backfill.
+- Build + tsc sach truoc push.

@@ -311,16 +311,16 @@ await checkTable('lms_rubric_criteria', '065_lms_rubrics.sql')
 await checkTable('lms_rubric_levels', '065_lms_rubrics.sql')
 await checkTable('lms_submission_grades', '065_lms_rubrics.sql')
 
-console.log('\n-- Migration 066 (MaSV ↔ student_code sync) --')
-console.log(
-  '[INFO] Backfill MaSV (nếu có) chạy SQL Editor riêng. Không thêm bảng mới.'
-)
-
 console.log('\n-- Migration 067 (HR phép / ngày công / lương VP) --')
 await checkTable('hr_leave_balances', '067_hr_leave_workdays.sql')
 await checkTable('hr_leave_requests', '067_hr_leave_workdays.sql')
 await checkTable('hr_workday_overrides', '067_hr_leave_workdays.sql')
 await checkTable('staff_salary_terms', '067_hr_leave_workdays.sql')
+
+console.log('\n-- Migration 068 (MaSV ↔ student_code sync) --')
+console.log(
+  '[INFO] 068_masv_student_code_sync.sql = data backfill (chạy SQL Editor). Không thêm bảng mới.'
+)
 
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
