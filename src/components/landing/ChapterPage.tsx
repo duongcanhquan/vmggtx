@@ -99,19 +99,18 @@ export function ChapterPage({ slug }: { slug: string }) {
                   {section.title}
                 </h2>
                 <p className="mt-4 text-base leading-relaxed text-white/65">{section.body}</p>
-                {section.bullets && (
-                  <ul className="mt-6 space-y-3">
-                    {section.bullets.map((b) => (
-                      <li
-                        key={b}
-                        className="lp-glass flex items-start gap-3 rounded-2xl px-4 py-3.5 text-sm text-white/80"
-                      >
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal-300" aria-hidden="true" />
-                        {b}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ul className="mt-6 grid gap-2 sm:grid-cols-1">
+                  {section.bullets.map((b, bi) => (
+                    <li
+                      key={b}
+                      className="lp-feat-item flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/85"
+                      style={{ transitionDelay: `${0.05 + bi * 0.04}s` }}
+                    >
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal-300" aria-hidden="true" />
+                      {b}
+                    </li>
+                  ))}
+                </ul>
               </section>
             ))}
           </div>

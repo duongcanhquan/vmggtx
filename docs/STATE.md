@@ -3,8 +3,8 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-02 - Marketing đa chương: `/login` hub + `/gioi-thieu/*` (linh hoạt,
-  đào tạo, con người, AI, vận hành); ảnh người; bỏ copy superadmin; icon sách → `/login/admin`
+**Cập nhật lần cuối**: 2026-08-02 - Landing tối ưu: WebP (~25–170KB), motion GPU-friendly,
+  catalog tính năng gạch đầu dòng theo tab; `/gioi-thieu/*` bullets đầy đủ
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
