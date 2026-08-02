@@ -33,54 +33,60 @@ export type Chapter = {
   }[]
 }
 
-/** Nhóm tính năng chi tiết — hiển thị trên hub (không chỉ tóm tắt) */
+/** Nhóm tính năng — highlights = điểm nhấn nổi bật trên hub */
 export const FEATURE_GROUPS: {
   title: string
   chapter: ChapterSlug
+  highlights: string[]
   items: string[]
 }[] = [
   {
     title: 'Đa cơ sở & cấu hình',
     chapter: 'linh-hoat',
+    highlights: [
+      'Cây tổ chức nhiều cấp — mỗi cơ sở một cổng riêng',
+      'Sẵn sàng mở rộng / sát nhập mà giữ nguyên lịch sử',
+      'Bật tắt module theo đúng gói đã mua',
+    ],
     items: [
-      'Cây tổ chức nhiều cấp: trường → cơ sở → trung tâm / chi nhánh',
       'Cổng đăng nhập riêng theo từng cơ sở (/coso/…)',
       'Dữ liệu gắn đúng đơn vị — không lẫn giữa các cơ sở',
       '3 quy tắc đặt mã học viên — mỗi cơ sở tự chọn',
       'Trường thông tin riêng (custom fields) theo đơn vị',
-      'Bật / tắt module theo gói dịch vụ đã mua',
       'Dashboard kéo-thả, lưu góc nhìn bảng theo từng người',
       'Chuyển học viên / giảng viên giữa các cơ sở',
-      'Sẵn sàng mở rộng, sát nhập mà giữ lịch sử học tập & học phí',
     ],
   },
   {
     title: 'Đào tạo · Điểm danh · Khảo thí',
     chapter: 'dao-tao',
+    highlights: [
+      'Điểm danh + sổ đầu bài + hành vi trong một buổi học',
+      'Lịch dạy hai chiều: GV đề xuất — giáo vụ duyệt',
+      'Khóa sổ điểm minh bạch trước khi công bố',
+    ],
     items: [
       'Tạo / sửa lớp, sĩ số tối đa, gán giảng viên',
       'Ghi danh, chuyển lớp, bảo lưu, thôi học, hoàn thành',
-      'Điểm danh buổi học: có mặt / vắng / muộn / có phép',
-      'Sổ đầu bài: nhận xét học sinh, nhận xét lớp, dặn dò phụ huynh',
-      'Ghi nhận hành vi (+/− điểm) + cảnh báo sớm bỏ học',
-      'Lịch dạy hai chiều: giáo viên đề xuất / xin nghỉ — giáo vụ duyệt',
       'Dạy thay, dạy bù gắn buổi hủy',
       'Lịch thi, mã đề, phân công giám thị',
-      'Khóa sổ điểm, đăng ký thi lại / phúc khảo, duyệt kết quả',
+      'Đăng ký thi lại / phúc khảo, duyệt kết quả',
       'Import học viên Excel (bắt buộc cột MaSV)',
     ],
   },
   {
     title: 'Học viên · Giảng viên · Phụ huynh',
     chapter: 'con-nguoi',
+    highlights: [
+      'Hồ sơ học viên 360° — một màn hình đủ mọi thứ',
+      'Sổ liên lạc phụ huynh: lịch · điểm · học phí',
+      'Phân quyền + kiêm nhiệm theo từng người',
+    ],
     items: [
-      'Hồ sơ học viên 360°: lớp, điểm danh, điểm, học phí, hành vi',
       'Sửa thông tin định danh (họ tên, SĐT, địa chỉ, MaSV)',
       'Danh bạ giảng viên + gán / gỡ nhiều lớp cùng lúc',
       'Hợp đồng & tính lương theo buổi đã dạy + điểm danh',
       'Dự báo ngân sách lương theo lịch tháng tới',
-      'Phân quyền theo vai trò + gán quyền kiêm nhiệm từng người',
-      'Sổ liên lạc phụ huynh: lịch, điểm, học phí, thông báo',
       'Nhắc học phí tự động trên cổng & sổ liên lạc',
       'Thông báo toàn cơ sở',
     ],
@@ -88,13 +94,15 @@ export const FEATURE_GROUPS: {
   {
     title: 'LMS · AI · Học tập số',
     chapter: 'hoc-tap-ai',
+    highlights: [
+      'AI Tutor trong phạm vi kiến thức từng cơ sở (RAG)',
+      'Quiz online — chấm điểm phía máy chủ, không gian lận',
+      'Theo dõi ai đã học, ai nộp bài, ai còn thiếu',
+    ],
     items: [
       'Bài giảng: upload file / gắn YouTube',
       'Bài tập về nhà + bài tập theo bài giảng',
-      'Quiz / kiểm tra online — chấm điểm phía máy chủ',
-      'Theo dõi ai đã xem bài, ai nộp bài, ai chưa học',
       'AI hỗ trợ giáo viên soạn đề cương / câu hỏi',
-      'AI Tutor trả lời trong phạm vi kiến thức của cơ sở (RAG)',
       'Kho tri thức AI riêng từng đơn vị',
       'Cổng học viên xem bài, nộp bài, hỏi AI',
     ],
@@ -102,17 +110,41 @@ export const FEATURE_GROUPS: {
   {
     title: 'Tài chính · Tuyển sinh · Hành chính',
     chapter: 'van-hanh',
+    highlights: [
+      'Hóa đơn → thu tiền → biên lai in / PDF liền mạch',
+      'CRM tuyển sinh theo người phụ trách & chiến dịch',
+      'Công nợ theo tuổi nợ — biết ai cần nhắc ngay',
+    ],
     items: [
-      'Hóa đơn học phí, thu tiền, biên lai in / PDF',
-      'Báo cáo công nợ theo tuổi nợ (0–7 / 8–30 / >30 ngày)',
       'Hủy / điều chỉnh hóa đơn có kiểm soát',
-      'CRM tuyển sinh: lead, chiến dịch, theo người phụ trách',
       'Báo cáo chuyển đổi tuyển sinh',
       'Quản lý tài sản, khấu hao, luân chuyển giữa đơn vị / lớp',
       'Đơn từ / ticket dịch vụ nội bộ',
       'Báo cáo tổng quan biểu đồ (lớp, điểm danh, nghỉ học…)',
     ],
   },
+]
+
+/** Dòng chảy kiến thức — chạy liên tục trên mọi trang marketing */
+export const KNOWLEDGE_STREAM = [
+  'Tuyển sinh',
+  'Xếp lớp',
+  'Điểm danh',
+  'Sổ đầu bài',
+  'LMS',
+  'Bài tập',
+  'Quiz',
+  'Khảo thí',
+  'Điểm số',
+  'AI Tutor',
+  'Sổ liên lạc',
+  'Học phí',
+  'Lương GV',
+  'Tài sản',
+  'Phân quyền',
+  'Đa cơ sở',
+  'Kiến thức',
+  'Chuyển đổi số',
 ]
 
 export const CHAPTERS: Chapter[] = [
@@ -356,34 +388,73 @@ export const HUB_PILLARS = [
     title: 'Linh hoạt từng cơ sở',
     desc: 'Cá nhân hóa, cấu hình, mở rộng & sát nhập',
     icon: Sparkles,
-    image: '/landing/campus.webp',
+    tone: 'from-teal-500/40 via-sky-600/20 to-transparent',
+    numeral: '01',
   },
   {
     slug: 'dao-tao' as const,
     title: 'Đào tạo khép kín',
     desc: 'Lớp · Điểm danh · Khảo thí',
     icon: GraduationCap,
-    image: '/landing/teacher.webp',
+    tone: 'from-sky-500/40 via-indigo-600/20 to-transparent',
+    numeral: '02',
   },
   {
     slug: 'con-nguoi' as const,
     title: 'Con người là trung tâm',
     desc: 'Học viên · Giảng viên · Phụ huynh',
     icon: HeartHandshake,
-    image: '/landing/students.webp',
+    tone: 'from-amber-500/35 via-orange-600/15 to-transparent',
+    numeral: '03',
   },
   {
     slug: 'hoc-tap-ai' as const,
     title: 'Học tập số & AI',
     desc: 'LMS · Bài tập · Trợ lý thông minh',
     icon: Bot,
-    image: '/landing/learning.webp',
+    tone: 'from-emerald-500/40 via-teal-700/20 to-transparent',
+    numeral: '04',
   },
   {
     slug: 'van-hanh' as const,
     title: 'Vận hành nhà trường',
     desc: 'Học phí · Tuyển sinh · Tài sản',
     icon: Building2,
-    image: '/landing/family.webp',
+    tone: 'from-rose-500/30 via-amber-600/15 to-transparent',
+    numeral: '05',
+  },
+]
+
+/** Hành trình giáo dục — storytelling trên hub (không dùng ảnh) */
+export const EDU_JOURNEY = [
+  {
+    step: '01',
+    title: 'Tuyển sinh',
+    line: 'Lead vào hệ thống — có người phụ trách, có chiến dịch, có số chuyển đổi.',
+  },
+  {
+    step: '02',
+    title: 'Xếp lớp',
+    line: 'Ghi danh, sĩ số, gán giảng viên — học viên vào đúng chỗ từ ngày đầu.',
+  },
+  {
+    step: '03',
+    title: 'Giảng dạy',
+    line: 'Lịch dạy hai chiều, điểm danh, sổ đầu bài, LMS — buổi học được ghi nhận đủ.',
+  },
+  {
+    step: '04',
+    title: 'Đánh giá',
+    line: 'Điểm số, khảo thí, thi lại — khóa sổ minh bạch trước khi công bố.',
+  },
+  {
+    step: '05',
+    title: 'Kết nối gia đình',
+    line: 'Sổ liên lạc: lịch, điểm, học phí, dặn dò — phụ huynh nắm trên điện thoại.',
+  },
+  {
+    step: '06',
+    title: 'Vận hành',
+    line: 'Học phí, tài sản, phân quyền — nhà trường chạy êm phía sau lớp học.',
   },
 ]

@@ -3,8 +3,8 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-02 - Landing tối ưu: WebP (~25–170KB), motion GPU-friendly,
-  catalog tính năng gạch đầu dòng theo tab; `/gioi-thieu/*` bullets đầy đủ
+**Cập nhật lần cuối**: 2026-08-02 - Landing: knowledge river chạy mọi trang; ảnh chỉ hero;
+  điểm nhấn tính năng; chapter tech/gradient; typography lớn
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
@@ -52,7 +52,8 @@
 6. Login lỗi production: kiểm tra env Supabase + JWT hook 006; dùng `/coso/{slug}/login` sau khi có slug.
 
 ## Cổng /coso/[slug] (mới - 2026-08-01)
-- Gốc `/login` = Super Admin; hub `/coso` chọn cơ sở; `/coso/{slug}` = cổng cơ sở.
+- Gốc `/login` = landing marketing; `/login/admin` = form nhân sự (icon sách ẩn);
+  hub `/coso` chọn cơ sở; `/coso/{slug}` = cổng cơ sở.
 - `organizations.slug` + RPC `get_public_campus_by_slug` / `list_public_campuses`.
 - Wizard tạo cơ sở hiện link đầy đủ để gửi admin cơ sở.
 

@@ -102,3 +102,13 @@
 - /login hub: hero hoc sinh, strip thay/co-HS-PH, 5 the chuong.
 - /gioi-thieu/{linh-hoat,dao-tao,con-nguoi,hoc-tap-ai,van-hanh}: noi dung khach hang, motion reveal/clip/stagger.
 - Bo noi dung superadmin khoi marketing; giu icon sach an -> /login/admin.
+
+## 2026-08-02 | landing storytelling it anh
+- Hub: giu anh hero; bo strip 3 anh + the chuong anh; them EDU_JOURNEY 6 buoc + tech strip + role cards.
+- Chapter: hero/sticky gradient + circuit/scan, chu to hon; khong lap anh stock.
+- CSS: lp-journey-line, lp-mark, lp-big-num, lp-grid-tech, lp-circuit, lp-scan.
+
+## 2026-08-02 | knowledge river + diem nhan
+- KnowledgeRiver (header + rail 2 ben) chay moi trang marketing.
+- Feature highlights (3 diem nhan/nhom); chapter bullet 2 dau spotlight.
+- Anh chi con hero hub; push de production cap nhat.
