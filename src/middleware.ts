@@ -301,6 +301,7 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
 /** Đường dẫn công khai — không bắt session */
 const PUBLIC_EXACT = new Set([
   '/login',
+  '/login/admin', // cổng superadmin (ẩn từ landing)
   '/student/login',
   '/unauthorized',
   '/parent/login',
@@ -512,6 +513,7 @@ export async function middleware(request: NextRequest) {
     if (
       session &&
       (pathname === '/login' ||
+        pathname === '/login/admin' ||
         pathname === '/student/login' ||
         pathname === '/' ||
         isCampusLoginPath(pathname))

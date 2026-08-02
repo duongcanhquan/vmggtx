@@ -92,3 +92,8 @@
   signOut xoa phien (Super Admin cung die).
 - Fix: resolveRoleByUserId / assertUserInCampus(userId) qua Admin; khong signOut
   khi loi role; LoginGuide tren /login+/coso; seed gan slug cau-giay…
+
+## 2026-08-02 | landing /login + /login/admin
+- /login thanh landing motion (hero full-bleed, marquee, da tang, bento 8 tinh nang, AI/LMS).
+- Icon sach mo goc trai duoi (hover gan moi hien) ? /login/admin (StaffLoginForm superadmin).
+- Anh: public/landing/{hero,network,ai-lms}.png; CSS lp-* + IntersectionObserver.

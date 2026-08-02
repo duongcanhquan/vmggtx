@@ -158,7 +158,8 @@ export function StaffLoginForm({
 
     // GHI NHỚ cổng đã dùng: đăng xuất / hết phiên sẽ quay về ĐÚNG cổng này
     // (cơ sở về /coso/[slug]/login, không bị đá về /login chung).
-    rememberLoginPortal(campus ? campusLoginPath(campus.slug) : '/login')
+    // Superadmin/system login ở /login/admin; cơ sở ở /coso/[slug]/login
+    rememberLoginPortal(campus ? campusLoginPath(campus.slug) : '/login/admin')
 
     // role null: vẫn vào / — middleware đọc profiles khi cookie đã ổn
     router.replace(getHomePathForRole(role))
@@ -266,12 +267,18 @@ export function StaffLoginForm({
             </Link>
           </p>
         ) : (
-          <p>
+          <p className="space-y-1">
             <Link
               href="/coso"
-              className="font-bold text-white/85 underline-offset-2 hover:underline"
+              className="block font-bold text-white/85 underline-offset-2 hover:underline"
             >
               Đăng nhập theo cơ sở →
+            </Link>
+            <Link
+              href="/login"
+              className="block text-white/70 underline-offset-2 hover:underline"
+            >
+              ← Về trang giới thiệu
             </Link>
           </p>
         )

@@ -1,9 +1,16 @@
-'use client'
+import type { Metadata } from 'next'
+import { LandingPage } from '@/components/landing/LandingPage'
 
-import { StaffLoginForm } from '@/components/auth/StaffLoginForm'
+// Trang chủ công khai — landing giới thiệu EDU SYSTEM.
+// Superadmin: icon sách mờ góc trái dưới → /login/admin
+// Cơ sở: /coso/[slug]/login
 
-// Cổng đăng nhập toàn hệ thống (không gắn 1 cơ sở).
-// Cổng theo cơ sở: /coso/[slug]/login
-export default function LoginPage() {
-  return <StaffLoginForm />
+export const metadata: Metadata = {
+  title: 'EDU SYSTEM — Quản lý trường học đa cơ sở tích hợp AI',
+  description:
+    'Hệ thống quản lý giáo dục all-in-one: đa tầng, đa cơ sở, đào tạo, nhân sự, LMS, AI chatbot, lịch dạy thông minh.',
+}
+
+export default function LoginLandingPage() {
+  return <LandingPage />
 }
