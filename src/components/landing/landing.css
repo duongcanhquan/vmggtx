@@ -1,65 +1,63 @@
 /* ============================================================
-   EDU SYSTEM — Landing motion (scoped .lp-*)
+   EDU SYSTEM — Marketing motion (scoped .lp-*)
    ============================================================ */
 
 .lp-root {
-  --lp-ink: #e8ecff;
-  --lp-muted: rgba(232, 236, 255, 0.68);
+  --lp-ink: #f4f6ff;
+  --lp-muted: rgba(244, 246, 255, 0.68);
   --lp-gold: #ecc75a;
-  --lp-cyan: #5eead4;
   color: var(--lp-ink);
-  background: #070b1a;
+  background: #060912;
   overflow-x: hidden;
 }
 
 .lp-root ::selection {
-  background: rgba(93, 104, 232, 0.45);
+  background: rgba(94, 234, 212, 0.35);
   color: #fff;
 }
 
-/* ---- ambient mesh ---- */
 .lp-mesh {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 70% 50% at 15% 20%, rgba(93, 104, 232, 0.35), transparent 55%),
-    radial-gradient(ellipse 55% 45% at 85% 15%, rgba(146, 93, 242, 0.28), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 50% 90%, rgba(94, 234, 212, 0.12), transparent 60%),
-    linear-gradient(180deg, #070b1a 0%, #0c1230 45%, #070b1a 100%);
+    radial-gradient(ellipse 80% 55% at 10% 10%, rgba(45, 112, 168, 0.28), transparent 55%),
+    radial-gradient(ellipse 60% 45% at 90% 20%, rgba(180, 120, 60, 0.18), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(40, 140, 120, 0.14), transparent 55%),
+    linear-gradient(180deg, #060912 0%, #0a1224 50%, #060912 100%);
 }
 
 .lp-orb {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(70px);
-  opacity: 0.55;
+  filter: blur(80px);
+  opacity: 0.45;
   will-change: transform;
-  animation: lp-orb-drift 22s ease-in-out infinite alternate;
+  animation: lp-orb-drift 24s ease-in-out infinite alternate;
 }
 .lp-orb-a {
-  width: 38vw;
-  height: 38vw;
-  left: -10vw;
-  top: 10vh;
-  background: rgba(93, 104, 232, 0.45);
+  width: 42vw;
+  height: 42vw;
+  left: -12vw;
+  top: 5vh;
+  background: rgba(56, 120, 180, 0.45);
 }
 .lp-orb-b {
-  width: 32vw;
-  height: 32vw;
-  right: -8vw;
-  top: 40vh;
-  background: rgba(146, 93, 242, 0.35);
-  animation-duration: 28s;
+  width: 34vw;
+  height: 34vw;
+  right: -10vw;
+  top: 35vh;
+  background: rgba(200, 140, 70, 0.28);
+  animation-duration: 30s;
   animation-direction: alternate-reverse;
 }
 .lp-orb-c {
-  width: 28vw;
-  height: 28vw;
-  left: 35vw;
-  bottom: -10vh;
-  background: rgba(229, 177, 54, 0.18);
-  animation-duration: 34s;
+  width: 30vw;
+  height: 30vw;
+  left: 40vw;
+  bottom: -12vh;
+  background: rgba(50, 160, 140, 0.22);
+  animation-duration: 36s;
 }
 
 @keyframes lp-orb-drift {
@@ -67,53 +65,97 @@
     transform: translate3d(0, 0, 0) scale(1);
   }
   to {
-    transform: translate3d(4vw, -3vh, 0) scale(1.12);
+    transform: translate3d(5vw, -4vh, 0) scale(1.14);
   }
 }
 
-/* ---- grain ---- */
 .lp-grain::after {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.07;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   mix-blend-mode: overlay;
 }
 
-/* ---- reveal on scroll ---- */
+/* Scroll progress */
+.lp-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  z-index: 60;
+  background: linear-gradient(90deg, #5eead4, #ecc75a, #60a5fa);
+  transform-origin: left;
+  transform: scaleX(var(--lp-progress, 0));
+  will-change: transform;
+}
+
+/* Reveal */
 .lp-reveal {
   opacity: 0;
-  transform: translate3d(0, 36px, 0);
+  transform: translate3d(0, 40px, 0);
+  filter: blur(4px);
   transition:
-    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.9s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .lp-reveal.is-in {
   opacity: 1;
   transform: translate3d(0, 0, 0);
+  filter: blur(0);
 }
-.lp-reveal-delay-1 {
-  transition-delay: 0.1s;
+.lp-reveal-left {
+  transform: translate3d(-40px, 0, 0);
 }
-.lp-reveal-delay-2 {
-  transition-delay: 0.2s;
+.lp-reveal-left.is-in {
+  transform: translate3d(0, 0, 0);
 }
-.lp-reveal-delay-3 {
-  transition-delay: 0.3s;
+.lp-reveal-right {
+  transform: translate3d(40px, 0, 0);
 }
-.lp-reveal-delay-4 {
+.lp-reveal-right.is-in {
+  transform: translate3d(0, 0, 0);
+}
+.lp-reveal-scale {
+  transform: scale(0.94);
+}
+.lp-reveal-scale.is-in {
+  transform: scale(1);
+}
+.lp-d1 {
+  transition-delay: 0.08s;
+}
+.lp-d2 {
+  transition-delay: 0.16s;
+}
+.lp-d3 {
+  transition-delay: 0.24s;
+}
+.lp-d4 {
+  transition-delay: 0.32s;
+}
+.lp-d5 {
   transition-delay: 0.4s;
 }
 
-/* ---- floating chips ---- */
+/* Clip image reveal */
+.lp-clip {
+  clip-path: inset(12% 12% 12% 12% round 1.5rem);
+  transition: clip-path 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lp-clip.is-in {
+  clip-path: inset(0 0 0 0 round 1.75rem);
+}
+
 .lp-float {
-  animation: lp-float-y 5.5s ease-in-out infinite;
+  animation: lp-float-y 6s ease-in-out infinite;
 }
 .lp-float-slow {
-  animation: lp-float-y 7.5s ease-in-out infinite;
-  animation-delay: -1.5s;
+  animation: lp-float-y 8s ease-in-out infinite;
+  animation-delay: -2s;
 }
 @keyframes lp-float-y {
   0%,
@@ -121,68 +163,27 @@
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-12px);
   }
 }
 
-/* ---- shimmer line ---- */
-.lp-shimmer-line {
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(94, 234, 212, 0.15),
-    rgba(236, 199, 90, 0.55),
-    rgba(146, 93, 242, 0.25),
-    transparent
-  );
-  background-size: 200% 100%;
-  animation: lp-shimmer-x 6s linear infinite;
-}
-@keyframes lp-shimmer-x {
-  to {
-    background-position: 200% 0;
-  }
-}
-
-/* ---- glass panel ---- */
-.lp-glass {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 20px 50px -24px rgba(0, 0, 0, 0.55);
-}
-
-.lp-glass:hover {
-  border-color: rgba(165, 181, 247, 0.35);
-  transform: translateY(-3px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 28px 60px -22px rgba(93, 104, 232, 0.35);
-}
-
-/* ---- hero image ken burns ---- */
 .lp-kenburns {
-  animation: lp-kenburns 28s ease-in-out infinite alternate;
+  animation: lp-kenburns 32s ease-in-out infinite alternate;
   will-change: transform;
 }
 @keyframes lp-kenburns {
   from {
-    transform: scale(1.05) translate3d(0, 0, 0);
+    transform: scale(1.04);
   }
   to {
-    transform: scale(1.14) translate3d(-2%, -1%, 0);
+    transform: scale(1.14) translate3d(-1.5%, -1%, 0);
   }
 }
 
-/* ---- marquee ---- */
 .lp-marquee-track {
   display: flex;
   width: max-content;
-  animation: lp-marquee 38s linear infinite;
+  animation: lp-marquee 42s linear infinite;
 }
 @keyframes lp-marquee {
   to {
@@ -190,7 +191,100 @@
   }
 }
 
-/* ---- secret book ---- */
+.lp-glass {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 18px 48px -22px rgba(0, 0, 0, 0.55);
+  transition:
+    transform 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+.lp-glass:hover {
+  border-color: rgba(94, 234, 212, 0.35);
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 28px 60px -20px rgba(56, 120, 180, 0.4);
+}
+
+/* Chapter card magnetic shine */
+.lp-chapter {
+  position: relative;
+  overflow: hidden;
+}
+.lp-chapter::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.14), transparent 45%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.lp-chapter:hover::before {
+  opacity: 1;
+}
+
+/* Sticky story steps */
+.lp-sticky-panel {
+  position: sticky;
+  top: 6rem;
+}
+
+.lp-step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.2);
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+.lp-step-dot.is-active {
+  background: #5eead4;
+  transform: scale(1.25);
+  box-shadow: 0 0 0 6px rgba(94, 234, 212, 0.15);
+}
+
+.lp-shimmer-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(94, 234, 212, 0.2),
+    rgba(236, 199, 90, 0.55),
+    rgba(96, 165, 250, 0.25),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: lp-shimmer-x 7s linear infinite;
+}
+@keyframes lp-shimmer-x {
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* Word stagger helper */
+.lp-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(1.1em);
+  transition:
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lp-reveal.is-in .lp-word {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .lp-secret-book {
   opacity: 0;
   transform: translateY(8px) scale(0.92);
@@ -200,7 +294,7 @@
     transform 0.35s ease;
 }
 .lp-secret-book.is-near {
-  opacity: 0.55;
+  opacity: 0.5;
   transform: translateY(0) scale(1);
   pointer-events: auto;
 }
@@ -210,9 +304,8 @@
 }
 
 @media (hover: none) {
-  /* Mobile: luôn hơi hiện để vẫn bấm được */
   .lp-secret-book {
-    opacity: 0.18;
+    opacity: 0.16;
     pointer-events: auto;
     transform: none;
   }
@@ -227,12 +320,20 @@
   .lp-shimmer-line {
     animation: none !important;
   }
-  .lp-reveal {
-    opacity: 1;
-    transform: none;
-    transition: none;
+  .lp-reveal,
+  .lp-reveal-left,
+  .lp-reveal-right,
+  .lp-reveal-scale,
+  .lp-clip,
+  .lp-word {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+    transition: none !important;
   }
-  .lp-glass:hover {
+  .lp-glass:hover,
+  .lp-chapter:hover {
     transform: none;
   }
 }

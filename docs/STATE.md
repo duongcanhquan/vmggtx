@@ -3,8 +3,8 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-02 - `/login` = landing motion EDU SYSTEM (hero + AI/LMS + bento);
-  superadmin ẩn qua icon sách góc trái dưới → `/login/admin`; cơ sở vẫn `/coso/[slug]/login`
+**Cập nhật lần cuối**: 2026-08-02 - Marketing đa chương: `/login` hub + `/gioi-thieu/*` (linh hoạt,
+  đào tạo, con người, AI, vận hành); ảnh người; bỏ copy superadmin; icon sách → `/login/admin`
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.

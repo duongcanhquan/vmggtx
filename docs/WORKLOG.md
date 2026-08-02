@@ -97,3 +97,8 @@
 - /login thanh landing motion (hero full-bleed, marquee, da tang, bento 8 tinh nang, AI/LMS).
 - Icon sach mo goc trai duoi (hover gan moi hien) ? /login/admin (StaffLoginForm superadmin).
 - Anh: public/landing/{hero,network,ai-lms}.png; CSS lp-* + IntersectionObserver.
+
+## 2026-08-02 | landing da chuong + anh nguoi
+- /login hub: hero hoc sinh, strip thay/co-HS-PH, 5 the chuong.
+- /gioi-thieu/{linh-hoat,dao-tao,con-nguoi,hoc-tap-ai,van-hanh}: noi dung khach hang, motion reveal/clip/stagger.
+- Bo noi dung superadmin khoi marketing; giu icon sach an -> /login/admin.

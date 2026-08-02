@@ -308,7 +308,7 @@ const PUBLIC_EXACT = new Set([
   '/license-expired',
 ])
 /** /coso/[slug] landing + login 3 cổng theo cơ sở (path-based tenant) */
-const PUBLIC_PREFIXES = ['/evaluations', '/hdsd', '/coso']
+const PUBLIC_PREFIXES = ['/evaluations', '/hdsd', '/coso', '/gioi-thieu']
 
 /**
  * TÁCH CỔNG ĐĂNG NHẬP (mỗi cổng sẵn sàng chạy tên miền riêng):
