@@ -74,30 +74,50 @@ type WarningCandidate = {
  * Quét chuyên cần bằng admin client (sau điểm danh hoặc từ quét thủ công).
  * Ngưỡng vắng không phép = resolveSetting('max_absence_warning', orgId).
  */
+/**
+ * Quét chuyên cần (admin client).
+ * Auth: Giáo vụ+ trên org, HOẶC GV của buổi (`sessionId`) — tránh
+ * accountant/admission_staff mở admin subtree, và cho GV đa cơ sở
+ * sau submitAttendance vẫn quét được dù is_authorized(teacher) fail.
+ */
 export async function scanAttendanceWarningsAdmin(
-  orgId: string
+  orgId: string,
+  opts?: { sessionId?: string }
 ): Promise<{ error: string } | { error?: undefined; count: number }> {
   try {
-    // Admin client bỏ qua RLS — bắt buộc xác thực caller trước khi quét.
-    // teacher+ (sau điểm danh) hoặc academic_staff (quét thủ công).
     const authClient = createClient()
     const {
       data: { user },
     } = await authClient.auth.getUser()
     if (!user) return { error: 'Bạn chưa đăng nhập.' }
 
-    const { data: authorized, error: authzError } = await authClient.rpc(
+    const { data: staffOk, error: authzError } = await authClient.rpc(
       'is_authorized',
       {
         p_user_id: user.id,
         p_target_org_id: orgId,
-        p_required_role: 'teacher',
+        p_required_role: 'academic_staff',
       }
     )
     if (authzError) {
       return { error: `Lỗi kiểm tra phân quyền: ${authzError.message}` }
     }
-    if (authorized !== true) {
+
+    let sessionTeacherOk = false
+    if (opts?.sessionId) {
+      const { data: session } = await authClient
+        .from('class_sessions')
+        .select('id, org_id, teacher_id')
+        .eq('id', opts.sessionId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      sessionTeacherOk =
+        !!session &&
+        session.org_id === orgId &&
+        session.teacher_id === user.id
+    }
+
+    if (staffOk !== true && !sessionTeacherOk) {
       return { error: 'TỪ CHỐI: Bạn không có quyền quét cảnh báo cơ sở này.' }
     }
 
@@ -305,10 +325,11 @@ export async function runEarlyWarningSystem(
     const { data: gradeRows, error: gradeError } = await supabase
       .from('grades')
       .select(
-        'student_id, org_id, score, assessments!inner(class_id, weight, assessment_types(weight))'
+        'student_id, org_id, score, assessments!inner(class_id, weight, assessment_types(weight), deleted_at)'
       )
       .in('org_id', orgIds)
       .is('deleted_at', null)
+      .is('assessments.deleted_at', null)
     if (gradeError) return { error: `Lỗi đọc điểm số: ${gradeError.message}` }
 
     const gpaMap = new Map<

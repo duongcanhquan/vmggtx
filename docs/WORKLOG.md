@@ -163,3 +163,9 @@
 - createAssessment + UI so diem; softDeleteAssessment; payroll completed.
 - Copilot taskType academic_assist + AcademicAiAssist (warnings/grades/diary).
 - Enrollment active + deleted_at; bo banner demo staff/teacher/attendance.
+
+## 2026-08-02 | fix bug hoc vu sau D20
+- Parent MOCK chi dev; production demo cookie -> empty/null.
+- softDeleteAssessment cascade soft-delete grades; loc assessments.deleted_at.
+- scanAttendanceWarningsAdmin: academic_staff HOAC GV sessionId.
+- loadError UI staff/classes + teacher/schedule; tutor enrollment active.

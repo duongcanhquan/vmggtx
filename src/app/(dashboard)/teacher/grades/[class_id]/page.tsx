@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Loader2, Lock, LockOpen, Plus, TriangleAlert } from 'lucide-react'
+import { Check, Loader2, Lock, LockOpen, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { AcademicAiAssist } from '@/components/academic/AcademicAiAssist'
 import {
   createAssessment,
   getGradebook,
   lockGradebook,
+  softDeleteAssessment,
   updateGrade,
   type Gradebook,
 } from './actions'
@@ -349,6 +350,32 @@ export default function GradebookPage({
                     <span className="mt-0.5 block text-[10px] font-medium normal-case text-muted-foreground">
                       Hệ số {a.weight} · tối đa {a.max_score}
                     </span>
+                    {book.canLock && !isLocked && (
+                      <button
+                        type="button"
+                        title={`Xóa cột «${a.name}»`}
+                        aria-label={`Xóa cột ${a.name}`}
+                        onClick={async () => {
+                          if (
+                            !window.confirm(
+                              `Xóa cột điểm «${a.name}»?\nĐiểm đã nhập của cột này cũng sẽ bị ẩn (soft-delete).`
+                            )
+                          ) {
+                            return
+                          }
+                          const result = await softDeleteAssessment(classId, a.id)
+                          if (result.error !== undefined) {
+                            setToast({ type: 'error', message: result.error })
+                            return
+                          }
+                          setToast({ type: 'success', message: `Đã xóa cột «${a.name}».` })
+                          await load()
+                        }}
+                        className="mx-auto mt-1 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    )}
                   </th>
                 ))}
                 <th scope="col" className="px-3 py-3 text-center font-semibold text-primary">

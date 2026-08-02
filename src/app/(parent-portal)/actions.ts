@@ -384,7 +384,11 @@ export async function parentLogout(): Promise<void> {
 export async function getParentStudent(): Promise<ParentStudent | null> {
   const studentId = getSessionStudentId()
   if (!studentId) return null
-  if (studentId === DEMO_STUDENT_ID) return MOCK_STUDENT
+  // Demo cookie chi dung o NODE_ENV!=production (login 0901234567); production khong fake HS.
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return null
+    return MOCK_STUDENT
+  }
 
   try {
     const supabase = admin()
@@ -434,7 +438,13 @@ export async function getParentStudent(): Promise<ParentStudent | null> {
 /** Chuyên cần: cộng dồn từ view vw_student_attendance_stats */
 export async function getAttendanceSummary(): Promise<AttendanceSummary> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_ATTENDANCE
+  if (!studentId) return { total: 0, present: 0, excused: 0, unexcused: 0, presentRate: 0 }
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') {
+      return { total: 0, present: 0, excused: 0, unexcused: 0, presentRate: 0 }
+    }
+    return MOCK_ATTENDANCE
+  }
 
   try {
     const supabase = admin()
@@ -464,15 +474,20 @@ export async function getAttendanceSummary(): Promise<AttendanceSummary> {
 /** 3 cột điểm mới nhất */
 export async function getRecentGrades(): Promise<RecentGrade[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_GRADES
+  if (!studentId) return []
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return []
+    return MOCK_GRADES
+  }
 
   try {
     const supabase = admin()
     const { data, error } = await supabase
       .from('grades')
-      .select('id, score, created_at, assessments(name, classes(name))')
+      .select('id, score, created_at, assessments!inner(name, classes(name), deleted_at)')
       .eq('student_id', studentId)
       .is('deleted_at', null)
+      .is('assessments.deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(3)
     if (error) throw error
@@ -504,7 +519,11 @@ export async function getRecentGrades(): Promise<RecentGrade[]> {
 /** Các buổi học 7 ngày tới (qua enrollments) */
 export async function getWeekSessions(): Promise<WeekSession[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_WEEK
+  if (!studentId) return []
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return []
+    return MOCK_WEEK
+  }
 
   try {
     const supabase = admin()
@@ -557,7 +576,11 @@ export async function getWeekSessions(): Promise<WeekSession[]> {
  */
 export async function getParentNotices(): Promise<ParentNotice[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_NOTICES
+  if (!studentId) return []
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return []
+    return MOCK_NOTICES
+  }
 
   try {
     const supabase = admin()
@@ -580,11 +603,12 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
         .limit(20),
       supabase
         .from('grades')
-        .select('id, note, created_at, assessments(name, classes(name))')
+        .select('id, note, created_at, assessments!inner(name, classes(name), deleted_at)')
         .eq('student_id', studentId)
         .not('note', 'is', null)
         .neq('note', '')
         .is('deleted_at', null)
+        .is('assessments.deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(20),
       supabase
@@ -780,17 +804,22 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
 /** Sổ điểm đầy đủ nhóm theo lớp (tab Sổ điểm) */
 export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_GRADE_REPORT
+  if (!studentId) return []
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return []
+    return MOCK_GRADE_REPORT
+  }
 
   try {
     const supabase = admin()
     const { data, error } = await supabase
       .from('grades')
       .select(
-        'score, assessments(name, weight, assessment_types(weight), classes(name))'
+        'score, assessments!inner(name, weight, assessment_types(weight), classes(name), deleted_at)'
       )
       .eq('student_id', studentId)
       .is('deleted_at', null)
+      .is('assessments.deleted_at', null)
     if (error) throw error
 
     const byClass = new Map<string, ParentGradeReport>()
@@ -896,8 +925,19 @@ const MOCK_TUITION: ParentTuition = {
 }
 
 export async function getParentTuition(): Promise<ParentTuition> {
+  const emptyTuition: ParentTuition = {
+    invoices: [],
+    totalAmount: 0,
+    totalPaid: 0,
+    totalRemaining: 0,
+    overdueRemaining: 0,
+  }
   const studentId = getSessionStudentId()
-  if (!studentId || studentId === DEMO_STUDENT_ID) return MOCK_TUITION
+  if (!studentId) return emptyTuition
+  if (studentId === DEMO_STUDENT_ID) {
+    if (process.env.NODE_ENV === 'production') return emptyTuition
+    return MOCK_TUITION
+  }
 
   try {
     const supabase = admin()
@@ -991,9 +1031,10 @@ export async function getParentInsights(): Promise<{
         .eq('student_id', studentId),
       supabase
         .from('grades')
-        .select('score, created_at, assessments(name)')
+        .select('score, created_at, assessments!inner(name, deleted_at)')
         .eq('student_id', studentId)
         .is('deleted_at', null)
+        .is('assessments.deleted_at', null)
         .order('created_at', { ascending: true })
         .limit(12),
       supabase

@@ -142,18 +142,20 @@ export async function getMyGrades(): Promise<{
     const fullQuery = await supabase
       .from('grades')
       .select(
-        'id, score, review_status, assessments(id, name, weight, max_score, class_id, classes(id, name))'
+        'id, score, review_status, assessments!inner(id, name, weight, max_score, class_id, deleted_at, classes(id, name))'
       )
       .eq('student_id', user.id)
       .is('deleted_at', null)
+      .is('assessments.deleted_at', null)
     if (fullQuery.error) {
       const basicQuery = await supabase
         .from('grades')
         .select(
-          'id, score, assessments(id, name, weight, max_score, class_id, classes(id, name))'
+          'id, score, assessments!inner(id, name, weight, max_score, class_id, deleted_at, classes(id, name))'
         )
         .eq('student_id', user.id)
         .is('deleted_at', null)
+        .is('assessments.deleted_at', null)
       if (basicQuery.error) return { data: [], demo: false }
       grades = basicQuery.data
     } else {
@@ -544,6 +546,16 @@ export async function requestReExamination(
 
     const { createAdminClient } = await import('@/lib/supabase/admin')
     const admin = createAdminClient()
+
+    const { data: assessmentLive } = await admin
+      .from('assessments')
+      .select('id')
+      .eq('id', assessmentId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!assessmentLive) {
+      return { error: 'Bài kiểm tra không còn hiệu lực.' }
+    }
 
     // Điểm của CHÍNH học sinh cho bài này (lấy org_id + grade_id từ server)
     const { data: grade } = await admin

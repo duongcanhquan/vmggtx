@@ -95,6 +95,7 @@ export default function TeacherSchedulePage() {
   const [weekStart, setWeekStart] = useState(() => getMondayISO(new Date()))
   const [sessions, setSessions] = useState<TeachingSession[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [target, setTarget] = useState<AttendanceTarget | null>(null)
   const [loadingStudents, setLoadingStudents] = useState(false)
@@ -105,6 +106,7 @@ export default function TeacherSchedulePage() {
     setLoading(true)
     const result = await getMyWeekSessions(weekStart)
     setSessions(result.data)
+    setLoadError(result.loadError ?? null)
     setLoading(false)
   }, [weekStart])
 
@@ -209,6 +211,12 @@ export default function TeacherSchedulePage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          Không tải được lịch dạy: {loadError}
+        </p>
+      )}
 
       {/* ===== Lưới tuần: 7 cột desktop, xếp dọc mobile ===== */}
       {loading ? (

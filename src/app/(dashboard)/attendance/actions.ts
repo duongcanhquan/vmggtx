@@ -399,8 +399,8 @@ export async function submitAttendance(
       }
     }
 
-    // Tự động quét cảnh báo chuyên cần (max_absence_warning) — không chặn UI
-    void scanAttendanceWarningsAdmin(session.org_id).then((r) => {
+    // Tự động quét cảnh báo chuyên cần — truyền sessionId để GV buổi được phép
+    void scanAttendanceWarningsAdmin(session.org_id, { sessionId }).then((r) => {
       if (r.error !== undefined) {
         console.error('[attendance] auto early-warning:', r.error)
       }

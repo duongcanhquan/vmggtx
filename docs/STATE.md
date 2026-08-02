@@ -61,7 +61,8 @@
 4. Subdomain DNS per cơ sở — sau path `/coso/` (D14).
 5. Tùy chọn: `R2_PUBLIC_BASE_URL` cho CDN logo.
 6. P2 (sau): wizard «Mở lớp» hàng loạt; điểm hành vi cá nhân; export PDF/CSV báo cáo;
-   apply AI diary thẳng vào form (hiện copy từ stream); soft-delete cột điểm trên UI.
+   apply AI diary thẳng vào form (hiện copy từ stream).
+7. P1 payroll: unique `(org_id,teacher_id,month,year)` partial — tránh GV đa cơ sở ghi đè.
 
 ## Cổng /coso/[slug]/login
 - Gốc `/login` = landing marketing; `/login/admin` = form nhân sự (icon sách ẩn).

@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
           .select('id')
           .eq('class_id', cls.id)
           .eq('student_id', user.id)
+          .eq('status', 'active')
           .is('deleted_at', null)
           .maybeSingle(),
         supabase.rpc('is_authorized', {

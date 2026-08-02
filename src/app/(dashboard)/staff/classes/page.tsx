@@ -56,11 +56,13 @@ export default function StaffClassesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const loadClasses = useCallback(async () => {
     setLoading(true)
     const result = await getStaffClasses()
     setClasses(result.data)
+    setLoadError(result.loadError ?? null)
     setLoading(false)
   }, [])
 
@@ -165,6 +167,12 @@ export default function StaffClassesPage() {
         </div>
       )}
 
+      {loadError && (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          Không tải được danh sách lớp: {loadError}
+        </p>
+      )}
+
       {/* ===== Bảng lớp học ===== */}
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {loading ? (
@@ -173,7 +181,9 @@ export default function StaffClassesPage() {
           <div className="flex flex-col items-center gap-2 p-12 text-center">
             <BookOpen className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              Chi nhánh chưa có lớp học nào.
+              {loadError
+                ? 'Không có dữ liệu để hiển thị.'
+                : 'Chi nhánh chưa có lớp học nào.'}
             </p>
           </div>
         ) : (

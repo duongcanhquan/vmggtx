@@ -336,6 +336,7 @@ export async function updateGrade(
       .from('classes')
       .select('org_id, teacher_id')
       .eq('id', classId)
+      .is('deleted_at', null)
       .maybeSingle()
     if (!cls) return { error: 'Không tìm thấy lớp.' }
 
@@ -483,7 +484,7 @@ export async function createAssessment(
   }
 }
 
-/** Soft-delete cột điểm (chỉ khi sổ chưa khóa; điểm gắn theo sẽ ẩn qua RLS/query deleted_at). */
+/** Soft-delete cột điểm + soft-delete grades gắn cột (chỉ khi sổ chưa khóa). */
 export async function softDeleteAssessment(
   classId: string,
   assessmentId: string
@@ -539,6 +540,18 @@ export async function softDeleteAssessment(
       .update({ deleted_at: now, updated_at: now })
       .eq('id', assessmentId)
     if (error) return { error: error.message }
+
+    // Soft-delete điểm gắn cột — tránh GPA/cảnh báo còn dùng điểm mồ côi
+    const { error: gradesErr } = await supabase
+      .from('grades')
+      .update({ deleted_at: now, updated_at: now })
+      .eq('assessment_id', assessmentId)
+      .is('deleted_at', null)
+    if (gradesErr) {
+      return {
+        error: `Đã ẩn bài kiểm tra nhưng không ẩn được điểm: ${gradesErr.message}`,
+      }
+    }
 
     revalidatePath(`/teacher/grades/${classId}`)
     return {}
