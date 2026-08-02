@@ -42,73 +42,6 @@ export type PortalClassGrades = {
   average: number | null
 }
 
-// ---------- MOCK cho chế độ demo ----------
-function mockSchedule(): PortalSession[] {
-  const now = new Date()
-  const at = (dayOffset: number, hour: number, duration: number) => {
-    const start = new Date(now)
-    start.setDate(start.getDate() + dayOffset)
-    start.setHours(hour, 0, 0, 0)
-    const end = new Date(start)
-    end.setHours(hour + duration)
-    return { start: start.toISOString(), end: end.toISOString() }
-  }
-  const s1 = at(0, 18, 2)
-  const s2 = at(1, 18, 2)
-  const s3 = at(3, 8, 3)
-  const s4 = at(5, 14, 2)
-  return [
-    { id: 'ps-1', class_name: 'Toán 12A - Ôn thi THPT', teacher_name: 'Thầy Phạm Quang Huy', room: 'P.301', start_time: s1.start, end_time: s1.end },
-    { id: 'ps-2', class_name: 'Tiếng Anh B1 - Tối T3/T5', teacher_name: 'Cô Lê Minh Anh', room: 'P.204', start_time: s2.start, end_time: s2.end },
-    { id: 'ps-3', class_name: 'Toán 12A - Ôn thi THPT', teacher_name: 'Thầy Phạm Quang Huy', room: 'P.301', start_time: s3.start, end_time: s3.end },
-    { id: 'ps-4', class_name: 'Vật lý 12 - Luyện đề', teacher_name: 'Thầy Vũ Đức Long', room: 'Hội trường A', start_time: s4.start, end_time: s4.end },
-  ]
-}
-
-const mockGradeItem = (
-  assessment_name: string,
-  weight: number,
-  score: number
-): PortalGradeItem => ({
-  grade_id: null,
-  assessment_id: null,
-  assessment_name,
-  weight,
-  max_score: 10,
-  score,
-  review_status: null,
-  re_exam_status: null,
-})
-
-const MOCK_GRADES: PortalClassGrades[] = [
-  {
-    class_id: 'mc-1',
-    class_name: 'Toán 12A - Ôn thi THPT',
-    items: [
-      mockGradeItem('15 phút', 0.1, 8),
-      mockGradeItem('1 tiết', 0.2, 7.5),
-      mockGradeItem('Giữa kỳ', 0.3, 8.5),
-    ],
-    average: 8.17,
-  },
-  {
-    class_id: 'mc-2',
-    class_name: 'Tiếng Anh B1 - Tối T3/T5',
-    items: [
-      mockGradeItem('15 phút', 0.1, 9),
-      mockGradeItem('Giữa kỳ', 0.3, 8),
-      mockGradeItem('Cuối kỳ', 0.4, 9.5),
-    ],
-    average: 8.88,
-  },
-  {
-    class_id: 'mc-3',
-    class_name: 'Vật lý 12 - Luyện đề',
-    items: [mockGradeItem('15 phút', 0.1, 7)],
-    average: 7,
-  },
-]
-
 function weightedAverage(items: PortalGradeItem[]): number | null {
   let sum = 0
   let weightSum = 0
@@ -135,7 +68,7 @@ export async function getMySchedule(): Promise<{
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) return { data: mockSchedule(), demo: true }
+    if (!user) return { data: [], demo: false }
 
     // 1. Các lớp học sinh đang ghi danh (RLS: chỉ enrollment của chính mình)
     const { data: enrollments } = await supabase
@@ -146,7 +79,7 @@ export async function getMySchedule(): Promise<{
       .is('deleted_at', null)
 
     const classIds = (enrollments ?? []).map((e) => e.class_id)
-    if (classIds.length === 0) return { data: mockSchedule(), demo: true }
+    if (classIds.length === 0) return { data: [], demo: false }
 
     // 2. Các buổi học sắp tới của những lớp đó (thời gian tăng dần)
     const { data: sessions, error } = await supabase
@@ -158,9 +91,8 @@ export async function getMySchedule(): Promise<{
       .order('start_time', { ascending: true })
       .limit(30)
 
-    if (error || !sessions || sessions.length === 0) {
-      return { data: mockSchedule(), demo: true }
-    }
+    if (error) return { data: [], demo: false }
+    if (!sessions || sessions.length === 0) return { data: [], demo: false }
 
     const rows: PortalSession[] = sessions.map((row) => {
       const cls = row.classes as { name: string } | { name: string }[] | null
@@ -178,7 +110,7 @@ export async function getMySchedule(): Promise<{
     })
     return { data: rows, demo: false }
   } catch {
-    return { data: mockSchedule(), demo: true }
+    return { data: [], demo: false }
   }
 }
 
@@ -196,7 +128,7 @@ export async function getMyGrades(): Promise<{
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) return { data: MOCK_GRADES, demo: true }
+    if (!user) return { data: [], demo: false }
 
     // review_status (migration 031) có thể chưa tồn tại -> fallback êm
     let grades:
@@ -222,13 +154,14 @@ export async function getMyGrades(): Promise<{
         )
         .eq('student_id', user.id)
         .is('deleted_at', null)
+      if (basicQuery.error) return { data: [], demo: false }
       grades = basicQuery.data
     } else {
       grades = fullQuery.data
     }
 
     if (!grades || grades.length === 0) {
-      return { data: MOCK_GRADES, demo: true }
+      return { data: [], demo: false }
     }
 
     // Đơn thi lại của học sinh (migration 036) - thiếu bảng thì bỏ qua êm
@@ -299,7 +232,229 @@ export async function getMyGrades(): Promise<{
     }))
     return { data: result, demo: false }
   } catch {
-    return { data: MOCK_GRADES, demo: true }
+    return { data: [], demo: false }
+  }
+}
+
+export type PortalAttendanceSummary = {
+  total: number
+  present: number
+  excused: number
+  unexcused: number
+  presentRate: number
+}
+
+export type PortalLearningNote = {
+  id: string
+  kind: 'attendance_note' | 'diary' | 'parent_note'
+  title: string
+  description: string
+  date: string
+}
+
+/** Chuyên cần của chính học viên đang đăng nhập (không MOCK). */
+export async function getMyAttendanceSummary(): Promise<{
+  data: PortalAttendanceSummary
+  loadError?: string | null
+}> {
+  const empty: PortalAttendanceSummary = {
+    total: 0,
+    present: 0,
+    excused: 0,
+    unexcused: 0,
+    presentRate: 100,
+  }
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { data: empty, loadError: 'Bạn chưa đăng nhập.' }
+
+    const { data, error } = await supabase
+      .from('vw_student_attendance_stats')
+      .select('total_sessions, present_count, excused_count, unexcused_count')
+      .eq('student_id', user.id)
+
+    if (error) {
+      // Fallback: đếm trực tiếp bảng attendance
+      const { data: rows, error: aErr } = await supabase
+        .from('attendance')
+        .select('status')
+        .eq('student_id', user.id)
+        .is('deleted_at', null)
+      if (aErr) return { data: empty, loadError: aErr.message }
+      let present = 0
+      let excused = 0
+      let unexcused = 0
+      for (const r of rows ?? []) {
+        if (r.status === 'present') present += 1
+        else if (r.status === 'excused') excused += 1
+        else if (r.status === 'absent') unexcused += 1
+      }
+      const total = present + excused + unexcused
+      return {
+        data: {
+          total,
+          present,
+          excused,
+          unexcused,
+          presentRate: total > 0 ? Math.round((present / total) * 100) : 100,
+        },
+        loadError: null,
+      }
+    }
+
+    const total = (data ?? []).reduce((sum, row) => sum + Number(row.total_sessions), 0)
+    const present = (data ?? []).reduce((sum, row) => sum + Number(row.present_count), 0)
+    const excused = (data ?? []).reduce((sum, row) => sum + Number(row.excused_count), 0)
+    const unexcused = (data ?? []).reduce(
+      (sum, row) => sum + Number(row.unexcused_count),
+      0
+    )
+    return {
+      data: {
+        total,
+        present,
+        excused,
+        unexcused,
+        presentRate: total > 0 ? Math.round((present / total) * 100) : 100,
+      },
+      loadError: null,
+    }
+  } catch (e) {
+    return {
+      data: empty,
+      loadError: e instanceof Error ? e.message : 'Không tải được chuyên cần.',
+    }
+  }
+}
+
+/**
+ * Nhận xét / thái độ học tập: note điểm danh cá nhân + sổ đầu bài lớp đang học.
+ */
+export async function getMyLearningNotes(): Promise<{
+  data: PortalLearningNote[]
+  loadError?: string | null
+}> {
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { data: [], loadError: 'Bạn chưa đăng nhập.' }
+
+    const notes: PortalLearningNote[] = []
+
+    const [{ data: attendanceNotes }, { data: enrollments }] = await Promise.all([
+      supabase
+        .from('attendance')
+        .select('id, note, created_at, status, class_sessions(start_time, classes(name))')
+        .eq('student_id', user.id)
+        .not('note', 'is', null)
+        .neq('note', '')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(30),
+      supabase
+        .from('enrollments')
+        .select('class_id')
+        .eq('student_id', user.id)
+        .eq('status', 'active')
+        .is('deleted_at', null),
+    ])
+
+    for (const att of attendanceNotes ?? []) {
+      const session = (
+        Array.isArray(att.class_sessions) ? att.class_sessions[0] : att.class_sessions
+      ) as {
+        start_time?: string
+        classes?: { name?: string } | { name?: string }[] | null
+      } | null
+      const cls = Array.isArray(session?.classes)
+        ? session?.classes[0]
+        : session?.classes
+      notes.push({
+        id: `a-${att.id}`,
+        kind: 'attendance_note',
+        title: `Nhận xét buổi học${cls?.name ? ` · ${cls.name}` : ''}`,
+        description: String(att.note),
+        date: (session?.start_time as string | undefined) ?? att.created_at,
+      })
+    }
+
+    const classIds = (enrollments ?? []).map((e) => e.class_id)
+    if (classIds.length > 0) {
+      try {
+        const { data: diaryRows } = await supabase
+          .from('class_sessions')
+          .select('id, diary_notes, parent_note, start_time, classes(name)')
+          .in('class_id', classIds)
+          .is('deleted_at', null)
+          .order('start_time', { ascending: false })
+          .limit(20)
+
+        const ATTITUDE_LABEL: Record<string, string> = {
+          good: 'Tốt',
+          fair: 'Khá',
+          noisy: 'Ồn ào',
+        }
+
+        for (const session of diaryRows ?? []) {
+          const cls = session.classes as
+            | { name?: string }
+            | { name?: string }[]
+            | null
+          const className = Array.isArray(cls) ? cls[0]?.name : cls?.name
+          const diary = session.diary_notes as {
+            actual_content?: string
+            attitude?: string
+            reminders?: string
+          } | null
+
+          if (diary) {
+            const parts: string[] = []
+            if (diary.attitude && ATTITUDE_LABEL[diary.attitude]) {
+              parts.push(`Thái độ lớp: ${ATTITUDE_LABEL[diary.attitude]}`)
+            }
+            if (diary.actual_content) {
+              parts.push(`Nội dung: ${diary.actual_content}`)
+            }
+            if (diary.reminders) parts.push(`Nhắc nhở: ${diary.reminders}`)
+            if (parts.length > 0) {
+              notes.push({
+                id: `d-${session.id}`,
+                kind: 'diary',
+                title: `Sổ đầu bài${className ? ` · ${className}` : ''}`,
+                description: parts.join('\n'),
+                date: session.start_time,
+              })
+            }
+          }
+
+          if (session.parent_note && String(session.parent_note).trim()) {
+            notes.push({
+              id: `p-${session.id}`,
+              kind: 'parent_note',
+              title: `Dặn dò${className ? ` · ${className}` : ''}`,
+              description: String(session.parent_note).trim(),
+              date: session.start_time,
+            })
+          }
+        }
+      } catch {
+        // diary_notes / parent_note chưa migrate
+      }
+    }
+
+    notes.sort((a, b) => (a.date < b.date ? 1 : -1))
+    return { data: notes, loadError: null }
+  } catch (e) {
+    return {
+      data: [],
+      loadError:
+        e instanceof Error ? e.message : 'Không tải được nhận xét học tập.',
+    }
   }
 }
 

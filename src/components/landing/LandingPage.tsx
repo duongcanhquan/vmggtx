@@ -5,7 +5,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import {
   ArrowRight,
-  Building2,
   Check,
   ChevronRight,
   Cpu,
@@ -139,18 +138,17 @@ export function LandingPage() {
               <span className="lp-mark ml-1 font-semibold text-white">Một nền tảng. Đủ để vận hành.</span>
             </p>
             <div className="lp-instant mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/coso"
-                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-teal-600 px-7 text-base font-semibold text-white shadow-[0_12px_36px_-10px_rgba(45,160,170,0.65)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
-              >
-                <Building2 className="h-5 w-5" aria-hidden="true" />
-                Chọn cơ sở của bạn
-              </Link>
               <a
                 href="#hanh-trinh"
-                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-7 text-base font-semibold text-white/90 transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-teal-600 px-7 text-base font-semibold text-white shadow-[0_12px_36px_-10px_rgba(45,160,170,0.65)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
               >
                 Xem hành trình
+              </a>
+              <a
+                href="#tinh-nang"
+                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-7 text-base font-semibold text-white/90 transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              >
+                Tính năng nổi bật
               </a>
             </div>
           </div>
@@ -436,21 +434,24 @@ export function LandingPage() {
           <div className="lp-reveal relative mx-auto max-w-5xl overflow-hidden rounded-[1.75rem] border border-white/12 bg-gradient-to-br from-sky-700/35 via-[#0a1224]/95 to-teal-900/35 px-6 py-14 text-center sm:px-12">
             <div className="lp-grid-tech absolute inset-0 opacity-30" aria-hidden="true" />
             <h2 className="relative font-heading text-4xl font-bold text-white sm:text-5xl">
-              Bắt đầu với cổng cơ sở của bạn
+              Nhà trường nhận link đăng nhập riêng
             </h2>
+            <p className="relative mx-auto mt-4 max-w-xl text-base text-white/70">
+              Mỗi cơ sở có cổng login riêng — chọn Nhà trường hoặc Gia đình ngay trên trang đó.
+            </p>
             <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/coso"
-                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl bg-white px-7 text-base font-bold text-[#0a1224] transition hover:bg-amber-50"
-              >
-                Vào cổng theo cơ sở
-                <ArrowRight className="h-5 w-5" aria-hidden="true" />
-              </Link>
               <a
                 href="#hanh-trinh"
-                className="inline-flex min-h-12 cursor-pointer items-center rounded-2xl border border-white/25 px-7 text-base font-semibold text-white/90 transition hover:bg-white/10"
+                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl bg-white px-7 text-base font-bold text-[#0a1224] transition hover:bg-amber-50"
               >
                 Xem lại hành trình
+                <ArrowRight className="h-5 w-5" aria-hidden="true" />
+              </a>
+              <a
+                href="#tinh-nang"
+                className="inline-flex min-h-12 cursor-pointer items-center rounded-2xl border border-white/25 px-7 text-base font-semibold text-white/90 transition hover:bg-white/10"
+              >
+                Tính năng nổi bật
               </a>
             </div>
           </div>

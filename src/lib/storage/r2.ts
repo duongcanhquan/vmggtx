@@ -13,7 +13,12 @@
 // Mọi hàm ở đây CHỈ được gọi từ Server Action đã kiểm tra quyền.
 // ============================================================
 
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  type GetObjectCommandOutput,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 const UPLOAD_EXPIRES_SECONDS = 10 * 60
@@ -120,4 +125,54 @@ export async function presignDownload(key: string, fileName?: string): Promise<s
       : {}),
   })
   return getSignedUrl(client, command, { expiresIn: DOWNLOAD_EXPIRES_SECONDS })
+}
+
+/** Logo cơ sở: tối đa 2MB, chỉ ảnh */
+export const MAX_LOGO_BYTES = 2 * 1024 * 1024
+export const ALLOWED_LOGO_MIMES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/svg+xml',
+  'image/gif',
+] as const
+
+export function isAllowedLogoMime(mime: string): boolean {
+  return (ALLOWED_LOGO_MIMES as readonly string[]).includes(mime)
+}
+
+/** Upload server-side (logo branding) — không qua browser PUT */
+export async function putObjectBytes(
+  key: string,
+  body: Buffer,
+  contentType: string
+): Promise<void> {
+  const client = getR2Client()
+  await client.send(
+    new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME!,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      CacheControl: 'public, max-age=86400',
+    })
+  )
+}
+
+/** Đọc object từ R2 (stream cho /api/org-logo) */
+export async function getObject(key: string): Promise<GetObjectCommandOutput> {
+  const client = getR2Client()
+  return client.send(
+    new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME!,
+      Key: key,
+    })
+  )
+}
+
+/** URL công khai nếu có R2_PUBLIC_BASE_URL (CDN / custom domain) */
+export function publicUrlForKey(key: string): string | null {
+  const base = process.env.R2_PUBLIC_BASE_URL?.replace(/\/$/, '')
+  if (!base) return null
+  return `${base}/${key}`
 }

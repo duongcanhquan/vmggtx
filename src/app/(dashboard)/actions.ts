@@ -9,9 +9,6 @@ import {
 } from './layout-actions'
 import { DEFAULT_ORG_CONFIG, type OrgConfig } from '@/lib/validation/schemas'
 
-/** Học phí trung bình MOCK (chưa có bảng enrollments/invoices) */
-const MOCK_TUITION_PER_STUDENT = 1_500_000
-
 export type ChildOrgStat = {
   orgId: string
   name: string
@@ -45,7 +42,7 @@ export type OverviewReport = {
 export type DashboardStats = {
   activeClasses: number
   totalStudents: number
-  /** Doanh thu dự kiến tháng = totalStudents x học phí mock (chưa có bảng invoices) */
+  /** Doanh thu đã thu (tổng payments trong subtree) — không MOCK */
   projectedRevenue: number
   /** So sánh học viên giữa các nhánh TRỰC THUỘC (mỗi nhánh đã cộng dồn subtree của nó) */
   childrenStats: ChildOrgStat[]
@@ -162,7 +159,7 @@ export async function getDashboardStats(
     // 2. Chạy song song: danh sách org (để dựng cây con), số lớp đang mở,
     //    học viên theo org, VÀ báo cáo vận hành (RPC 042 - 1 round-trip)
     const today = new Date().toISOString().slice(0, 10)
-    const [orgsResult, classesResult, studentsResult, reportResult] =
+    const [orgsResult, classesResult, studentsResult, reportResult, paymentsResult] =
       await Promise.all([
         supabase
           .from('organizations')
@@ -183,6 +180,11 @@ export async function getDashboardStats(
           .is('deleted_at', null),
         // Migration 042 chưa chạy -> error, KHÔNG làm hỏng dashboard (report=null)
         supabase.rpc('get_overview_report', { p_org_ids: ids }),
+        supabase
+          .from('payments')
+          .select('amount_paid')
+          .in('org_id', ids)
+          .is('deleted_at', null),
       ])
 
     const firstError = orgsResult.error ?? classesResult.error ?? studentsResult.error
@@ -200,6 +202,11 @@ export async function getDashboardStats(
       studentCountByOrg.set(row.org_id, (studentCountByOrg.get(row.org_id) ?? 0) + 1)
     }
     const totalStudents = [...studentCountByOrg.values()].reduce((a, b) => a + b, 0)
+
+    const collectedRevenue = (paymentsResult.data ?? []).reduce(
+      (sum, row) => sum + Number(row.amount_paid ?? 0),
+      0
+    )
 
     // 3. Roll-up cho từng nhánh TRỰC THUỘC: BFS trên adjacency parent_id
     const childrenByParent = new Map<string, OrgRow[]>()
@@ -230,7 +237,7 @@ export async function getDashboardStats(
       data: {
         activeClasses,
         totalStudents,
-        projectedRevenue: totalStudents * MOCK_TUITION_PER_STUDENT,
+        projectedRevenue: collectedRevenue,
         childrenStats,
         report: reportResult.error ? null : parseOverviewReport(reportResult.data),
       },

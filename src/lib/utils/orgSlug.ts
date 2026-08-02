@@ -98,15 +98,18 @@ export const orgSlugSchema = z
     'Slug chỉ gồm a-z, 0-9, gạch ngang; không bắt/kết thúc bằng gạch.'
   )
 
-/** Đường dẫn cổng cơ sở */
+/**
+ * Cổng công khai của cơ sở = trang login trực tiếp.
+ * (Không còn trang giới thiệu /coso/{slug} riêng.)
+ */
 export function campusPortalPath(slug: string): string {
-  return `/coso/${slug}`
+  return campusLoginPath(slug)
 }
 
 /**
- * MỖI CƠ SỞ CHỈ CÓ 1 CỔNG LOGIN: /coso/[slug]/login — chia 2 phần
- * (Nhà trường · Giảng viên | Gia đình · Học viên/Phụ huynh) bằng tab.
- * URL cũ /student/login, /parent/login của cơ sở redirect về đây.
+ * MỖI CƠ SỞ CHỈ CÓ 1 CỔNG LOGIN: /coso/[slug]/login — chia 2 tab
+ * (Nhà trường | Gia đình · Học viên/Phụ huynh).
+ * Tương lai có thể tách 2 cổng; hiện giữ chung 1 URL + tab.
  */
 export function campusLoginPath(
   slug: string,

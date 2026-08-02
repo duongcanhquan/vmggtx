@@ -10,6 +10,7 @@ import { gradeScoreSchema, zodFail } from '@/lib/validation/schemas'
 //   - updateGrade check class_results.is_locked -> từ chối sớm.
 //   - Trigger trg_grades_prevent_locked (migration 008) chặn tuyệt
 //     đối ở tầng DB, kể cả khi gọi thẳng API Supabase.
+// Roster = enrollments status=active (không lấy cả org).
 // ============================================================
 
 export type Assessment = {
@@ -35,46 +36,33 @@ export type Gradebook = {
   /** true = user là GV chủ nhiệm lớp hoặc Staff trở lên -> được chốt sổ */
   canLock: boolean
   demo: boolean
+  /** Lỗi tải / từ chối quyền — UI hiện thông báo, KHÔNG mock dữ liệu giả */
+  loadError?: string | null
 }
 
 export type GradeActionResult =
   | { error: string }
   | { error?: undefined; demo?: boolean }
 
-// ---------- MOCK cho chế độ demo ----------
-const MOCK_ASSESSMENTS: Assessment[] = [
-  { id: 'as-1', name: '15 phút', weight: 0.1, max_score: 10 },
-  { id: 'as-2', name: '1 tiết', weight: 0.2, max_score: 10 },
-  { id: 'as-3', name: 'Giữa kỳ', weight: 0.3, max_score: 10 },
-  { id: 'as-4', name: 'Cuối kỳ', weight: 0.4, max_score: 10 },
-]
-
-const MOCK_STUDENTS: GradebookStudent[] = [
-  { id: 'st-1', full_name: 'Nguyễn Văn Toàn' },
-  { id: 'st-2', full_name: 'Đỗ Thu Hà' },
-  { id: 'st-3', full_name: 'Vũ Đức Mạnh' },
-  { id: 'st-4', full_name: 'Hoàng Ngọc Lan' },
-  { id: 'st-5', full_name: 'Trần Bảo Long' },
-]
-
-const MOCK_GRADES: Record<string, number> = {
-  'as-1:st-1': 8, 'as-2:st-1': 7.5, 'as-3:st-1': 8.5,
-  'as-1:st-2': 9, 'as-2:st-2': 9, 'as-3:st-2': 8, 'as-4:st-2': 9.5,
-  'as-1:st-3': 6.5, 'as-2:st-3': 7,
-  'as-1:st-4': 10, 'as-2:st-4': 9.5, 'as-3:st-4': 9,
-  'as-1:st-5': 7,
-}
-
-function mockGradebook(classId: string): Gradebook {
+function emptyGradebook(
+  classId: string,
+  opts?: {
+    className?: string
+    canLock?: boolean
+    isLocked?: boolean
+    loadError?: string | null
+  }
+): Gradebook {
   return {
     classId,
-    className: 'Toán 12A - Ôn thi THPT (demo)',
-    assessments: MOCK_ASSESSMENTS,
-    students: MOCK_STUDENTS,
-    grades: { ...MOCK_GRADES },
-    isLocked: false,
-    canLock: true,
-    demo: true,
+    className: opts?.className ?? '',
+    assessments: [],
+    students: [],
+    grades: {},
+    isLocked: opts?.isLocked ?? false,
+    canLock: opts?.canLock ?? false,
+    demo: false,
+    loadError: opts?.loadError ?? null,
   }
 }
 
@@ -86,7 +74,11 @@ export async function getGradebook(classId: string): Promise<Gradebook> {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) return mockGradebook(classId)
+    if (!user) {
+      return emptyGradebook(classId, {
+        loadError: 'Bạn chưa đăng nhập.',
+      })
+    }
 
     const { data: cls } = await supabase
       .from('classes')
@@ -95,48 +87,121 @@ export async function getGradebook(classId: string): Promise<Gradebook> {
       .is('deleted_at', null)
       .maybeSingle()
 
-    if (!cls) return mockGradebook(classId)
+    if (!cls) {
+      return emptyGradebook(classId, {
+        loadError: 'Không tìm thấy lớp học.',
+      })
+    }
 
-    const [assessmentsRes, studentsRes, gradesRes, resultRes, staffAuthRes] =
-      await Promise.all([
-        supabase
-          .from('assessments')
-          .select('id, name, weight, max_score')
-          .eq('class_id', classId)
-          .is('deleted_at', null)
-          .order('created_at'),
-        // Chưa có bảng enrollments: tạm lấy học viên thuộc org của lớp
-        supabase
-          .from('profiles')
-          .select('id, full_name')
-          .eq('role', 'student')
-          .eq('org_id', cls.org_id)
-          .is('deleted_at', null)
-          .order('full_name')
-          .limit(100),
-        supabase
-          .from('grades')
-          .select('assessment_id, student_id, score')
-          .eq('org_id', cls.org_id)
-          .is('deleted_at', null),
-        supabase
-          .from('class_results')
-          .select('is_locked')
-          .eq('class_id', classId)
-          .is('deleted_at', null)
-          .maybeSingle(),
-        supabase.rpc('is_authorized', {
-          p_user_id: user.id,
-          p_target_org_id: cls.org_id,
-          p_required_role: 'academic_staff',
-        }),
-      ])
+    const staffAuthRes = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: cls.org_id,
+      p_required_role: 'academic_staff',
+    })
 
-    // ===== [SECURITY AUDIT] GATE DỮ LIỆU: chỉ GV chủ nhiệm lớp hoặc
-    // Staff trở lên trên org của lớp mới được xem sổ điểm thật =====
     const canView = cls.teacher_id === user.id || staffAuthRes.data === true
     if (!canView) {
-      return mockGradebook(classId)
+      return emptyGradebook(classId, {
+        className: cls.name,
+        loadError: 'Bạn không có quyền xem sổ điểm lớp này.',
+      })
+    }
+
+    const [assessmentsRes, enrollRes, resultRes] = await Promise.all([
+      supabase
+        .from('assessments')
+        .select('id, name, weight, max_score')
+        .eq('class_id', classId)
+        .is('deleted_at', null)
+        .order('created_at'),
+      supabase
+        .from('enrollments')
+        .select('student_id, profiles!enrollments_student_id_fkey(id, full_name, deleted_at)')
+        .eq('class_id', classId)
+        .eq('status', 'active')
+        .is('deleted_at', null),
+      supabase
+        .from('class_results')
+        .select('is_locked')
+        .eq('class_id', classId)
+        .is('deleted_at', null)
+        .maybeSingle(),
+    ])
+
+    if (assessmentsRes.error) {
+      return emptyGradebook(classId, {
+        className: cls.name,
+        loadError: `Không tải bài kiểm tra: ${assessmentsRes.error.message}`,
+      })
+    }
+    if (enrollRes.error) {
+      // Fallback nếu join profiles lỗi tên FK — query 2 bước
+      const { data: enrollRows, error: e2 } = await supabase
+        .from('enrollments')
+        .select('student_id')
+        .eq('class_id', classId)
+        .eq('status', 'active')
+        .is('deleted_at', null)
+      if (e2) {
+        return emptyGradebook(classId, {
+          className: cls.name,
+          loadError: `Không tải danh sách ghi danh: ${e2.message}`,
+        })
+      }
+      const ids = (enrollRows ?? []).map((r) => r.student_id)
+      let students: GradebookStudent[] = []
+      if (ids.length > 0) {
+        const { data: profiles, error: pErr } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', ids)
+          .eq('role', 'student')
+          .is('deleted_at', null)
+          .order('full_name')
+        if (pErr) {
+          return emptyGradebook(classId, {
+            className: cls.name,
+            loadError: `Không tải hồ sơ học viên: ${pErr.message}`,
+          })
+        }
+        students = (profiles ?? []).map((p) => ({
+          id: p.id,
+          full_name: p.full_name,
+        }))
+      }
+
+      const assessments = (assessmentsRes.data ?? []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        weight: Number(a.weight),
+        max_score: Number(a.max_score),
+      }))
+
+      const assessmentIds = new Set(assessments.map((a) => a.id))
+      const { data: gradeRows } = await supabase
+        .from('grades')
+        .select('assessment_id, student_id, score')
+        .eq('org_id', cls.org_id)
+        .is('deleted_at', null)
+
+      const grades: Record<string, number> = {}
+      for (const g of gradeRows ?? []) {
+        if (assessmentIds.has(g.assessment_id)) {
+          grades[`${g.assessment_id}:${g.student_id}`] = Number(g.score)
+        }
+      }
+
+      return {
+        classId,
+        className: cls.name,
+        assessments,
+        students,
+        grades,
+        isLocked: resultRes.data?.is_locked === true,
+        canLock: cls.teacher_id === user.id || staffAuthRes.data === true,
+        demo: false,
+        loadError: null,
+      }
     }
 
     const assessments = (assessmentsRes.data ?? []).map((a) => ({
@@ -145,15 +210,28 @@ export async function getGradebook(classId: string): Promise<Gradebook> {
       weight: Number(a.weight),
       max_score: Number(a.max_score),
     }))
-    const students = studentsRes.data ?? []
 
-    if (assessments.length === 0 || students.length === 0) {
-      return mockGradebook(classId)
+    const students: GradebookStudent[] = []
+    for (const row of enrollRes.data ?? []) {
+      const profile = row.profiles as
+        | { id?: string; full_name?: string; deleted_at?: string | null }
+        | { id?: string; full_name?: string; deleted_at?: string | null }[]
+        | null
+      const p = Array.isArray(profile) ? profile[0] : profile
+      if (!p?.id || p.deleted_at) continue
+      students.push({ id: p.id, full_name: p.full_name ?? '—' })
     }
+    students.sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'))
 
     const assessmentIds = new Set(assessments.map((a) => a.id))
+    const { data: gradeRows } = await supabase
+      .from('grades')
+      .select('assessment_id, student_id, score')
+      .eq('org_id', cls.org_id)
+      .is('deleted_at', null)
+
     const grades: Record<string, number> = {}
-    for (const g of gradesRes.data ?? []) {
+    for (const g of gradeRows ?? []) {
       if (assessmentIds.has(g.assessment_id)) {
         grades[`${g.assessment_id}:${g.student_id}`] = Number(g.score)
       }
@@ -166,12 +244,15 @@ export async function getGradebook(classId: string): Promise<Gradebook> {
       students,
       grades,
       isLocked: resultRes.data?.is_locked === true,
-      // Chỉ GV chủ nhiệm hoặc Staff trở lên mới thấy nút "Chốt Sổ Điểm"
       canLock: cls.teacher_id === user.id || staffAuthRes.data === true,
       demo: false,
+      loadError: null,
     }
-  } catch {
-    return mockGradebook(classId)
+  } catch (e) {
+    return emptyGradebook(classId, {
+      loadError:
+        e instanceof Error ? e.message : 'Không tải được sổ điểm.',
+    })
   }
 }
 
@@ -189,7 +270,6 @@ export async function updateGrade(
   if (!classId || !assessmentId || !studentId) {
     return { error: 'Thiếu thông tin ô điểm.' }
   }
-  // ===== QA GATE: điểm PHẢI trong khoảng 0-10 (Zod) trước khi chạm DB =====
   const parsedScore = gradeScoreSchema.safeParse(score)
   if (!parsedScore.success) return zodFail(parsedScore.error)
   score = parsedScore.data
@@ -200,10 +280,8 @@ export async function updateGrade(
       data: { user },
     } = await supabase.auth.getUser()
 
-    // Demo mode: không ghi DB, trả thành công để UI mượt
-    if (!user) return { demo: true }
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
 
-    // ===== CHECK 1: LỚP ĐÃ CHỐT SỔ (lock_status - migration 023)? =====
     const { data: result } = await supabase
       .from('class_results')
       .select('lock_status')
@@ -215,10 +293,9 @@ export async function updateGrade(
       return { error: 'Đã hết hạn nhập điểm. Vui lòng liên hệ phòng Khảo thí.' }
     }
 
-    // ===== CHECK 2: bài kiểm tra thuộc đúng lớp + CÒN HẠN NHẬP ĐIỂM =====
     const { data: assessment } = await supabase
       .from('assessments')
-      .select('id, class_id, org_id, max_score, grading_deadline')
+      .select('id, class_id, max_score, grading_deadline, org_id')
       .eq('id', assessmentId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -226,78 +303,98 @@ export async function updateGrade(
     if (!assessment || assessment.class_id !== classId) {
       return { error: 'Bài kiểm tra không thuộc lớp này.' }
     }
-    // [KHẢO THÍ] NOW() vượt grading_deadline -> chặn (Gia hạn = dời deadline)
     if (
-      assessment.grading_deadline !== null &&
-      Date.now() > new Date(assessment.grading_deadline as string).getTime()
+      assessment.grading_deadline &&
+      new Date(assessment.grading_deadline).getTime() < Date.now()
     ) {
-      return { error: 'Đã hết hạn nhập điểm. Vui lòng liên hệ phòng Khảo thí.' }
+      return { error: 'Đã quá hạn nhập điểm của bài này.' }
     }
     if (score > Number(assessment.max_score)) {
-      return { error: `Điểm tối đa của bài này là ${assessment.max_score}.` }
+      return { error: `Điểm tối đa là ${assessment.max_score}.` }
     }
 
-    // ===== CHECK 3: quyền - GV chủ nhiệm hoặc Staff trên org của lớp =====
+    // Học viên phải đang ghi danh active
+    const { data: enrollment } = await supabase
+      .from('enrollments')
+      .select('id')
+      .eq('class_id', classId)
+      .eq('student_id', studentId)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!enrollment) {
+      return { error: 'Học viên không còn trong danh sách ghi danh lớp.' }
+    }
+
     const { data: cls } = await supabase
       .from('classes')
-      .select('teacher_id, org_id')
+      .select('org_id, teacher_id')
       .eq('id', classId)
       .maybeSingle()
+    if (!cls) return { error: 'Không tìm thấy lớp.' }
 
-    if (cls?.teacher_id !== user.id) {
-      const { data: authorized } = await supabase.rpc('is_authorized', {
-        p_user_id: user.id,
-        p_target_org_id: assessment.org_id,
-        p_required_role: 'academic_staff',
-      })
-      if (authorized !== true) {
-        return { error: 'TỪ CHỐI: Bạn không có quyền nhập điểm cho lớp này.' }
-      }
+    const { data: staffOk } = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: cls.org_id,
+      p_required_role: 'academic_staff',
+    })
+    if (cls.teacher_id !== user.id && staffOk !== true) {
+      return { error: 'Bạn không có quyền nhập điểm lớp này.' }
     }
 
-    // ===== Upsert điểm (trigger DB sẽ chặn thêm lần nữa nếu locked) =====
-    const { error } = await supabase.from('grades').upsert(
-      {
-        org_id: assessment.org_id,
+    const { data: existing } = await supabase
+      .from('grades')
+      .select('id')
+      .eq('assessment_id', assessmentId)
+      .eq('student_id', studentId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('grades')
+        .update({
+          score,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+      if (error) {
+        if (/GRADEBOOK_LOCKED|GRADING_DEADLINE/i.test(error.message)) {
+          return { error: 'Sổ điểm đã khóa hoặc quá hạn nhập.' }
+        }
+        return { error: `Không lưu điểm: ${error.message}` }
+      }
+    } else {
+      const { error } = await supabase.from('grades').insert({
+        org_id: cls.org_id,
         assessment_id: assessmentId,
         student_id: studentId,
         score,
-      },
-      { onConflict: 'assessment_id,student_id' }
-    )
-
-    if (error) {
-      if (
-        error.message.includes('GRADEBOOK_LOCKED') ||
-        error.message.includes('GRADING_DEADLINE_PASSED')
-      ) {
-        return { error: 'Đã hết hạn nhập điểm. Vui lòng liên hệ phòng Khảo thí.' }
+      })
+      if (error) {
+        if (/GRADEBOOK_LOCKED|GRADING_DEADLINE/i.test(error.message)) {
+          return { error: 'Sổ điểm đã khóa hoặc quá hạn nhập.' }
+        }
+        return { error: `Không lưu điểm: ${error.message}` }
       }
-      return { error: `Lỗi lưu điểm: ${error.message}` }
     }
 
+    revalidatePath(`/teacher/grades/${classId}`)
     return {}
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Lỗi không xác định'
-    return { error: `Không thể kết nối database: ${message}` }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Lỗi lưu điểm.',
+    }
   }
 }
 
-/**
- * Chốt Sổ Điểm: set class_results.is_locked = true.
- * Chỉ GV chủ nhiệm lớp hoặc Staff/Campus Admin (trên org của lớp).
- */
 export async function lockGradebook(classId: string): Promise<GradeActionResult> {
-  if (!classId) return { error: 'Thiếu ID lớp học.' }
-
   try {
     const supabase = createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
-
-    // Demo mode: UI tự chuyển trạng thái khóa cục bộ
-    if (!user) return { demo: true }
+    if (!user) return { error: 'Bạn chưa đăng nhập.' }
 
     const { data: cls } = await supabase
       .from('classes')
@@ -305,39 +402,52 @@ export async function lockGradebook(classId: string): Promise<GradeActionResult>
       .eq('id', classId)
       .is('deleted_at', null)
       .maybeSingle()
+    if (!cls) return { error: 'Không tìm thấy lớp.' }
 
-    if (!cls) return { error: 'Lớp học không tồn tại.' }
-
-    // Quyền chốt sổ: GV chủ nhiệm HOẶC academic_staff trở lên trên org của lớp
-    if (cls.teacher_id !== user.id) {
-      const { data: authorized } = await supabase.rpc('is_authorized', {
-        p_user_id: user.id,
-        p_target_org_id: cls.org_id,
-        p_required_role: 'academic_staff',
-      })
-      if (authorized !== true) {
-        return { error: 'TỪ CHỐI: Chỉ Giáo viên chủ nhiệm hoặc Giáo vụ mới được chốt sổ.' }
-      }
+    const { data: staffOk } = await supabase.rpc('is_authorized', {
+      p_user_id: user.id,
+      p_target_org_id: cls.org_id,
+      p_required_role: 'academic_staff',
+    })
+    if (cls.teacher_id !== user.id && staffOk !== true) {
+      return { error: 'Chỉ GV chủ nhiệm hoặc Giáo vụ được chốt sổ.' }
     }
 
-    // lock_status là nguồn sự thật (is_locked giờ là GENERATED COLUMN)
-    const { error } = await supabase.from('class_results').upsert(
-      {
-        org_id: cls.org_id,
-        class_id: classId,
-        lock_status: 'locked',
-        locked_at: new Date().toISOString(),
-        locked_by: user.id,
-      },
-      { onConflict: 'class_id' }
-    )
+    const now = new Date().toISOString()
+    const { data: existing } = await supabase
+      .from('class_results')
+      .select('id')
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
 
-    if (error) return { error: `Lỗi chốt sổ: ${error.message}` }
+    if (existing) {
+      const { error } = await supabase
+        .from('class_results')
+        .update({
+          lock_status: 'locked',
+          locked_at: now,
+          locked_by: user.id,
+          updated_at: now,
+        })
+        .eq('id', existing.id)
+      if (error) return { error: error.message }
+    } else {
+      const { error } = await supabase.from('class_results').insert({
+        class_id: classId,
+        org_id: cls.org_id,
+        lock_status: 'locked',
+        locked_at: now,
+        locked_by: user.id,
+      })
+      if (error) return { error: error.message }
+    }
 
     revalidatePath(`/teacher/grades/${classId}`)
     return {}
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Lỗi không xác định'
-    return { error: `Không thể kết nối database: ${message}` }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Lỗi chốt sổ điểm.',
+    }
   }
 }

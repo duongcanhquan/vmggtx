@@ -118,12 +118,17 @@ export default function StaffTranscriptsPage() {
             )}
           </div>
 
-          {gradebook.students.length === 0 || gradebook.assessments.length === 0 ? (
+          {gradebook.loadError ? (
+            <div className="flex flex-col items-center gap-3 py-10 text-rose-700">
+              <SearchX className="h-10 w-10 text-rose-300" aria-hidden="true" />
+              <p className="text-sm font-medium">{gradebook.loadError}</p>
+            </div>
+          ) : gradebook.students.length === 0 || gradebook.assessments.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
               <SearchX className="h-10 w-10 text-slate-300" aria-hidden="true" />
               <p className="text-sm font-medium">
                 {gradebook.students.length === 0
-                  ? 'Lớp chưa có học viên.'
+                  ? 'Lớp chưa có học viên đang ghi danh.'
                   : 'Lớp chưa có bài kiểm tra nào.'}
               </p>
             </div>

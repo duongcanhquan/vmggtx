@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMenuKey, type MenuKey } from '@/lib/auth/menuRegistry'
 import { MODULE_BY_KEY, MODULE_CATALOG } from '@/lib/licensing/moduleCatalog'
+import { SELLABLE_MODULE_KEYS } from '@/lib/licensing/packages'
 import type { ActionResult } from '@/lib/validation/schemas'
 
 // ============================================================
@@ -251,9 +252,7 @@ export async function setLicenseModule(input: {
 
     if (!license) {
       if (input.granted) return { licenseModules: null } // gói đầy đủ sẵn
-      const remaining = MODULE_CATALOG.map((m) => m.key as string).filter(
-        (key) => key !== input.moduleKey
-      )
+      const remaining = SELLABLE_MODULE_KEYS.filter((key) => key !== input.moduleKey)
       const { error: insError } = await admin.from('tenant_licenses').insert({
         org_id: input.orgId,
         plan_name: 'custom',

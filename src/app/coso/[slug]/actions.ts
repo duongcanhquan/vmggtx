@@ -2,9 +2,51 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { resolveLogoSrc } from '@/lib/branding/orgBrand'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { orgSlugSchema } from '@/lib/utils/orgSlug'
 import type { ActionResult } from '@/lib/validation/schemas'
+
+/** Logo của campus hoặc tổ tiên gần nhất có logo */
+async function resolveCampusLogoUrl(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string,
+  seedUrl?: string | null,
+  seedKey?: string | null
+): Promise<string | null> {
+  const seeded = resolveLogoSrc({
+    id: orgId,
+    logo_url: seedUrl,
+    logo_key: seedKey,
+  })
+  if (seeded) return seeded
+
+  type OrgLogoRow = {
+    id: string
+    parent_id: string | null
+    logo_url: string | null
+    logo_key: string | null
+  }
+  let cursorId: string | null = orgId
+  for (let i = 0; i < 8 && cursorId; i++) {
+    const { data } = await admin
+      .from('organizations')
+      .select('id, parent_id, logo_url, logo_key')
+      .eq('id', cursorId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    const org = data as OrgLogoRow | null
+    if (!org) break
+    const src = resolveLogoSrc({
+      id: org.id,
+      logo_url: org.logo_url,
+      logo_key: org.logo_key,
+    })
+    if (src) return src
+    cursorId = org.parent_id
+  }
+  return null
+}
 
 export type PublicCampus = {
   id: string
@@ -12,6 +54,7 @@ export type PublicCampus = {
   slug: string
   /** Tên các đơn vị CẤP TRÊN (gần nhất trước): ["Trường A"] — để hiển thị "thuộc Trường A" */
   parentNames?: string[]
+  logoUrl?: string | null
 }
 
 /**
@@ -65,9 +108,23 @@ export async function getPublicCampusBySlug(
       { p_slug: parsed.data }
     )
     if (!rpcError && Array.isArray(rpcRows) && rpcRows[0]) {
-      const row = rpcRows[0] as PublicCampus
+      const row = rpcRows[0] as {
+        id: string
+        name: string
+        slug: string
+        logo_url?: string | null
+      }
       const parentNames = await getAncestorNames(admin, row.id)
-      return { campus: { id: row.id, name: row.name, slug: row.slug, parentNames } }
+      const logoUrl = await resolveCampusLogoUrl(admin, row.id, row.logo_url, null)
+      return {
+        campus: {
+          id: row.id,
+          name: row.name,
+          slug: row.slug,
+          parentNames,
+          logoUrl,
+        },
+      }
     }
 
     // Fallback khi chưa chạy migration 045 / RPC thiếu
@@ -77,7 +134,7 @@ export async function getPublicCampusBySlug(
 
     const { data, error } = await admin
       .from('organizations')
-      .select('id, name, slug')
+      .select('id, name, slug, logo_url, logo_key')
       .eq('type', 'campus')
       .eq('slug', parsed.data)
       .is('deleted_at', null)
@@ -95,8 +152,26 @@ export async function getPublicCampusBySlug(
     }
     if (!data?.slug) return { campus: null }
     const parentNames = await getAncestorNames(admin, data.id)
+    const row = data as {
+      id: string
+      name: string
+      slug: string
+      logo_url?: string | null
+      logo_key?: string | null
+    }
     return {
-      campus: { id: data.id, name: data.name, slug: data.slug, parentNames },
+      campus: {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        parentNames,
+        logoUrl: await resolveCampusLogoUrl(
+          admin,
+          row.id,
+          row.logo_url,
+          row.logo_key
+        ),
+      },
     }
   } catch (error) {
     return {
@@ -223,7 +298,7 @@ export async function assertUserInCampus(
     const subtree = await getDescendantOrgIds(admin, campus.id)
     if (!subtree.includes(profile.org_id)) {
       return {
-        error: `Tài khoản không thuộc cơ sở "${campus.name}". Vào đúng /coso/… của bạn hoặc dùng /login.`,
+        error: `Tài khoản không thuộc cơ sở "${campus.name}". Dùng đúng link /coso/…/login do nhà trường gửi.`,
       }
     }
 

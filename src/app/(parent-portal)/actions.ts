@@ -29,6 +29,8 @@ export type ParentStudent = {
   id: string
   full_name: string
   org_name: string
+  /** Logo đơn vị học sinh (leo cây org) — hiển thị header sổ liên lạc */
+  logo_url?: string | null
 }
 
 export type AttendanceSummary = {
@@ -388,7 +390,7 @@ export async function getParentStudent(): Promise<ParentStudent | null> {
     const supabase = admin()
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, organizations(name)')
+      .select('id, full_name, org_id, organizations(name)')
       .eq('id', studentId)
       .eq('role', 'student')
       .is('deleted_at', null)
@@ -396,13 +398,34 @@ export async function getParentStudent(): Promise<ParentStudent | null> {
     if (error || !data) throw error ?? new Error('not found')
 
     const org = data.organizations as { name?: string } | { name?: string }[] | null
+    let logo_url: string | null = null
+    let cursorId: string | null = data.org_id ?? null
+    for (let i = 0; i < 8 && cursorId; i++) {
+      const { data: o } = await supabase
+        .from('organizations')
+        .select('id, parent_id, logo_url, logo_key')
+        .eq('id', cursorId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (!o) break
+      if (o.logo_url) {
+        logo_url = o.logo_url
+        break
+      }
+      if (o.logo_key) {
+        logo_url = `/api/org-logo/${o.id}`
+        break
+      }
+      cursorId = o.parent_id
+    }
     return {
       id: data.id,
       full_name: data.full_name,
       org_name: Array.isArray(org) ? org[0]?.name ?? '—' : org?.name ?? '—',
+      logo_url,
     }
   } catch {
-    return MOCK_STUDENT
+    return null
   }
 }
 
@@ -921,5 +944,147 @@ export async function getParentTuition(): Promise<ParentTuition> {
     }
   } catch {
     return { invoices: [], totalAmount: 0, totalPaid: 0, totalRemaining: 0, overdueRemaining: 0 }
+  }
+}
+
+export type ParentInsightReport = {
+  presentRate: number
+  totalSessions: number
+  unexcused: number
+  avgScore: number | null
+  gradeTrend: { label: string; score: number }[]
+  attendanceBars: { label: string; present: number; absent: number }[]
+  openWarnings: number
+}
+
+/** Xu hướng dài hạn cho PH — không MOCK khi lỗi/trống */
+export async function getParentInsights(): Promise<{
+  data: ParentInsightReport
+  loadError?: string | null
+}> {
+  const empty: ParentInsightReport = {
+    presentRate: 100,
+    totalSessions: 0,
+    unexcused: 0,
+    avgScore: null,
+    gradeTrend: [],
+    attendanceBars: [],
+    openWarnings: 0,
+  }
+  const studentId = getSessionStudentId()
+  if (!studentId) return { data: empty, loadError: 'Chưa đăng nhập phụ huynh.' }
+  if (studentId === DEMO_STUDENT_ID) {
+    return {
+      data: {
+        presentRate: 92,
+        totalSessions: 24,
+        unexcused: 1,
+        avgScore: 8.2,
+        gradeTrend: [
+          { label: 'Kiểm tra 1', score: 7.5 },
+          { label: 'Kiểm tra 2', score: 8 },
+          { label: 'Giữa kỳ', score: 8.5 },
+          { label: 'Cuối kỳ', score: 9 },
+        ],
+        attendanceBars: [
+          { label: 'T2', present: 2, absent: 0 },
+          { label: 'T3', present: 1, absent: 1 },
+          { label: 'T4', present: 2, absent: 0 },
+          { label: 'T5', present: 2, absent: 0 },
+          { label: 'T6', present: 1, absent: 0 },
+        ],
+        openWarnings: 0,
+      },
+      loadError: null,
+    }
+  }
+
+  try {
+    const supabase = admin()
+    const [statsRes, gradesRes, attendRes, warnRes] = await Promise.all([
+      supabase
+        .from('vw_student_attendance_stats')
+        .select('total_sessions, present_count, unexcused_count')
+        .eq('student_id', studentId),
+      supabase
+        .from('grades')
+        .select('score, created_at, assessments(name)')
+        .eq('student_id', studentId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+        .limit(12),
+      supabase
+        .from('attendance')
+        .select('status, created_at')
+        .eq('student_id', studentId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(40),
+      supabase
+        .from('student_warnings')
+        .select('id', { count: 'exact', head: true })
+        .eq('student_id', studentId)
+        .neq('status', 'resolved')
+        .is('deleted_at', null),
+    ])
+
+    const total = (statsRes.data ?? []).reduce(
+      (s, r) => s + Number(r.total_sessions),
+      0
+    )
+    const present = (statsRes.data ?? []).reduce(
+      (s, r) => s + Number(r.present_count),
+      0
+    )
+    const unexcused = (statsRes.data ?? []).reduce(
+      (s, r) => s + Number(r.unexcused_count),
+      0
+    )
+
+    const scores = (gradesRes.data ?? []).map((g) => Number(g.score))
+    const avgScore =
+      scores.length > 0
+        ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+        : null
+
+    const gradeTrend = (gradesRes.data ?? []).map((g) => {
+      const a = (
+        Array.isArray(g.assessments) ? g.assessments[0] : g.assessments
+      ) as { name?: string } | null
+      return {
+        label: (a?.name ?? 'Bài').slice(0, 10),
+        score: Number(g.score),
+      }
+    })
+
+    const dayMap = new Map<string, { present: number; absent: number }>()
+    for (const row of [...(attendRes.data ?? [])].reverse()) {
+      const key = String(row.created_at).slice(5, 10)
+      const bucket = dayMap.get(key) ?? { present: 0, absent: 0 }
+      if (row.status === 'present') bucket.present += 1
+      if (row.status === 'absent') bucket.absent += 1
+      dayMap.set(key, bucket)
+    }
+    const attendanceBars = [...dayMap.entries()]
+      .slice(-8)
+      .map(([label, v]) => ({ label, ...v }))
+
+    return {
+      data: {
+        presentRate: total > 0 ? Math.round((present / total) * 100) : 100,
+        totalSessions: total,
+        unexcused,
+        avgScore,
+        gradeTrend,
+        attendanceBars,
+        openWarnings: warnRes.count ?? 0,
+      },
+      loadError: null,
+    }
+  } catch (e) {
+    return {
+      data: empty,
+      loadError: e instanceof Error ? e.message : 'Không tải được xu hướng.',
+    }
   }
 }

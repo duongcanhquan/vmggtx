@@ -59,6 +59,8 @@ export type CampusContext = {
   slug: string
   /** Tên các đơn vị cấp trên (gần nhất trước) — hiển thị "thuộc Trường A" */
   parentNames?: string[]
+  /** Logo thương hiệu (URL hoặc /api/org-logo/…) */
+  logoUrl?: string | null
 }
 
 /**
@@ -136,8 +138,8 @@ export function StaffLoginForm({
       setWrongPortal(true)
       setServerError(
         campus
-          ? 'Đây là cổng dành cho Nhà trường & Giảng viên. Học viên vui lòng đăng nhập tại Cổng Học viên.'
-          : 'Học viên hãy chọn cơ sở tại /coso rồi vào Cổng Học viên của cơ sở đó.'
+          ? 'Đây là cổng dành cho Nhà trường & Giảng viên. Học viên vui lòng đăng nhập tại tab Gia đình.'
+          : 'Học viên đăng nhập bằng link cổng cơ sở do nhà trường gửi (/coso/…/login), tab Gia đình.'
       )
       return
     }
@@ -168,7 +170,7 @@ export function StaffLoginForm({
 
   const studentHref = campus
     ? campusLoginPath(campus.slug, 'student')
-    : '/coso'
+    : '/student/login'
 
   const formEl = (
     <form onSubmit={handleSubmit(onValid)} noValidate>
@@ -218,10 +220,10 @@ export function StaffLoginForm({
             <p>{serverError}</p>
             {wrongPortal && (
               <Link
-                href={campus ? studentHref : '/coso'}
+                href={studentHref}
                 className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-bold text-[#162938] hover:bg-white/90"
               >
-                {campus ? 'Sang Cổng Học viên' : 'Sang /coso chọn cơ sở'}
+                {campus ? 'Sang tab Gia đình (Học viên)' : 'Sang cổng Học viên'}
               </Link>
             )}
           </div>
@@ -243,7 +245,8 @@ export function StaffLoginForm({
   return (
     <AuthShell
       theme="management"
-      badge={campus ? 'EDU SYSTEM' : undefined}
+      badge={campus ? (campus.logoUrl ? campus.name : 'EDU SYSTEM') : undefined}
+      logoUrl={campus?.logoUrl}
       title={
         campus ? (
           <span className="block text-balance text-2xl leading-snug sm:text-[26px]">
@@ -257,31 +260,14 @@ export function StaffLoginForm({
       }
       subtitle={campus ? undefined : 'Đăng nhập hệ thống'}
       footer={
-        campus ? (
-          <p>
-            <Link
-              href={`/coso/${campus.slug}`}
-              className="font-bold text-white/80 underline-offset-2 hover:underline"
-            >
-              ← Về trang cơ sở
-            </Link>
-          </p>
-        ) : (
-          <p className="space-y-1">
-            <Link
-              href="/coso"
-              className="block font-bold text-white/85 underline-offset-2 hover:underline"
-            >
-              Đăng nhập theo cơ sở →
-            </Link>
-            <Link
-              href="/login"
-              className="block text-white/70 underline-offset-2 hover:underline"
-            >
-              ← Về trang giới thiệu
-            </Link>
-          </p>
-        )
+        <p>
+          <Link
+            href="/login"
+            className="font-bold text-white/80 underline-offset-2 hover:underline"
+          >
+            ← Về trang giới thiệu
+          </Link>
+        </p>
       }
     >
       {formEl}

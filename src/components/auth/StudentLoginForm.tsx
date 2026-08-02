@@ -118,9 +118,8 @@ export function StudentLoginForm({
       }
     }
     if (!role) {
-      // Không signOut — giữ phiên; thử vào portal
-      router.replace('/portal')
-      router.refresh()
+      await supabase.auth.signOut()
+      setServerError('Không xác định được vai trò tài khoản. Liên hệ nhà trường.')
       return
     }
     if (role !== 'student' && role !== 'super_admin') {
@@ -135,9 +134,8 @@ export function StudentLoginForm({
     if (campus && role === 'student') {
       const gate = await assertUserInCampus(campus.id, data.user?.id)
       if (gate.error !== undefined) {
+        await supabase.auth.signOut()
         setServerError(gate.error)
-        router.replace('/portal')
-        router.refresh()
         return
       }
       // Nhận diện NGAY đơn vị trực tiếp của học viên (trung tâm/chi nhánh)
@@ -150,11 +148,11 @@ export function StudentLoginForm({
       campus ? campusLoginPath(campus.slug, 'student') : '/student/login'
     )
 
-    router.replace(role === 'super_admin' ? getHomePathForRole(role) : '/portal')
+    router.replace(getHomePathForRole(role))
     router.refresh()
   }
 
-  const staffHref = campus ? campusLoginPath(campus.slug, 'management') : '/coso'
+  const staffHref = campus ? campusLoginPath(campus.slug, 'management') : '/login/admin'
 
   const formEl = (
     <form onSubmit={handleSubmit(onValid)} noValidate>
@@ -229,7 +227,8 @@ export function StudentLoginForm({
   return (
     <AuthShell
       theme="student"
-      badge="Cổng Học viên"
+      badge={campus?.logoUrl ? campus.name : 'Cổng Học viên'}
+      logoUrl={campus?.logoUrl}
       title={
         campus ? (
           <span className="block text-balance text-2xl leading-snug sm:text-[26px]">
@@ -242,25 +241,14 @@ export function StudentLoginForm({
         )
       }
       footer={
-        !campus ? (
-          <p>
-            <Link
-              href="/coso"
-              className="font-bold text-white underline-offset-2 hover:underline"
-            >
-              Chọn cơ sở của bạn →
-            </Link>
-          </p>
-        ) : (
-          <p>
-            <Link
-              href={`/coso/${campus.slug}`}
-              className="font-bold text-white/80 underline-offset-2 hover:underline"
-            >
-              ← Về trang cơ sở
-            </Link>
-          </p>
-        )
+        <p>
+          <Link
+            href="/login"
+            className="font-bold text-white/80 underline-offset-2 hover:underline"
+          >
+            ← Về trang giới thiệu
+          </Link>
+        </p>
       }
     >
       {formEl}

@@ -37,7 +37,7 @@ export function isRole(value: unknown): value is Role {
  * - campus_admin → / (Tổng quan + báo cáo, toàn quyền vận hành cơ sở)
  * - academic_staff / accountant / admission_staff → /staff
  * - teacher → /teacher
- * - student → /student
+ * - student → /portal (cổng học viên đầy đủ; /student redirect vào đây)
  */
 export function getHomePathForRole(role: Role | null | undefined): string {
   switch (role) {
@@ -52,7 +52,7 @@ export function getHomePathForRole(role: Role | null | undefined): string {
     case 'teacher':
       return '/teacher'
     case 'student':
-      return '/student'
+      return '/portal'
     case 'enterprise_partner':
       return '/b2b'
     default:

@@ -185,14 +185,14 @@ export function ChapterPage({ slug }: { slug: string }) {
             </Link>
           ) : (
             <Link
-              href="/coso"
+              href="/login"
               className="lp-reveal lp-glass group flex flex-col rounded-3xl p-6 text-right transition sm:items-end sm:p-7"
             >
               <span className="text-xs font-semibold uppercase tracking-wider text-white/40">
-                Bắt đầu
+                Về trang chủ
               </span>
               <span className="mt-2 flex items-center gap-2 font-heading text-xl font-bold text-white group-hover:text-amber-200">
-                Vào cổng cơ sở của bạn
+                Khám phá EDU SYSTEM
                 <ArrowRight className="h-5 w-5" aria-hidden="true" />
               </span>
             </Link>

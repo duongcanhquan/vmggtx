@@ -55,7 +55,7 @@ export default function AcademicWarningsPage() {
   const currentOrgId = useOrgStore((state) => state.currentOrgId)
 
   const [warnings, setWarnings] = useState<WarningRow[]>([])
-  const [isDemo, setIsDemo] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
   const [sendingIds, setSendingIds] = useState<Set<string>>(new Set())
@@ -70,7 +70,7 @@ export default function AcademicWarningsPage() {
     setLoading(true)
     const result = await getWarnings(currentOrgId)
     setWarnings(result.data)
-    setIsDemo(result.demo)
+    setLoadError(result.loadError ?? null)
     setLoading(false)
   }, [currentOrgId])
 
@@ -178,9 +178,9 @@ export default function AcademicWarningsPage() {
         </div>
       </div>
 
-      {isDemo && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống).
+      {loadError && (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          Không tải được cảnh báo: {loadError}
         </p>
       )}
 
@@ -214,7 +214,9 @@ export default function AcademicWarningsPage() {
           <div className="flex flex-col items-center gap-2 p-12 text-center">
             <AlertTriangle className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              Chưa có cảnh báo nào.
+              {loadError
+                ? 'Không có dữ liệu để hiển thị.'
+                : 'Chưa có cảnh báo nào. Bấm «Quét cảnh báo» hoặc điểm danh để tự quét.'}
             </p>
           </div>
         ) : (

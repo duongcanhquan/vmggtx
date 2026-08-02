@@ -335,12 +335,12 @@ export default async function AdminPortalPage() {
                   <p className="font-medium text-slate-900">{unit.name}</p>
                   {unit.slug && (
                     <a
-                      href={`/coso/${unit.slug}`}
+                      href={`/coso/${unit.slug}/login`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs font-semibold text-violet-700 hover:underline"
                     >
-                      /coso/{unit.slug}
+                      /coso/{unit.slug}/login
                       <ExternalLink className="h-3 w-3" aria-hidden="true" />
                     </a>
                   )}

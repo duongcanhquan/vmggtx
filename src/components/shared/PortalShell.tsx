@@ -4,7 +4,6 @@ import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  GraduationCap,
   Loader2,
   Menu,
   PanelLeftClose,
@@ -13,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { UserMenu } from '@/components/shared/UserMenu'
+import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
 
 // ============================================================
 // PortalShell — khung layout Back-Office dùng chung (Admin/Staff).
@@ -120,22 +120,14 @@ function NavLinks({
 function Brand({ portalName, collapsed }: { portalName: string; collapsed: boolean }) {
   return (
     <div
-      className={`flex h-16 items-center gap-2.5 border-b border-white/10 px-4 ${
+      className={`flex h-16 items-center border-b border-white/10 px-4 ${
         collapsed ? 'justify-center px-2' : ''
       }`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#5d68e8]/40 bg-gradient-to-br from-[#232457] to-[#12122e] text-[#a5b5f7]">
-        <GraduationCap className="h-5 w-5" aria-hidden="true" />
-      </span>
-      {!collapsed && (
-        <span className="min-w-0">
-          <span className="block truncate font-heading text-base font-bold leading-tight tracking-tight text-stone-100">
-            EDU <span className="text-gold-gradient">SYSTEM</span>
-          </span>
-          <span className="block truncate text-[11px] font-semibold uppercase tracking-widest text-stone-500">
-            {portalName}
-          </span>
-        </span>
+      {collapsed ? (
+        <OrgBrandMark size="md" tone="dark" />
+      ) : (
+        <OrgBrandMark size="md" tone="dark" showWordmark subtitle={portalName} />
       )}
     </div>
   )

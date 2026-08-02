@@ -9,6 +9,7 @@ import {
   type WeekSession,
 } from '../../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { readLoginPortal } from '@/lib/auth/loginPortal'
 
 // ============================================================
 // Lịch học của con (7 ngày tới) - nhóm theo ngày, mobile-first.
@@ -42,7 +43,7 @@ export default function ParentSchedulePage() {
       ])
       if (cancelled) return
       if (!student) {
-        router.replace('/parent/login')
+        router.replace(readLoginPortal() ?? '/parent/login')
         return
       }
       setSessions(data)

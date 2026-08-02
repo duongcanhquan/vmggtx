@@ -11,6 +11,7 @@ import {
   Medal,
   UserRound,
 } from 'lucide-react'
+import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
 import {
   getAttendanceSummary,
   getParentStudent,
@@ -69,7 +70,7 @@ export default function ParentDashboardPage() {
       const currentStudent = await getParentStudent()
       if (cancelled) return
       if (!currentStudent) {
-        router.replace('/parent/login')
+        router.replace(readLoginPortal() ?? '/parent/login')
         return
       }
       setStudent(currentStudent)
@@ -111,9 +112,18 @@ export default function ParentDashboardPage() {
       {/* ===== Header học sinh ===== */}
       <header className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-4 text-white shadow-md">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
-            <UserRound className="h-5 w-5" aria-hidden="true" />
-          </span>
+          {student.logo_url ? (
+            <OrgBrandMark
+              logoUrl={student.logo_url}
+              size="md"
+              tone="glass"
+              alt={student.org_name}
+            />
+          ) : (
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
+              <UserRound className="h-5 w-5" aria-hidden="true" />
+            </span>
+          )}
           <div>
             <p className="text-xs text-indigo-100">Phụ huynh em</p>
             <p className="font-heading text-base font-bold">{student.full_name}</p>

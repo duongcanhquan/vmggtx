@@ -108,13 +108,14 @@ export function ParentLoginForm({
   return (
     <AuthShell
       theme="parent"
-      badge="Phụ huynh"
-      title="Sổ liên lạc"
+      badge={campus?.logoUrl ? campus.name : 'Phụ huynh'}
+      logoUrl={campus?.logoUrl}
+      title={campus ? campus.name : 'Sổ liên lạc'}
       subtitle="Đăng nhập bằng email và mật khẩu"
       footer={
         <p>
-          <Link href="/coso" className="font-semibold underline-offset-2 hover:underline">
-            Chọn cơ sở
+          <Link href="/login" className="font-semibold underline-offset-2 hover:underline">
+            ← Về trang giới thiệu
           </Link>
         </p>
       }

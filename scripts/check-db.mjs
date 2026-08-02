@@ -236,6 +236,10 @@ await checkTable('user_menu_permissions', '049_user_grants.sql')
 console.log('\n-- Migration 050 (tài khoản phụ huynh email+password) --')
 await checkTable('parent_accounts', '050_parent_accounts.sql')
 
+console.log('\n-- Migration 051 (logo thương hiệu theo tổ chức) --')
+await checkColumn('organizations', 'logo_url', '051_org_logo.sql')
+await checkColumn('organizations', 'logo_key', '051_org_logo.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

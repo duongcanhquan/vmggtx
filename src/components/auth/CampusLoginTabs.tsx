@@ -32,7 +32,8 @@ export function CampusLoginTabs({
   return (
     <AuthShell
       theme={theme}
-      badge="EDU SYSTEM"
+      badge={campus.logoUrl ? campus.name : 'EDU SYSTEM'}
+      logoUrl={campus.logoUrl}
       title={
         <span className="block text-balance text-xl leading-snug sm:text-2xl">
           {campus.name}
@@ -42,10 +43,10 @@ export function CampusLoginTabs({
       footer={
         <p>
           <Link
-            href="/coso"
+            href="/login"
             className="font-semibold text-white/85 underline-offset-2 hover:text-white hover:underline"
           >
-            ← Chọn cơ sở khác
+            ← Về trang giới thiệu
           </Link>
         </p>
       }

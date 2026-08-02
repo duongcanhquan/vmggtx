@@ -3,7 +3,15 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, CalendarDays, Home, Loader2, Medal, Wallet } from 'lucide-react'
+import {
+  BarChart3,
+  Bell,
+  CalendarDays,
+  Home,
+  Loader2,
+  Medal,
+  Wallet,
+} from 'lucide-react'
 
 // ============================================================
 // Layout PARENT PORTAL - Sổ Liên Lạc Điện Tử cho Phụ huynh.
@@ -17,6 +25,7 @@ const PARENT_MENU = [
   { label: 'Trang chủ', href: '/dashboard', icon: Home },
   { label: 'Lịch học', href: '/parent/schedule', icon: CalendarDays },
   { label: 'Sổ điểm', href: '/parent/grades', icon: Medal },
+  { label: 'Xu hướng', href: '/parent/insights', icon: BarChart3 },
   { label: 'Học phí', href: '/parent/tuition', icon: Wallet },
   { label: 'Thông báo', href: '/parent/notifications', icon: Bell },
 ]
@@ -53,7 +62,7 @@ export default function ParentPortalLayout({
             aria-label="Menu phụ huynh"
             className="fixed bottom-0 z-40 w-full max-w-[480px] md:max-w-[640px] border-t border-border bg-surface/95 backdrop-blur"
           >
-            <ul className="grid grid-cols-5">
+            <ul className="grid grid-cols-6">
               {PARENT_MENU.map((item) => {
                 const Icon = item.icon
                 const isActive = pathname.startsWith(item.href)

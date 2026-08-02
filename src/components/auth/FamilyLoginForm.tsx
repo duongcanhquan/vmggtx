@@ -12,7 +12,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { isRole } from '@/lib/auth/roles'
+import { getHomePathForRole, isRole, type Role } from '@/lib/auth/roles'
 import { AuthField, authBtnClass } from '@/components/auth/AuthShell'
 import { resolveLoginEmail, resolveRoleByUserId } from '@/app/login/actions'
 import { assertUserInCampus } from '@/app/coso/[slug]/actions'
@@ -75,7 +75,7 @@ export function FamilyLoginForm({
       return
     }
 
-    let role: string | null = null
+    let role: Role | null = null
     try {
       const token = data.session?.access_token
       if (token) {
@@ -107,12 +107,17 @@ export function FamilyLoginForm({
       return
     }
 
+    if (!role) {
+      await supabase.auth.signOut()
+      setError('Không xác định được vai trò tài khoản. Liên hệ nhà trường.')
+      return
+    }
+
     if (campus && role === 'student') {
       const gate = await assertUserInCampus(campus.id, data.user?.id)
       if (gate.error !== undefined) {
+        await supabase.auth.signOut()
         setError(gate.error)
-        router.replace('/portal')
-        router.refresh()
         return
       }
       const contextOrgId = gate.userOrgId ?? gate.campusId
@@ -122,7 +127,7 @@ export function FamilyLoginForm({
     rememberLoginPortal(
       campus ? campusLoginPath(campus.slug, 'student') : '/student/login'
     )
-    router.replace(role === 'super_admin' ? '/admin/organizations' : '/portal')
+    router.replace(getHomePathForRole(role))
     router.refresh()
   }
 

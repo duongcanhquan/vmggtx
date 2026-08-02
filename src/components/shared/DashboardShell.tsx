@@ -13,13 +13,15 @@ import {
   Calendar,
   ChevronDown,
   ClipboardCheck,
+  BookOpenCheck,
+  BarChart3,
   Receipt,
   ShieldCheck,
   Users,
   Menu,
   X,
-  GraduationCap,
   FileSignature,
+  GraduationCap,
   Inbox,
   AlertTriangle,
   Boxes,
@@ -38,6 +40,7 @@ import { useMyMenuGrants } from '@/lib/hooks/useMyMenuGrants'
 import { useMyModuleFlags } from '@/lib/hooks/useMyModuleFlags'
 import type { MenuKey } from '@/lib/auth/menuRegistry'
 import type { Role } from '@/lib/auth/roles'
+import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
 
 // ============================================================
 // MA TRẬN PHÂN QUYỀN MENU (2 TẦNG)
@@ -71,6 +74,13 @@ const ACADEMIC: Role[] = ['super_admin', 'campus_admin', 'academic_staff']
 
 const MENU: MenuEntry[] = [
   { label: 'Tổng quan', href: '/', icon: LayoutDashboard },
+  {
+    label: 'Báo cáo',
+    href: '/reports',
+    icon: BarChart3,
+    roles: [...ACADEMIC, 'accountant'],
+    menuKey: 'reports',
+  },
   {
     // Học sinh gộp Import thành TAB trong trang -> chỉ còn 1 mục menu
     label: 'Học sinh',
@@ -121,6 +131,13 @@ const MENU: MenuEntry[] = [
         label: 'Vận hành Giáo vụ & Khảo thí',
         href: '/staff/classes',
         icon: Briefcase,
+        roles: ACADEMIC,
+        menuKey: 'staff_ops',
+      },
+      {
+        label: 'Bảng điểm tổng',
+        href: '/staff/transcripts',
+        icon: BookOpenCheck,
         roles: ACADEMIC,
         menuKey: 'staff_ops',
       },
@@ -255,6 +272,12 @@ const SUPER_MENU: MenuEntry[] = [
   { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
   { label: 'Quản lý Đơn vị', href: '/admin/organizations', icon: Building2 },
   { label: 'Module & Gói dịch vụ', href: '/admin/modules', icon: Boxes },
+  {
+    label: 'Cài đặt toàn cục',
+    href: '/admin/settings',
+    icon: Settings,
+    menuKey: 'settings_global',
+  },
 ]
 
 const GROUPS_STORAGE_KEY = 'gdtx-menu-groups'
@@ -271,19 +294,17 @@ function canSee(role: Role | null | undefined, roles?: Role[]): boolean {
   return roles.includes(role)
 }
 
-/** Tầng 2: ma trận phân quyền động (menu_permissions).
- *  super_admin VÀ campus_admin bỏ qua — Quản lý cơ sở có TOÀN QUYỀN
- *  trong subtree của mình, ma trận chỉ ràng buộc các role cấp dưới
- *  (giáo vụ/tuyển sinh/kế toán/giáo viên). Nhờ vậy menu MỚI thêm
- *  không bao giờ bị bản ghi override cũ trong DB che mất. */
+/** Tầng 2: ma trận + license (get_my_menu_keys).
+ *  super_admin bỏ qua. campus_admin bị CAP bởi module đã mua khi
+ *  menuKeys !== null (D12); fail-open khi chưa có license. */
 function grantedByMatrix(
   role: Role | null | undefined,
   menuKeys: MenuKey[] | null | undefined,
   leafKey?: MenuKey
 ): boolean {
   if (!leafKey) return true
-  if (role === 'super_admin' || role === 'campus_admin') return true
-  // Đang tải hoặc không có ghi đè -> theo ma trận mặc định (đã lọc bằng roles)
+  if (role === 'super_admin') return true
+  // Đang tải hoặc không có ghi đè/license -> theo ma trận mặc định (roles)
   if (menuKeys === undefined || menuKeys === null) return true
   return menuKeys.includes(leafKey)
 }
@@ -416,16 +437,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="flex h-16 items-center gap-2.5 px-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#5d68e8] to-[#833ce6] text-white shadow-[0_6px_18px_-4px_rgba(93,104,232,0.65)]">
-          <GraduationCap className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <span className="font-heading text-lg font-bold tracking-tight text-white">
-          EDU{' '}
-          <span className="bg-gradient-to-r from-[#a5b5f7] via-[#c9b5fc] to-[#ecc75a] bg-clip-text text-transparent">
-            SYSTEM
-          </span>
-        </span>
+      <div className="flex h-16 items-center px-5">
+        <OrgBrandMark size="md" tone="dark" showWordmark />
       </div>
       <div className="gold-hairline mx-5" aria-hidden="true" />
       <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Menu chính">

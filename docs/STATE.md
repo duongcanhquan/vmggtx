@@ -3,8 +3,8 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-02 - Cổng /coso → thẳng login; AuthField UI mới;
-  Gia đình: HV MaSV/email+pass, PH email+pass (050 parent_accounts)
+**Cập nhật lần cuối**: 2026-08-02 - Hub bao cao theo role (D17) + bo MOCK
+  doanh thu overview; build sạch
 
 ## Snapshot
 - Build production: SẠCH (npm run build exit 0). Deploy: Vercel + Supabase, repo `duongcanhquan/vmggtx`.
@@ -13,9 +13,9 @@
 - "Phó giám đốc" = tài khoản campus_admin gắn vào org con (không có role riêng).
 
 ## Migrations
-- Đã có file: `001 → 050` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
-- ⚠️ **CHƯA chạy trên DB thật: 049 (user grants)** và **050 (parent_accounts)** — user chạy tay
-  qua Supabase SQL Editor. 049 fail-safe; 050 thiếu → đăng nhập PH báo chạy migration.
+- Đã có file: `001 → 051` + `999_performance_indexes` + `999_final_rls_patch` (999 chạy cuối).
+- ⚠️ **CHƯA chạy trên DB thật: 049, 050, 051** — user chạy tay qua Supabase SQL Editor.
+  - 049 fail-safe; 050 thiếu → đăng nhập PH báo chạy migration; 051 thiếu → upload logo báo thiếu cột.
 - ⚠️ `scripts/apply-migration.mjs` lỗi "password authentication failed" - DATABASE_URL trong .env sai
   mật khẩu. Muốn tự động hóa phải xin user cập nhật.
 
@@ -34,42 +34,44 @@
   thông báo user_notifications, cảnh báo tâm lý tự động, HDSD tại /hdsd, dashboard kéo-thả
   (user_preferences + global_layout_templates), SmartTable lưu góc nhìn, phân quyền menu động
   (/admin/permissions, menuRegistry, RPC get_my_menu_keys).
-- Kiêm nhiệm (049 - 2026-08-01): `user_menu_permissions` gán quyền BỔ SUNG theo TỪNG user.
-  Modal "Gán quyền kiêm nhiệm" tại /campus-admin/users (trần = quyền của người gán, tối đa mức
-  Giáo vụ ở data layer). Mở đủ 3 tầng: menu (useMyMenuGrants) + middleware (menuGrants trong
-  access state) + data (is_authorized v2 p_menu_key qua helper isAuthorizedRpc + RLS grant_*).
-  049 cũng VÁ BUG: academic_staff trước đây KHÔNG update được profiles học sinh (RLS chặn im lặng).
-- /teachers (mới): danh bạ giảng viên + gán/gỡ lớp (classes.teacher_id), menuKey 'teachers'.
-- Trang 360 học sinh: nút "Sửa hồ sơ" (họ tên/SĐT/địa chỉ/MaSV, check MaSV trùng), hiện MaSV thật.
+- Kiêm nhiệm (049): `user_menu_permissions` + modal gán quyền tại /campus-admin/users.
+- /teachers: danh bạ giảng viên + gán/gỡ lớp; trang 360 học sinh có sửa hồ sơ + MaSV.
+- **Logo org (051 / D15)**: `organizations.logo_url` + `logo_key`; upload `/settings` (campus_admin);
+  R2 hoặc data URL ≤200KB; `/api/org-logo/[orgId]`; OrgBrandMark trên login + shells + parent header.
+  Nhánh kế thừa logo tổ tiên. RPC public trả `logo_url`.
+- **Parent accounts UI**: card trên `/students/[id]` (overview) — tạo / đổi MK / soft-delete;
+  cascade soft-delete `parent_accounts` khi xóa học viên.
+- **Gradebook**: roster = enrollments `active`; lỗi/từ chối → `loadError`, không MOCK.
+- **Cảnh báo vắng**: `max_absence_warning` qua `resolveSetting`; auto-scan sau `submitAttendance`.
+- **Payroll**: chỉ đếm buổi `completed` có bản ghi attendance (đã có sẵn).
+- **Pipeline học vụ (fix)**: lịch dạy GV popup điểm danh = enrollments active;
+  HV `getMyGrades`/`getMySchedule`/`getStudents` không MOCK khi trống;
+  cổng HV `/progress` (chuyên cần + nhận xét/thái độ); menu Giáo vụ «Bảng điểm tổng».
+- **Báo cáo (D17)**: MenuKey `reports` → `/reports` (ops cockpit), `/reports/academic`,
+  `/reports/exams`; GV `/teacher/insights`; PH `/parent/insights`. Recharts + bento KPI.
+  Overview «Doanh thu đã thu» = tổng payments (không MOCK).
 
 ## Tồn đọng / việc tiếp theo
-1. Migration **049** chờ user chạy tay qua Supabase SQL Editor (bắt buộc để gán quyền kiêm nhiệm
-   + vá bug giáo vụ sửa hồ sơ học sinh).
-2. Production Vercel: set `PARENT_SESSION_SECRET` + `PARENT_MOCK_OTP` (bắt buộc, không còn fallback).
-3. Subdomain DNS per cơ sở (`ten.domain.com`) — sau path `/coso/` (D14 đã chốt path trước).
-4. Backlog: UI quản lý tài khoản phụ huynh; OTP SMS (legacy); attendance/payroll auto-scan.
-5. License: phụ huynh CHƯA bị chặn khi cơ sở hết hạn (chấp nhận được).
-6. Login lỗi production: kiểm tra env Supabase + JWT hook 006; dùng `/coso/{slug}/login` sau khi có slug.
+1. Migration **049 / 050 / 051** chờ user chạy tay qua Supabase SQL Editor (**P0 ops**).
+   UI parent_accounts cần **050**; thiếu 050 → card báo lỗi / login PH báo thiếu bảng.
+2. Production Vercel: set `PARENT_SESSION_SECRET` (+ `PARENT_MOCK_OTP` nếu còn OTP).
+3. License: phụ huynh CHƯA bị chặn khi cơ sở hết hạn (chấp nhận được).
+4. Subdomain DNS per cơ sở — sau path `/coso/` (D14).
+5. Tùy chọn: `R2_PUBLIC_BASE_URL` cho CDN logo.
+6. P2 (sau): wizard «Mở lớp» hàng loạt; điểm hành vi cá nhân; export PDF/CSV báo cáo.
 
-## Cổng /coso/[slug] (mới - 2026-08-01)
-- Gốc `/login` = landing marketing; `/login/admin` = form nhân sự (icon sách ẩn);
-  hub `/coso` → thẳng `/coso/{slug}/login` (bỏ màn chọn trung gian).
-  Login 2 tab: Nhà trường | Gia đình (Học viên MaSV/email+pass · Phụ huynh email+pass).
-- `organizations.slug` + RPC `get_public_campus_by_slug` / `list_public_campuses`.
-- Wizard tạo cơ sở hiện link đầy đủ để gửi admin cơ sở.
+## Cổng /coso/[slug]/login
+- Gốc `/login` = landing marketing; `/login/admin` = form nhân sự (icon sách ẩn).
+- `/coso` (hub danh sách) ĐÃ BỎ — redirect về `/login`. Không chọn cơ sở công khai.
+- Link gửi trường: `/coso/{slug}/login` — tab Nhà trường | Gia đình (HV MaSV/email+pass · PH email+pass).
+- `/coso/{slug}` vẫn redirect → login (bookmark cũ).
+- `organizations.slug` + RPC public (+ logo_url sau 051).
 
-## Tầng LICENSE (mới - 2026-08-01)
-- Gói = tổ hợp module (MenuKey). 3 preset trong `src/lib/licensing/packages.ts`
-  (basic/advanced/full) + custom tick tay. settings_global KHÔNG bán.
-- UI: `/admin/licenses` (super only): danh sách cơ sở + sửa gói + tạm ngưng/kích hoạt
-  + WIZARD 3 bước tạo cơ sở trọn gói (org + license + tài khoản campus_admin, có rollback).
-- Enforcement: RPC `get_my_menu_keys` = ma trận 043 GIAO module license; middleware chặn
-  hết hạn/tạm ngưng qua cookie `license_hint` (10 phút) -> `/license-expired`; sĩ số
-  max_students chặn ở createUserAccount + bulkImportStudents (`src/lib/licensing/capacity.ts`).
-- Không có license = full quyền (fail-open, hệ thống nội bộ/legacy).
+## Tầng LICENSE
+- Gói = tổ hợp module (MenuKey). UI `/admin/licenses`. Enforcement qua get_my_menu_keys + middleware.
+- Không có license = full quyền (fail-open).
 
-## Quirks môi trường (đọc để khỏi vấp lại)
+## Quirks môi trường
 - Windows PowerShell: KHÔNG dùng `&&`, KHÔNG heredoc. Commit qua file `.git-commit-msg.txt`
   (message không dấu). Xem rule 00-core.
-- `npm run build` ~25s, sạch. `next.config.mjs` có experimental.staleTimes.
-- Demo accounts + mật khẩu test: `docs/demo-accounts.md`. Schema DB: `docs/database-schema.md`.
+- Demo accounts: `docs/demo-accounts.md`. Schema: `docs/database-schema.md`.

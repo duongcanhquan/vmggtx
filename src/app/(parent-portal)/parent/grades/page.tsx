@@ -9,6 +9,7 @@ import {
   type ParentGradeReport,
 } from '../../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { readLoginPortal } from '@/lib/auth/loginPortal'
 
 // ============================================================
 // Sổ điểm của con - nhóm theo lớp, kèm ĐTB có trọng số.
@@ -35,7 +36,7 @@ export default function ParentGradesPage() {
       ])
       if (cancelled) return
       if (!student) {
-        router.replace('/parent/login')
+        router.replace(readLoginPortal() ?? '/parent/login')
         return
       }
       setReports(data)

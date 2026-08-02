@@ -136,6 +136,9 @@ export default function TeacherSchedulePage() {
     setTarget({ session, students: [], records: {} })
 
     const result = await getSessionStudents(session.id)
+    if (result.loadError) {
+      setToast({ type: 'error', message: result.loadError })
+    }
     const records: Record<string, AttendanceStatus> = {}
     for (const student of result.data) {
       records[student.id] = student.status ?? 'present'
@@ -340,6 +343,10 @@ export default function TeacherSchedulePage() {
 
             {loadingStudents ? (
               <FunLoader label="Đang tải danh sách học viên…" />
+            ) : target.students.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                Lớp chưa có học viên đang ghi danh. Giáo vụ cần ghép lớp trước khi điểm danh.
+              </p>
             ) : (
               <>
                 <ul className="divide-y divide-border rounded-2xl border border-border">

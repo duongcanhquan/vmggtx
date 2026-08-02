@@ -46,7 +46,7 @@ export default function StudentsPage() {
   const currentOrgId = useOrgStore((state) => state.currentOrgId)
   const [students, setStudents] = useState<StudentRow[]>([])
   const [customFields, setCustomFields] = useState<CustomFieldDef[]>([])
-  const [isDemo, setIsDemo] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<StudentRow | null>(null)
@@ -63,7 +63,7 @@ export default function StudentsPage() {
         : Promise.resolve({ data: [] as CustomFieldDef[], demo: true }),
     ])
     setStudents(studentsResult.data)
-    setIsDemo(studentsResult.demo)
+    setLoadError(studentsResult.loadError ?? null)
     setCustomFields(fieldsResult.data)
     setLoading(false)
   }, [currentOrgId])
@@ -242,9 +242,9 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {isDemo && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Đang hiển thị dữ liệu demo (chưa đăng nhập hoặc database trống).
+      {loadError && (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          Không tải được danh sách: {loadError}
         </p>
       )}
 

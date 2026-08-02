@@ -27,6 +27,7 @@ import {
 } from '@/lib/settings/settingsPolicy'
 import { getOrgSettings, saveOrgSettings, saveSettingsPolicies } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { OrgLogoCard } from '@/components/settings/OrgLogoCard'
 
 // ============================================================
 // Cấu hình động theo Cơ sở (/settings) - Campus Admin / Super Admin
@@ -260,6 +261,13 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
+        {currentOrgId && (
+          <OrgLogoCard
+            orgId={currentOrgId}
+            onToast={(t) => setToast(t)}
+          />
+        )}
 
         {isDemo && (
           <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

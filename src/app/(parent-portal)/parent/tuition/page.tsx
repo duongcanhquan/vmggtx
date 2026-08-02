@@ -9,6 +9,7 @@ import {
   type ParentTuition,
 } from '../../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { readLoginPortal } from '@/lib/auth/loginPortal'
 
 // ============================================================
 // Học phí (tab Học phí) - phụ huynh xem hóa đơn, đã đóng bao
@@ -47,7 +48,7 @@ export default function ParentTuitionPage() {
       ])
       if (cancelled) return
       if (!student) {
-        router.replace('/parent/login')
+        router.replace(readLoginPortal() ?? '/parent/login')
         return
       }
       setTuition(data)

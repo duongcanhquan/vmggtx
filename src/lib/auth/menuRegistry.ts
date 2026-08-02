@@ -36,6 +36,7 @@ export type MenuKey =
   | 'organizations'
   | 'permissions'
   | 'settings_global'
+  | 'reports'
 
 const MANAGERS: Role[] = ['super_admin', 'campus_admin']
 const ACADEMIC: Role[] = ['super_admin', 'campus_admin', 'academic_staff']
@@ -87,6 +88,12 @@ export const MENU_SECTIONS: MenuSection[] = [
     label: 'Cảnh báo học vụ',
     defaultRoles: ACADEMIC,
     prefixes: ['/academic/warnings'],
+  },
+  {
+    key: 'reports',
+    label: 'Báo cáo & Phân tích',
+    defaultRoles: [...ACADEMIC, 'accountant'],
+    prefixes: ['/reports'],
   },
   {
     // Danh bạ giảng viên + gán lớp cho giảng viên (admin-side)

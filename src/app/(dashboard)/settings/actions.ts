@@ -17,6 +17,15 @@ import {
   type OverridePolicies,
   type SettingGroupKey,
 } from '@/lib/settings/settingsPolicy'
+import {
+  ALLOWED_LOGO_MIMES,
+  MAX_LOGO_BYTES,
+  buildObjectKey,
+  isAllowedLogoMime,
+  isR2Configured,
+  publicUrlForKey,
+  putObjectBytes,
+} from '@/lib/storage/r2'
 
 // ============================================================
 // Cấu hình động theo tổ chức (/settings)
@@ -306,6 +315,173 @@ export async function saveSettingsPolicies(
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Lỗi không xác định.',
+    }
+  }
+}
+
+// ---------- Logo thương hiệu ----------
+
+export type OrgLogoResult = {
+  logoUrl: string | null
+  demo: boolean
+  r2Ready: boolean
+}
+
+async function assertCampusAdminOnOrg(orgId: string): Promise<
+  { error: string } | { error?: undefined; userId: string }
+> {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Bạn chưa đăng nhập.' }
+  const { data: authorized, error: authzError } = await supabase.rpc('is_authorized', {
+    p_user_id: user.id,
+    p_target_org_id: orgId,
+    p_required_role: 'campus_admin',
+  })
+  if (authzError) return { error: `Lỗi phân quyền: ${authzError.message}` }
+  if (authorized !== true) {
+    return { error: 'Chỉ quản trị cơ sở mới được đổi logo.' }
+  }
+  return { userId: user.id }
+}
+
+export async function getOrgLogo(orgId: string): Promise<OrgLogoResult> {
+  const parsed = requiredId('Thiếu org_id.').safeParse(orgId)
+  if (!parsed.success) return { logoUrl: null, demo: false, r2Ready: isR2Configured() }
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('organizations')
+      .select('logo_url, logo_key')
+      .eq('id', parsed.data)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!data) return { logoUrl: null, demo: false, r2Ready: isR2Configured() }
+    const logoUrl =
+      data.logo_url ||
+      (data.logo_key ? `/api/org-logo/${parsed.data}` : null)
+    return { logoUrl, demo: false, r2Ready: isR2Configured() }
+  } catch {
+    return { logoUrl: null, demo: true, r2Ready: isR2Configured() }
+  }
+}
+
+/**
+ * Upload logo (FormData: orgId, file).
+ * R2 nếu đã cấu hình; không thì lưu data URL (≤ 200KB) vào logo_url.
+ */
+export async function uploadOrgLogo(
+  formData: FormData
+): Promise<{ error: string } | { error?: undefined; logoUrl: string }> {
+  const orgParsed = requiredId('Thiếu org_id.').safeParse(String(formData.get('orgId') ?? ''))
+  if (!orgParsed.success) return zodFail(orgParsed.error)
+  const gate = await assertCampusAdminOnOrg(orgParsed.data)
+  if (gate.error !== undefined) return { error: gate.error }
+
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: 'Vui lòng chọn file ảnh logo.' }
+  }
+  if (file.size > MAX_LOGO_BYTES) {
+    return { error: 'Logo tối đa 2MB.' }
+  }
+  const mime = file.type || 'application/octet-stream'
+  if (!isAllowedLogoMime(mime)) {
+    return {
+      error: `Định dạng không hỗ trợ. Cho phép: ${ALLOWED_LOGO_MIMES.join(', ')}`,
+    }
+  }
+
+  try {
+    const admin = createAdminClient()
+    const bytes = Buffer.from(await file.arrayBuffer())
+
+    if (isR2Configured()) {
+      const key = buildObjectKey(orgParsed.data, 'branding', file.name || 'logo.png')
+      await putObjectBytes(key, bytes, mime)
+      const publicUrl = publicUrlForKey(key)
+      const logoUrl = publicUrl ?? `/api/org-logo/${orgParsed.data}`
+      const { error } = await admin
+        .from('organizations')
+        .update({
+          logo_url: logoUrl,
+          logo_key: key,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orgParsed.data)
+      if (error) {
+        if (/logo_url|logo_key|42703/i.test(error.message)) {
+          return {
+            error: 'Thiếu cột logo (chạy migration 051_org_logo.sql trên Supabase).',
+          }
+        }
+        return { error: `Không lưu logo: ${error.message}` }
+      }
+      revalidatePath('/settings')
+      revalidatePath('/coso')
+      return { logoUrl: `${logoUrl}?v=${Date.now()}` }
+    }
+
+    // Fallback không R2: data URL nhỏ
+    if (bytes.length > 200 * 1024) {
+      return {
+        error:
+          'Chưa cấu hình R2 — logo tạm tối đa 200KB. Cấu hình R2 hoặc nén ảnh nhỏ hơn.',
+      }
+    }
+    const b64 = bytes.toString('base64')
+    const dataUrl = `data:${mime};base64,${b64}`
+    const { error } = await admin
+      .from('organizations')
+      .update({
+        logo_url: dataUrl,
+        logo_key: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orgParsed.data)
+    if (error) {
+      if (/logo_url|42703/i.test(error.message)) {
+        return {
+          error: 'Thiếu cột logo (chạy migration 051_org_logo.sql trên Supabase).',
+        }
+      }
+      return { error: `Không lưu logo: ${error.message}` }
+    }
+    revalidatePath('/settings')
+    return { logoUrl: dataUrl }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Lỗi upload logo.',
+    }
+  }
+}
+
+export async function clearOrgLogo(
+  orgId: string
+): Promise<{ error: string } | { error?: undefined }> {
+  const orgParsed = requiredId('Thiếu org_id.').safeParse(orgId)
+  if (!orgParsed.success) return zodFail(orgParsed.error)
+  const gate = await assertCampusAdminOnOrg(orgParsed.data)
+  if (gate.error !== undefined) return { error: gate.error }
+
+  try {
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from('organizations')
+      .update({
+        logo_url: null,
+        logo_key: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orgParsed.data)
+    if (error) return { error: error.message }
+    revalidatePath('/settings')
+    return {}
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Lỗi xóa logo.',
     }
   }
 }

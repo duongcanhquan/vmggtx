@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   Bot,
   CalendarDays,
-  GraduationCap,
+  ClipboardList,
   Home,
   Loader2,
   Medal,
@@ -14,6 +14,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { UserMenu } from '@/components/shared/UserMenu'
+import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
 
 // ============================================================
 // Layout Cổng thông tin Học sinh / Phụ huynh.
@@ -26,6 +27,7 @@ const PORTAL_MENU = [
   { label: 'Lịch học', href: '/schedule', icon: CalendarDays },
   { label: 'Học Online', href: '/learn', icon: MonitorPlay },
   { label: 'Kết quả học tập', href: '/grades', icon: Medal },
+  { label: 'Chuyên cần', href: '/progress', icon: ClipboardList },
   { label: 'Học phí', href: '/tuition', icon: Wallet },
   { label: 'Trợ lý AI', href: '/assistant', icon: Bot },
 ]
@@ -50,14 +52,9 @@ export default function StudentPortalLayout({
         <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
           <Link
             href="/portal"
-            className="flex shrink-0 items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <GraduationCap className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <span className="font-heading text-base font-bold tracking-tight">
-              EDU <span className="text-primary">SYSTEM</span>
-            </span>
+            <OrgBrandMark size="sm" tone="light" showWordmark />
           </Link>
           <div className="ml-auto">
             <UserMenu loginPath="/student/login" />

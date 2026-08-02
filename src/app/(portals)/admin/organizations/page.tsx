@@ -243,7 +243,7 @@ export default function AdminOrganizationsPage() {
               title={`Mở cổng ${campusPortalPath(counts.slug)}`}
               className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-violet-700 transition hover:bg-violet-100"
             >
-              /coso/{counts.slug}
+              /coso/{counts.slug}/login
               <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </a>
           )}
@@ -469,9 +469,9 @@ export default function AdminOrganizationsPage() {
                   className={`${inputClass} font-mono`}
                 />
                 <span className="mt-1 block text-xs font-normal text-slate-500">
-                  Cổng công khai:{' '}
+                  Cổng đăng nhập:{' '}
                   <span className="font-mono text-indigo-600">
-                    /coso/{createSlug || '…'}
+                    /coso/{createSlug || '…'}/login
                   </span>
                 </span>
               </label>
@@ -608,7 +608,7 @@ export default function AdminOrganizationsPage() {
                     rel="noopener noreferrer"
                     className="font-mono font-semibold text-indigo-600 hover:underline"
                   >
-                    /coso/{editSlug || '…'}
+                    /coso/{editSlug || '…'}/login
                   </a>
                 </span>
               </label>

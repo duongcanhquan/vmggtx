@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  BarChart3,
   BookOpen,
   CalendarCheck,
   FileSignature,
-  GraduationCap,
   Loader2,
   MonitorPlay,
   PenSquare,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { QuickAttendanceButton } from '@/components/shared/QuickAttendanceButton'
 import { UserMenu } from '@/components/shared/UserMenu'
+import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
 
 // ============================================================
 // Layout TEACHER PORTAL (/teacher/*) — TABLET-FIRST.
@@ -28,6 +29,7 @@ const TEACHER_MENU = [
   { label: 'Lịch dạy hôm nay', href: '/teacher', icon: CalendarCheck },
   { label: 'Các lớp phụ trách', href: '/teacher/classes', icon: BookOpen },
   { label: 'Chấm điểm', href: '/teacher/grading', icon: PenSquare },
+  { label: 'Phân tích', href: '/teacher/insights', icon: BarChart3 },
   { label: 'Đơn từ', href: '/teacher/requests', icon: FileSignature },
   { label: 'Dịch vụ', href: '/teacher/services', icon: TicketCheck },
   { label: 'Đặt phòng', href: '/teacher/facilities', icon: Projector },
@@ -55,19 +57,14 @@ export default function TeacherPortalLayout({
         <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             href="/teacher"
-            className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <GraduationCap className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <span className="min-w-0">
-              <span className="block font-heading text-base font-bold leading-tight tracking-tight">
-                EDU <span className="text-primary">SYSTEM</span>
-              </span>
-              <span className="hidden text-[11px] font-semibold uppercase tracking-widest text-muted-foreground sm:block">
-                Teacher Portal
-              </span>
-            </span>
+            <OrgBrandMark
+              size="md"
+              tone="light"
+              showWordmark
+              subtitle="Teacher Portal"
+            />
           </Link>
 
           <div className="flex items-center gap-2">

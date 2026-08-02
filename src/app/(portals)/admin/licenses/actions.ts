@@ -275,7 +275,7 @@ export type ProvisionCampusResult =
   | { error: string }
   | {
       error?: undefined
-      /** VD: /coso/cau-giay — gửi cho admin cơ sở đăng nhập */
+      /** VD: /coso/cau-giay/login — gửi cho admin cơ sở đăng nhập */
       portalPath: string
       slug: string | null
       campusName: string
@@ -457,7 +457,7 @@ export async function provisionCampus(
     revalidatePath('/admin/organizations')
     revalidatePath('/coso')
     return {
-      portalPath: savedSlug ? `/coso/${savedSlug}` : '/coso',
+      portalPath: savedSlug ? `/coso/${savedSlug}/login` : '/login',
       slug: savedSlug,
       campusName: parsed.data.campusName,
       adminEmail: parsed.data.adminEmail,

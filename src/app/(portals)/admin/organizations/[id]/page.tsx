@@ -135,7 +135,7 @@ export default function UnitProfilePage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 font-mono text-xs font-semibold text-violet-700 transition hover:bg-violet-100"
               >
-                /coso/{org.slug}
+                /coso/{org.slug}/login
                 <ExternalLink className="h-3 w-3" aria-hidden="true" />
               </a>
             )}

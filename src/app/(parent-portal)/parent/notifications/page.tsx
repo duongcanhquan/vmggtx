@@ -9,6 +9,7 @@ import {
   type ParentNotice,
 } from '../../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { readLoginPortal } from '@/lib/auth/loginPortal'
 
 // ============================================================
 // Báo bài & Nhận xét (tab Thông báo):
@@ -39,7 +40,7 @@ export default function ParentNotificationsPage() {
       ])
       if (cancelled) return
       if (!student) {
-        router.replace('/parent/login')
+        router.replace(readLoginPortal() ?? '/parent/login')
         return
       }
       setNotices(data)

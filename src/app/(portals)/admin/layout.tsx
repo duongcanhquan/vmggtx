@@ -29,6 +29,7 @@ const SUPER_NAV: PortalNavGroup[] = [
       { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
       { label: 'Quản lý Đơn vị', href: '/admin/organizations', icon: Building2 },
       { label: 'Module & Gói dịch vụ', href: '/admin/modules', icon: Blocks },
+      { label: 'Cài đặt toàn cục', href: '/admin/settings', icon: Settings },
     ],
   },
 ]

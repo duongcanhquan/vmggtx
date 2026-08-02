@@ -9,23 +9,9 @@ import {
   findOrgNode,
   getAncestorIds,
   ORG_TYPE_LABELS,
-  type OrgFlat,
   type OrgTreeNode,
   type OrgType,
 } from '@/lib/utils/org-tree'
-
-// Mock dùng khi DB chưa có dữ liệu (demo user thuộc cấp Tổng công ty)
-const MOCK_ORGS: OrgFlat[] = [
-  { id: 'org-hq', name: 'Tổng công ty GDTX', type: 'hq', parent_id: null },
-  { id: 'org-mien-bac', name: 'Cụm Miền Bắc', type: 'region', parent_id: 'org-hq' },
-  { id: 'org-mien-nam', name: 'Cụm Miền Nam', type: 'region', parent_id: 'org-hq' },
-  { id: 'org-cs-hn1', name: 'Cơ sở Hà Nội 1', type: 'campus', parent_id: 'org-mien-bac' },
-  { id: 'org-cs-hn2', name: 'Cơ sở Hà Nội 2', type: 'campus', parent_id: 'org-mien-bac' },
-  { id: 'org-cs-hcm1', name: 'Cơ sở TP.HCM 1', type: 'campus', parent_id: 'org-mien-nam' },
-  { id: 'org-cn-caugiay', name: 'Chi nhánh Cầu Giấy', type: 'branch', parent_id: 'org-cs-hn1' },
-  { id: 'org-cn-dongda', name: 'Chi nhánh Đống Đa', type: 'branch', parent_id: 'org-cs-hn1' },
-  { id: 'org-cn-quan1', name: 'Chi nhánh Quận 1', type: 'branch', parent_id: 'org-cs-hcm1' },
-]
 
 const TYPE_BADGE_CLASSES: Record<OrgType, string> = {
   hq: 'bg-indigo-50 text-indigo-700',
@@ -135,10 +121,18 @@ export function OrgTreeSelector() {
     let cancelled = false
     getOrganizations().then((result) => {
       if (cancelled) return
-      const flat = result.data.length > 0 ? result.data : MOCK_ORGS
-      const tree = buildOrgTree(flat)
-      // Gốc của cây trả về = org user trực thuộc (RLS chỉ trả subtree của user)
-      initializeOrg(tree, tree[0]?.id ?? null)
+      // Production: không mock cây giả khi DB trống/lỗi — để UI empty rõ ràng
+      if (result.error || result.data.length === 0) {
+        initializeOrg([], result.userOrgId ?? null)
+        return
+      }
+      const tree = buildOrgTree(result.data)
+      // userOrgId = profiles.org_id (không lấy tree[0] — có thể là HQ tổ tiên)
+      const rootId =
+        result.userOrgId && findOrgNode(tree, result.userOrgId)
+          ? result.userOrgId
+          : (tree[0]?.id ?? null)
+      initializeOrg(tree, rootId)
     })
     return () => {
       cancelled = true

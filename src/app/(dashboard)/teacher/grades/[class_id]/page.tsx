@@ -163,8 +163,13 @@ export default function GradebookPage({
         )}
       </div>
 
-      {/* ===== Banner trạng thái ===== */}
-      {isLocked ? (
+      {/* ===== Banner trạng thái / lỗi ===== */}
+      {book.loadError ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+          <TriangleAlert className="h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
+          <p className="text-sm font-medium text-rose-800">{book.loadError}</p>
+        </div>
+      ) : isLocked ? (
         <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
           <Lock className="h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
           <p className="text-sm font-medium text-rose-800">
@@ -175,8 +180,7 @@ export default function GradebookPage({
         <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <LockOpen className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
           <p className="text-sm text-emerald-800">
-            Sổ điểm đang MỞ — tự lưu khi rời ô.
-            {book.demo && ' (demo: không ghi vào database)'}
+            Sổ điểm đang MỞ — tự lưu khi rời ô. Chỉ học viên đang ghi danh.
           </p>
         </div>
       )}
@@ -204,16 +208,17 @@ export default function GradebookPage({
               </tr>
             </thead>
             <tbody>
-              {/* [UX] Empty state: lớp chưa có học sinh / bài kiểm tra */}
               {(book.students.length === 0 || book.assessments.length === 0) && (
                 <tr>
                   <td
-                    colSpan={book.assessments.length + 2}
+                    colSpan={Math.max(book.assessments.length, 0) + 2}
                     className="px-4 py-10 text-center text-sm text-muted-foreground"
                   >
-                    {book.students.length === 0
-                      ? 'Lớp chưa có học sinh.'
-                      : 'Chưa có bài kiểm tra.'}
+                    {book.loadError
+                      ? 'Không có dữ liệu sổ điểm để hiển thị.'
+                      : book.students.length === 0
+                        ? 'Lớp chưa có học viên đang ghi danh (enrollments active).'
+                        : 'Chưa có bài kiểm tra.'}
                   </td>
                 </tr>
               )}

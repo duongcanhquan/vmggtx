@@ -31,7 +31,21 @@ Mỗi quyết định 1-3 dòng. Thêm mới vào CUỐI danh sách với mã D 
   (không dấu), không dùng && / heredoc.
 - **D14** Phân tách cổng theo domain path:
   - Gốc (`/login`) = landing marketing; Super Admin qua `/login/admin` (icon sách ẩn).
-  - Hub `/coso` → thẳng `/coso/{slug}/login` (không màn chọn trung gian).
-  - Login 2 tab: Nhà trường | Gia đình (HV: MaSV/email+pass; PH: email+pass qua
-    `parent_accounts` + cookie HMAC — không tạo role parent trong JWT).
-  - Không bắt buộc subdomain DNS trước; `*.domain` làm sau nếu cần.
+  - KHÔNG có hub danh sách cơ sở công khai (`/coso` redirect → `/login`).
+  - Mỗi trường nhận link trực tiếp `/coso/{slug}/login` (tab Nhà trường | Gia đình).
+  - HV: MaSV/email+pass; PH: email+pass qua `parent_accounts` + cookie HMAC.
+  - Tương lai có thể tách 2 tab thành 2 cổng URL riêng — chưa làm.
+  - Subdomain `*.domain` rewrite thẳng vào `/coso/{slug}/login` nếu bật.
+- **D15** Logo thương hiệu theo `organizations.logo_url` / `logo_key` (migration 051):
+  upload tại `/settings` (campus_admin+), lưu R2 (D06) hoặc data URL ≤200KB nếu chưa R2;
+  phục vụ công khai qua `/api/org-logo/[orgId]`; hiển thị thống nhất cổng `/coso` + AuthShell
+  + Dashboard/Portal/Teacher/Student/Parent. Nhánh không có logo thì kế thừa tổ tiên.
+- **D16** Đồng bộ vận hành (QA 2026-08-02):
+  - Cổng HV canonical = `/portal`; `/student` redirect. License `module_keys` CAP cả campus_admin
+    (middleware + DashboardShell) khi `get_my_menu_keys` ≠ null; fail-open nếu chưa có license.
+  - Redirect middleware tách `?query` khỏi pathname (tránh encode `%3F`).
+  - Sai campus lúc login HV → signOut, không soft-admit vào portal.
+- **D17** Hub báo cáo theo vai trò (MenuKey `reports`):
+  `/reports` (campus/học vụ/KT), `/reports/academic`, `/reports/exams`,
+  `/teacher/insights`, `/parent/insights`. Recharts + bento KPI; overview
+  «Doanh thu đã thu» = tổng `payments` (không MOCK học phí).

@@ -300,34 +300,15 @@ export type StudentRow = {
   custom_metadata: Record<string, unknown>
 }
 
-const MOCK_STUDENT_ROWS: StudentRow[] = ([
-  { id: 'st-01', code: 'HV-3F8A21', full_name: 'Nguyễn Văn Toàn', email: 'toan.nguyen@student.gdtx.edu.vn', org_name: 'Chi nhánh Cầu Giấy', status: 'active' },
-  { id: 'st-02', code: 'HV-7B2C90', full_name: 'Đỗ Thu Hà', email: 'ha.do@student.gdtx.edu.vn', org_name: 'Chi nhánh Đống Đa', status: 'active' },
-  { id: 'st-03', code: 'HV-1D4E55', full_name: 'Vũ Đức Mạnh', email: 'manh.vu@student.gdtx.edu.vn', org_name: 'Chi nhánh Cầu Giấy', status: 'paused' },
-  { id: 'st-04', code: 'HV-9A0B37', full_name: 'Hoàng Ngọc Lan', email: 'lan.hoang@student.gdtx.edu.vn', org_name: 'Cơ sở Hà Nội 1', status: 'active' },
-  { id: 'st-05', code: 'HV-5C6D12', full_name: 'Trần Bảo Long', email: 'long.tran@student.gdtx.edu.vn', org_name: 'Chi nhánh Đống Đa', status: 'active' },
-  { id: 'st-06', code: 'HV-2E8F44', full_name: 'Phạm Thị Mai', email: 'mai.pham@student.gdtx.edu.vn', org_name: 'Cơ sở Hà Nội 1', status: 'active' },
-  { id: 'st-07', code: 'HV-6A1B78', full_name: 'Lê Hoàng Nam', email: 'nam.le@student.gdtx.edu.vn', org_name: 'Chi nhánh Cầu Giấy', status: 'paused' },
-  { id: 'st-08', code: 'HV-4D9C03', full_name: 'Bùi Minh Châu', email: 'chau.bui@student.gdtx.edu.vn', org_name: 'Chi nhánh Đống Đa', status: 'active' },
-  { id: 'st-09', code: 'HV-8B3A66', full_name: 'Đặng Quốc Việt', email: 'viet.dang@student.gdtx.edu.vn', org_name: 'Cơ sở Hà Nội 1', status: 'active' },
-  { id: 'st-10', code: 'HV-0C7D29', full_name: 'Ngô Thanh Trúc', email: 'truc.ngo@student.gdtx.edu.vn', org_name: 'Chi nhánh Cầu Giấy', status: 'active' },
-  { id: 'st-11', code: 'HV-3A5E81', full_name: 'Dương Gia Bảo', email: 'bao.duong@student.gdtx.edu.vn', org_name: 'Chi nhánh Đống Đa', status: 'active' },
-  { id: 'st-12', code: 'HV-7F2B54', full_name: 'Cao Khánh Linh', email: 'linh.cao@student.gdtx.edu.vn', org_name: 'Cơ sở Hà Nội 1', status: 'paused' },
-] as Omit<StudentRow, 'phone' | 'custom_metadata'>[]).map((row) => ({
-  ...row,
-  phone: null,
-  custom_metadata: {},
-}))
-
 /**
  * Học sinh (role = 'student') thuộc org đang chọn + mọi chi nhánh con/cháu.
- * Fallback dữ liệu demo khi chưa đăng nhập / DB trống.
+ * Danh sách trống = thật (không MOCK). Lỗi → data=[] + loadError.
  */
 export async function getStudents(
   orgId: string | null
-): Promise<{ data: StudentRow[]; demo: boolean }> {
+): Promise<{ data: StudentRow[]; demo: boolean; loadError?: string | null }> {
   if (!orgId) {
-    return { data: MOCK_STUDENT_ROWS, demo: true }
+    return { data: [], demo: false, loadError: 'Chưa chọn cơ sở / cấp quản lý.' }
   }
 
   try {
@@ -357,11 +338,11 @@ export async function getStudents(
       error = retry.error
     }
 
-    if (error || !data || data.length === 0) {
-      return { data: MOCK_STUDENT_ROWS, demo: true }
+    if (error) {
+      return { data: [], demo: false, loadError: error.message }
     }
 
-    const rows: StudentRow[] = data.map((row) => {
+    const rows: StudentRow[] = (data ?? []).map((row) => {
       const org = row.organizations as { name: string } | { name: string }[] | null
       return {
         id: row.id,
@@ -372,14 +353,17 @@ export async function getStudents(
         email: row.email,
         phone: (row.phone as string | null) ?? null,
         org_name: Array.isArray(org) ? org[0]?.name ?? '—' : org?.name ?? '—',
-        // Chưa có cột trạng thái riêng: hồ sơ chưa xóa mềm = đang học
         status: 'active' as const,
         custom_metadata: (row.custom_metadata as Record<string, unknown>) ?? {},
       }
     })
-    return { data: rows, demo: false }
-  } catch {
-    return { data: MOCK_STUDENT_ROWS, demo: true }
+    return { data: rows, demo: false, loadError: null }
+  } catch (e) {
+    return {
+      data: [],
+      demo: false,
+      loadError: e instanceof Error ? e.message : 'Không tải được danh sách học viên.',
+    }
   }
 }
 
@@ -456,6 +440,9 @@ export async function createStudent(
 
     // Tạo auth user bằng Admin client (bỏ qua email xác nhận)
     const admin = createAdminClient()
+    const capacityError = await checkStudentCapacity(admin, orgParsed.data, 1)
+    if (capacityError) return { error: capacityError }
+
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email: values.email,
       password: values.password,
@@ -879,13 +866,27 @@ export async function deleteStudent(studentId: string): Promise<ActionResult> {
       }
     }
 
+    const now = new Date().toISOString()
     const { error } = await supabase
       .from('profiles')
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ deleted_at: now })
       .eq('id', idParsed.data)
     if (error) return { error: `Không thể xóa hồ sơ: ${error.message}` }
 
+    // Cascade soft-delete tài khoản phụ huynh gắn học viên (050)
+    try {
+      const admin = createAdminClient()
+      await admin
+        .from('parent_accounts')
+        .update({ deleted_at: now, updated_at: now })
+        .eq('student_id', idParsed.data)
+        .is('deleted_at', null)
+    } catch {
+      // Bảng 050 chưa migrate — không chặn xóa hồ sơ học viên
+    }
+
     revalidatePath('/students')
+    revalidatePath(`/students/${idParsed.data}`)
     return {}
   } catch (error) {
     return {

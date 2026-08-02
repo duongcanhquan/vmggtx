@@ -129,6 +129,34 @@ export const MODULE_CATALOG: ModuleInfo[] = [
     features: [],
   },
   {
+    key: 'reports',
+    label: 'Báo cáo & Phân tích',
+    group: 'academic',
+    summary: 'Hub báo cáo bento theo vai trò: vận hành, học vụ, khảo thí.',
+    howItWorks:
+      'Quản lý / Giáo vụ / Kế toán mở /reports xem KPI và biểu đồ đa chiều (chuyên cần, cảnh báo, điểm, doanh thu). Giáo viên và phụ huynh xem báo cáo riêng trên portal.',
+    features: [
+      { key: 'campus', label: 'Ops Cockpit', description: 'HV, lớp, chuyên cần, công nợ.' },
+      { key: 'academic', label: 'Early warning', description: 'Xu hướng cảnh báo học vụ.' },
+      { key: 'exams', label: 'Khảo thí', description: 'Phân bố điểm / đậu-rớt.' },
+    ],
+  },
+  {
+    key: 'teachers',
+    label: 'Hồ sơ Giảng viên',
+    group: 'teachers',
+    summary: 'Danh bạ giảng viên và gán/gỡ lớp (classes.teacher_id).',
+    howItWorks:
+      'Giáo vụ xem danh sách giáo viên trong cây tổ chức, gán giáo viên chủ nhiệm lớp hoặc gỡ khi đổi phân công. Menu vận hành riêng khỏi lịch dạy.',
+    features: [
+      {
+        key: 'assign_class',
+        label: 'Gán lớp cho GV',
+        description: 'Gán/gỡ teacher_id trên lớp học.',
+      },
+    ],
+  },
+  {
     key: 'teacher_schedule',
     label: 'Lịch dạy & Xếp lịch',
     group: 'teachers',

@@ -9,6 +9,9 @@ export type OrgFlat = {
   parent_id: string | null
   /** Slug URL công khai (campus) → /coso/[slug] */
   slug?: string | null
+  /** Logo thương hiệu */
+  logo_url?: string | null
+  logo_key?: string | null
 }
 
 /** Node dạng cây sau khi dựng từ dữ liệu phẳng */

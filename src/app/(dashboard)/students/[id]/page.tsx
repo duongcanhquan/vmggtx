@@ -34,6 +34,7 @@ import {
   type Student360Profile,
 } from './actions'
 import { EnrollmentManager } from './EnrollmentManager'
+import { ParentAccountsCard } from './ParentAccountsCard'
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // Lazy-load recharts: chỉ tải khi mở tab có biểu đồ -> trang mở tức thì
@@ -343,6 +344,8 @@ export default function Student360Page({ params }: { params: { id: string } }) {
               </div>
             </dl>
           </div>
+
+          <ParentAccountsCard studentId={params.id} />
         </div>
       )}
 

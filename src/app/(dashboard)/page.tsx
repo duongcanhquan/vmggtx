@@ -174,7 +174,7 @@ const PUSH_ROLE_LABELS: Record<MainTemplateRoleTarget, string> = {
 
 const WIDGET_META: Record<WidgetId, { title: string; gridClass: string }> = {
   kpi_students: { title: 'Tổng học viên', gridClass: 'sm:col-span-2 lg:col-span-6' },
-  kpi_revenue: { title: 'Doanh thu dự kiến', gridClass: 'lg:col-span-3' },
+  kpi_revenue: { title: 'Doanh thu đã thu', gridClass: 'lg:col-span-3' },
   kpi_classes: { title: 'Lớp đang mở', gridClass: 'lg:col-span-3' },
   ops_today: { title: 'Vận hành hôm nay', gridClass: 'sm:col-span-2 lg:col-span-12' },
   attendance_week: {
@@ -405,7 +405,7 @@ export default function OverviewPage() {
             <p className="mt-5 truncate font-heading text-2xl font-bold tabular-nums tracking-tight text-[#573412]">
               {formatVnd(stats.projectedRevenue)}
             </p>
-            <p className="mt-0.5 text-sm font-medium text-[#6b3f10]">Doanh thu dự kiến</p>
+            <p className="mt-0.5 text-sm font-medium text-[#6b3f10]">Doanh thu đã thu</p>
             <p className="mt-1 text-xs text-[#3c3ac0]/70">Ước tính 1,5 triệu ₫/học viên</p>
           </div>
         )

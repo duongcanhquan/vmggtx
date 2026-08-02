@@ -19,6 +19,7 @@ export const CORE_MODULE_KEYS: MenuKey[] = [
   'classes',
   'attendance',
   'announcements',
+  'teachers',
   'staff_users',
   'settings_org',
   'organizations',

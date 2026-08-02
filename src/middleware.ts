@@ -221,6 +221,15 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     allowedRoles: ['super_admin', 'campus_admin', 'academic_staff'],
   },
   {
+    prefix: '/reports',
+    allowedRoles: [
+      'super_admin',
+      'campus_admin',
+      'academic_staff',
+      'accountant',
+    ],
+  },
+  {
     prefix: '/dashboard/crm',
     allowedRoles: ['super_admin', 'campus_admin', 'academic_staff', 'admission_staff'],
   },
@@ -296,6 +305,36 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     prefix: '/announcements',
     allowedRoles: ['super_admin', 'campus_admin', 'academic_staff'],
   },
+
+  // --- Cổng học viên (canonical /portal + alias /student) ---
+  {
+    prefix: '/portal',
+    allowedRoles: ['super_admin', 'campus_admin', 'student'],
+  },
+  {
+    prefix: '/learn',
+    allowedRoles: ['super_admin', 'campus_admin', 'student', 'teacher'],
+  },
+  {
+    prefix: '/grades',
+    allowedRoles: ['super_admin', 'campus_admin', 'student', 'teacher', 'academic_staff'],
+  },
+  {
+    prefix: '/schedule',
+    allowedRoles: ['super_admin', 'campus_admin', 'student', 'teacher', 'academic_staff'],
+  },
+  {
+    prefix: '/tuition',
+    allowedRoles: ['super_admin', 'campus_admin', 'student'],
+  },
+  {
+    prefix: '/progress',
+    allowedRoles: ['super_admin', 'campus_admin', 'student'],
+  },
+  {
+    prefix: '/assistant',
+    allowedRoles: ['super_admin', 'campus_admin', 'student', 'teacher'],
+  },
 ]
 
 /** Đường dẫn công khai — không bắt session */
@@ -321,6 +360,7 @@ const STUDENT_AREA_PREFIXES = [
   '/learn',
   '/grades',
   '/schedule',
+  '/progress',
   '/tuition',
   '/assistant',
 ]
@@ -398,9 +438,17 @@ function redirectTo(
   /** Mang theo cookie đã set trên response hiện tại (role_hint/license_hint…) */
   carry?: NextResponse
 ) {
+  // pathname có thể kèm query (VD /coso/x/login?tab=family) — tách search
+  // trước khi gán url.pathname, tránh encode thành %3F → 404.
   const url = request.nextUrl.clone()
-  url.pathname = pathname
-  url.search = ''
+  const q = pathname.indexOf('?')
+  if (q >= 0) {
+    url.pathname = pathname.slice(0, q) || '/'
+    url.search = pathname.slice(q)
+  } else {
+    url.pathname = pathname
+    url.search = ''
+  }
   const redirect = NextResponse.redirect(url)
   if (carry) {
     for (const cookie of carry.cookies.getAll()) {
@@ -427,7 +475,7 @@ export async function middleware(request: NextRequest) {
       const sub = host.slice(0, -(rootDomain.length + 1))
       if (sub && sub !== 'www' && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(sub)) {
         const url = request.nextUrl.clone()
-        url.pathname = `/coso/${sub}`
+        url.pathname = `/coso/${sub}/login`
         return NextResponse.rewrite(url)
       }
     }
@@ -563,13 +611,11 @@ export async function middleware(request: NextRequest) {
   async function enforceAccess(role: Role): Promise<'ok' | 'license' | 'denied'> {
     if (role === 'super_admin' || !session) return 'ok'
 
-    // campus_admin = TOÀN QUYỀN trong subtree: bỏ qua ma trận menu
-    // (ma trận chỉ ràng buộc role cấp dưới). Tránh việc bản ghi override
-    // cũ trong DB che mất menu MỚI thêm khỏi chính Quản lý cơ sở.
+    // student / enterprise_partner: không dùng ma trận menu vận hành.
+    // campus_admin: VẪN bị CAP bởi license.module_keys (D12 — get_my_menu_keys
+    // trả về module đã mua khi có license). Fail-open khi menuKeys = null.
     const skipMenuMatrix =
-      role === 'campus_admin' ||
-      role === 'student' ||
-      role === 'enterprise_partner'
+      role === 'student' || role === 'enterprise_partner'
     const menuKey = menuKeyForPath(pathname)
     const featureRoute = FEATURE_ROUTES.find((f) =>
       matchesPrefix(pathname, f.routePrefix)
@@ -635,7 +681,7 @@ export async function middleware(request: NextRequest) {
       if (request.cookies.get('parent_session')?.value) {
         return response
       }
-      return redirectTo(request, '/parent/login', response)
+      return redirectTo(request, loginPathFor(pathname, request), response)
     }
     return redirectTo(request, loginPathFor(pathname, request), response)
   }

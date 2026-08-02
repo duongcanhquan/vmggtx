@@ -6,6 +6,7 @@ import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
 import { notifyAbsenceToN8n } from '@/lib/integrations/n8n'
 import { resolveSetting } from '@/lib/utils/settingsResolver'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
+import { scanAttendanceWarningsAdmin } from '@/app/(dashboard)/academic/warnings/actions'
 
 /** Trạng thái điểm danh theo CHECK constraint của bảng `attendance`. */
 export type AttendanceStatus = 'present' | 'excused' | 'absent'
@@ -393,6 +394,13 @@ export async function submitAttendance(
         )
       }
     }
+
+    // Tự động quét cảnh báo chuyên cần (max_absence_warning) — không chặn UI
+    void scanAttendanceWarningsAdmin(session.org_id).then((r) => {
+      if (r.error !== undefined) {
+        console.error('[attendance] auto early-warning:', r.error)
+      }
+    })
 
     revalidatePath('/attendance')
     return { success: true, absentCount: absentStudentIds.length }

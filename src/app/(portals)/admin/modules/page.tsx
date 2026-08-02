@@ -823,12 +823,12 @@ export default function ModuleCenterPage() {
                       {licenseBadge(selectedCampus)}
                       {selectedCampus.slug && (
                         <a
-                          href={`/coso/${selectedCampus.slug}`}
+                          href={`/coso/${selectedCampus.slug}/login`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-violet-700 hover:underline"
                         >
-                          /coso/{selectedCampus.slug}
+                          /coso/{selectedCampus.slug}/login
                           <ExternalLink className="h-3 w-3" aria-hidden="true" />
                         </a>
                       )}
@@ -1306,8 +1306,9 @@ export default function ModuleCenterPage() {
               </button>
             </div>
             <p className="mt-2 text-xs text-slate-500">
-              Super Admin vẫn đăng nhập tại <span className="font-mono">/login</span> (gốc
-              domain). Đơn vị vào <span className="font-mono">/coso/…</span>
+              Super Admin đăng nhập tại <span className="font-mono">/login/admin</span>.
+              Đơn vị nhận link <span className="font-mono">/coso/…/login</span> (tab Nhà
+              trường | Gia đình).
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <a

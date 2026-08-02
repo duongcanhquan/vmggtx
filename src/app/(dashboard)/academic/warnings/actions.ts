@@ -2,10 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   notifyParentWarningsToN8n,
   type ParentWarningNotification,
 } from '@/lib/integrations/n8n'
+import { resolveSetting } from '@/lib/utils/settingsResolver'
 import { requiredId, zodFail } from '@/lib/validation/schemas'
 import { z } from 'zod'
 
@@ -14,9 +16,10 @@ import { z } from 'zod'
 // (/academic/warnings - Campus Admin / Giáo vụ)
 //
 // runEarlyWarningSystem(orgId) quét 2 nhóm rủi ro:
-//   1. CHUYÊN CẦN (cờ ĐỎ)  : vắng KHÔNG phép >= 3 buổi, HOẶC
-//      tổng vắng (có phép + không phép) > 20% số buổi.
+//   1. CHUYÊN CẦN (cờ ĐỎ)  : vắng KHÔNG phép >= max_absence_warning
+//      (org_settings / resolveSetting), HOẶC tổng vắng > 20% buổi.
 //      Nguồn: view vw_student_attendance_stats (migration 011).
+//      Auto: scanAttendanceWarningsAdmin sau submitAttendance.
 //   2. HỌC LỰC (cờ CAM)    : điểm trung bình có trọng số < 5.0.
 //      Hệ số ưu tiên lấy từ assessment_types.weight, fallback
 //      assessments.weight (dữ liệu cũ trước migration 011).
@@ -42,42 +45,12 @@ export type WarningRow = {
 
 type ActionResult = { error: string } | { error?: undefined }
 
-// Ngưỡng cảnh báo
-const UNEXCUSED_LIMIT = 3 // vắng không phép >= 3 buổi
+// Ngưỡng cảnh báo (max_absence_warning lấy từ org_settings qua resolveSetting)
 const ABSENCE_RATIO_LIMIT = 0.2 // tổng vắng > 20% số buổi
 const GPA_LIMIT = 5.0 // ĐTB < 5.0
 
-// ---- Mock cho chế độ demo ----
-
-const MOCK_WARNINGS: WarningRow[] = [
-  {
-    id: 'cb-001',
-    student_id: 'st-01',
-    student_name: 'Nguyễn Văn Toàn',
-    student_phone: '0901234567',
-    class_id: 'lop-01',
-    class_name: 'Toán 12A1 - Ca tối',
-    org_name: 'Chi nhánh Cầu Giấy',
-    warning_type: 'attendance',
-    description: 'Vắng không phép 4/18 buổi (22%).',
-    status: 'new',
-  },
-  {
-    id: 'cb-002',
-    student_id: 'st-02',
-    student_name: 'Đỗ Thu Hà',
-    student_phone: '0912345678',
-    class_id: 'lop-02',
-    class_name: 'Ngữ văn 12A2 - Ca tối',
-    org_name: 'Chi nhánh Đống Đa',
-    warning_type: 'grade',
-    description: 'Điểm trung bình 4.2 (< 5.0).',
-    status: 'notified',
-  },
-]
-
 async function getSubtreeOrgIds(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof createClient> | ReturnType<typeof createAdminClient>,
   orgId: string
 ): Promise<string[]> {
   const { data, error } = await supabase.rpc('get_descendant_org_ids', {
@@ -89,10 +62,134 @@ async function getSubtreeOrgIds(
   )
 }
 
+type WarningCandidate = {
+  student_id: string
+  class_id: string
+  org_id: string
+  warning_type: WarningType
+  description: string
+}
+
+/**
+ * Quét chuyên cần bằng admin client (sau điểm danh hoặc từ quét thủ công).
+ * Ngưỡng vắng không phép = resolveSetting('max_absence_warning', orgId).
+ */
+export async function scanAttendanceWarningsAdmin(
+  orgId: string
+): Promise<{ error: string } | { error?: undefined; count: number }> {
+  try {
+    const admin = createAdminClient()
+    const orgIds = await getSubtreeOrgIds(admin, orgId)
+    const { value: unexcusedLimit } = await resolveSetting(
+      'max_absence_warning',
+      orgId
+    )
+    const limit = Math.max(1, Number(unexcusedLimit) || 3)
+
+    const { data: stats, error: statsError } = await admin
+      .from('vw_student_attendance_stats')
+      .select('student_id, class_id, org_id, total_sessions, excused_count, unexcused_count')
+      .in('org_id', orgIds)
+    if (statsError) {
+      return { error: `Lỗi đọc thống kê điểm danh: ${statsError.message}` }
+    }
+
+    const candidates: WarningCandidate[] = []
+    for (const stat of stats ?? []) {
+      const totalAbsent = Number(stat.excused_count) + Number(stat.unexcused_count)
+      const totalSessions = Number(stat.total_sessions)
+      const ratio = totalSessions > 0 ? totalAbsent / totalSessions : 0
+      const tooManyUnexcused = Number(stat.unexcused_count) >= limit
+      const tooHighRatio = ratio > ABSENCE_RATIO_LIMIT
+
+      if (tooManyUnexcused || tooHighRatio) {
+        const reasons: string[] = []
+        if (tooManyUnexcused) {
+          reasons.push(
+            `vắng không phép ${stat.unexcused_count} buổi (ngưỡng ${limit})`
+          )
+        }
+        if (tooHighRatio) {
+          reasons.push(
+            `tổng vắng ${totalAbsent}/${totalSessions} buổi (${Math.round(ratio * 100)}%)`
+          )
+        }
+        candidates.push({
+          student_id: stat.student_id,
+          class_id: stat.class_id,
+          org_id: stat.org_id,
+          warning_type: 'attendance',
+          description: `Chuyên cần: ${reasons.join('; ')}.`,
+        })
+      }
+    }
+
+    const upserted = await upsertWarningCandidates(admin, orgIds, candidates)
+    if (upserted.error !== undefined) return upserted
+    return { count: candidates.length }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Lỗi quét cảnh báo chuyên cần.',
+    }
+  }
+}
+
+async function upsertWarningCandidates(
+  supabase: ReturnType<typeof createClient> | ReturnType<typeof createAdminClient>,
+  orgIds: string[],
+  candidates: WarningCandidate[]
+): Promise<ActionResult> {
+  if (candidates.length === 0) return {}
+
+  const { data: existing, error: existingError } = await supabase
+    .from('student_warnings')
+    .select('id, student_id, class_id, warning_type')
+    .in('org_id', orgIds)
+    .is('deleted_at', null)
+  if (existingError) {
+    return { error: `Lỗi đọc cảnh báo cũ: ${existingError.message}` }
+  }
+
+  const existingByKey = new Map(
+    (existing ?? []).map((w) => [`${w.student_id}|${w.class_id}|${w.warning_type}`, w.id])
+  )
+
+  for (const candidate of candidates) {
+    const key = `${candidate.student_id}|${candidate.class_id}|${candidate.warning_type}`
+    const existingId = existingByKey.get(key)
+
+    if (existingId) {
+      const { error: updateError } = await supabase
+        .from('student_warnings')
+        .update({ description: candidate.description })
+        .eq('id', existingId)
+      if (updateError) {
+        return { error: `Lỗi cập nhật cảnh báo: ${updateError.message}` }
+      }
+    } else {
+      const { error: insertError } = await supabase.from('student_warnings').insert({
+        org_id: candidate.org_id,
+        student_id: candidate.student_id,
+        class_id: candidate.class_id,
+        warning_type: candidate.warning_type,
+        description: candidate.description,
+        status: 'new',
+      })
+      if (insertError) {
+        return { error: `Lỗi tạo cảnh báo: ${insertError.message}` }
+      }
+    }
+  }
+  return {}
+}
+
 /** Danh sách cảnh báo hiện có trong subtree của org đang chọn */
 export async function getWarnings(
   orgId: string
-): Promise<{ data: WarningRow[]; demo: boolean }> {
+): Promise<{ data: WarningRow[]; demo: boolean; loadError?: string | null }> {
   try {
     const supabase = createClient()
     const orgIds = await getSubtreeOrgIds(supabase, orgId)
@@ -105,9 +202,11 @@ export async function getWarnings(
       .in('org_id', orgIds)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-    if (error || !data || data.length === 0) throw error ?? new Error('empty')
+    if (error) {
+      return { data: [], demo: false, loadError: error.message }
+    }
 
-    const rows: WarningRow[] = data.map((row) => {
+    const rows: WarningRow[] = (data ?? []).map((row) => {
       const student = row.profiles as
         | { full_name?: string; phone?: string | null }
         | { full_name?: string; phone?: string | null }[]
@@ -128,9 +227,14 @@ export async function getWarnings(
         status: row.status as WarningStatus,
       }
     })
-    return { data: rows, demo: false }
-  } catch {
-    return { data: MOCK_WARNINGS, demo: true }
+    return { data: rows, demo: false, loadError: null }
+  } catch (error) {
+    return {
+      data: [],
+      demo: false,
+      loadError:
+        error instanceof Error ? error.message : 'Không tải được danh sách cảnh báo.',
+    }
   }
 }
 
@@ -169,47 +273,10 @@ export async function runEarlyWarningSystem(
 
     const orgIds = await getSubtreeOrgIds(supabase, orgId)
 
-    type Candidate = {
-      student_id: string
-      class_id: string
-      org_id: string
-      warning_type: WarningType
-      description: string
-    }
-    const candidates: Candidate[] = []
-
-    // ===== 1. CHUYÊN CẦN: đọc view thống kê điểm danh =====
-    const { data: stats, error: statsError } = await supabase
-      .from('vw_student_attendance_stats')
-      .select('student_id, class_id, org_id, total_sessions, excused_count, unexcused_count')
-      .in('org_id', orgIds)
-    if (statsError) return { error: `Lỗi đọc thống kê điểm danh: ${statsError.message}` }
-
-    for (const stat of stats ?? []) {
-      const totalAbsent = stat.excused_count + stat.unexcused_count
-      const ratio = stat.total_sessions > 0 ? totalAbsent / stat.total_sessions : 0
-      const tooManyUnexcused = stat.unexcused_count >= UNEXCUSED_LIMIT
-      const tooHighRatio = ratio > ABSENCE_RATIO_LIMIT
-
-      if (tooManyUnexcused || tooHighRatio) {
-        const reasons: string[] = []
-        if (tooManyUnexcused) {
-          reasons.push(`vắng không phép ${stat.unexcused_count} buổi`)
-        }
-        if (tooHighRatio) {
-          reasons.push(
-            `tổng vắng ${totalAbsent}/${stat.total_sessions} buổi (${Math.round(ratio * 100)}%)`
-          )
-        }
-        candidates.push({
-          student_id: stat.student_id,
-          class_id: stat.class_id,
-          org_id: stat.org_id,
-          warning_type: 'attendance',
-          description: `Chuyên cần: ${reasons.join('; ')}.`,
-        })
-      }
-    }
+    // ===== 1. CHUYÊN CẦN (admin + max_absence_warning từ settings) =====
+    const attendanceScan = await scanAttendanceWarningsAdmin(orgId)
+    if (attendanceScan.error !== undefined) return { error: attendanceScan.error }
+    const attendanceCount = attendanceScan.count
 
     // ===== 2. HỌC LỰC: điểm trung bình có trọng số < 5.0 =====
     const { data: gradeRows, error: gradeError } = await supabase
@@ -241,7 +308,6 @@ export async function runEarlyWarningSystem(
       const typeRef = Array.isArray(assessment.assessment_types)
         ? assessment.assessment_types[0]
         : assessment.assessment_types
-      // Ưu tiên hệ số của assessment_types (mô hình mới), fallback weight cũ
       const weight = Number(typeRef?.weight ?? assessment.weight ?? 1) || 1
 
       const key = `${row.student_id}|${assessment.class_id}`
@@ -259,11 +325,12 @@ export async function runEarlyWarningSystem(
       gpaMap.set(key, entry)
     }
 
+    const gradeCandidates: WarningCandidate[] = []
     for (const entry of gpaMap.values()) {
       if (entry.weightSum === 0) continue
       const gpa = Math.round((entry.sum / entry.weightSum) * 100) / 100
       if (gpa < GPA_LIMIT) {
-        candidates.push({
+        gradeCandidates.push({
           student_id: entry.student_id,
           class_id: entry.class_id,
           org_id: entry.org_id,
@@ -273,50 +340,11 @@ export async function runEarlyWarningSystem(
       }
     }
 
-    // ===== 3. Ghi vào student_warnings =====
-    // Cảnh báo đã tồn tại: chỉ cập nhật mô tả, GIỮ NGUYÊN status
-    // (không reset 'notified'/'resolved' về 'new' khi quét lại).
-    const { data: existing, error: existingError } = await supabase
-      .from('student_warnings')
-      .select('id, student_id, class_id, warning_type')
-      .in('org_id', orgIds)
-      .is('deleted_at', null)
-    if (existingError) return { error: `Lỗi đọc cảnh báo cũ: ${existingError.message}` }
-
-    const existingByKey = new Map(
-      (existing ?? []).map((w) => [`${w.student_id}|${w.class_id}|${w.warning_type}`, w.id])
-    )
-
-    let attendanceCount = 0
-    let gradeCount = 0
-    for (const candidate of candidates) {
-      if (candidate.warning_type === 'attendance') attendanceCount += 1
-      else gradeCount += 1
-
-      const key = `${candidate.student_id}|${candidate.class_id}|${candidate.warning_type}`
-      const existingId = existingByKey.get(key)
-
-      if (existingId) {
-        const { error: updateError } = await supabase
-          .from('student_warnings')
-          .update({ description: candidate.description })
-          .eq('id', existingId)
-        if (updateError) return { error: `Lỗi cập nhật cảnh báo: ${updateError.message}` }
-      } else {
-        const { error: insertError } = await supabase.from('student_warnings').insert({
-          org_id: candidate.org_id,
-          student_id: candidate.student_id,
-          class_id: candidate.class_id,
-          warning_type: candidate.warning_type,
-          description: candidate.description,
-          status: 'new',
-        })
-        if (insertError) return { error: `Lỗi tạo cảnh báo: ${insertError.message}` }
-      }
-    }
+    const gradeUpsert = await upsertWarningCandidates(supabase, orgIds, gradeCandidates)
+    if (gradeUpsert.error !== undefined) return gradeUpsert
 
     revalidatePath('/academic/warnings')
-    return { attendance: attendanceCount, grade: gradeCount }
+    return { attendance: attendanceCount, grade: gradeCandidates.length }
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Lỗi không xác định khi quét cảnh báo.',

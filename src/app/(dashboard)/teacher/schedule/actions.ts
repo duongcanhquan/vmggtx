@@ -86,13 +86,6 @@ function buildMockWeek(weekStartISO: string): TeachingSession[] {
   ]
 }
 
-const MOCK_STUDENTS: SessionStudent[] = [
-  { id: 'mock-st1', full_name: 'Nguyễn Văn Toàn', status: null },
-  { id: 'mock-st2', full_name: 'Đỗ Thu Hà', status: null },
-  { id: 'mock-st3', full_name: 'Vũ Đức Mạnh', status: null },
-  { id: 'mock-st4', full_name: 'Hoàng Ngọc Lan', status: null },
-]
-
 /**
  * Lịch dạy trong 1 tuần của giáo viên đang đăng nhập.
  * Query theo teacher_id = auth.uid(), KHÔNG lọc org_id: gom mọi buổi
@@ -152,37 +145,33 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
 
 /**
  * Danh sách học viên cho popup điểm danh của một buổi học.
- * - Lấy học viên (role=student) thuộc org của buổi học (chưa có bảng
- *   enrollments nên tạm dùng org làm phạm vi).
- * - Prefill trạng thái từ bảng attendance nếu buổi này đã điểm danh.
- * - Fallback mock khi chưa đăng nhập / DB trống.
+ * Roster = enrollments status=active của lớp buổi học (khớp /attendance).
+ * Prefill từ attendance. Không trả MOCK khi lỗi/từ chối.
  */
 export async function getSessionStudents(
   sessionId: string
-): Promise<{ data: SessionStudent[]; demo: boolean }> {
+): Promise<{ data: SessionStudent[]; demo: boolean; loadError?: string | null }> {
   try {
     const supabase = createClient()
 
-    // [SECURITY AUDIT] Chưa đăng nhập -> chỉ trả mock demo
     const {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      return { data: MOCK_STUDENTS, demo: true }
+      return { data: [], demo: false, loadError: 'Bạn chưa đăng nhập.' }
     }
 
     const { data: session } = await supabase
       .from('class_sessions')
-      .select('id, org_id, teacher_id')
+      .select('id, class_id, org_id, teacher_id')
       .eq('id', sessionId)
       .is('deleted_at', null)
       .maybeSingle()
 
     if (!session) {
-      return { data: MOCK_STUDENTS, demo: true }
+      return { data: [], demo: false, loadError: 'Không tìm thấy buổi học.' }
     }
 
-    // [SECURITY AUDIT] QUYỀN: GV của buổi HOẶC Staff trên org của buổi
     if (session.teacher_id !== user.id) {
       const { data: authorized } = await supabase.rpc('is_authorized', {
         p_user_id: user.id,
@@ -190,47 +179,112 @@ export async function getSessionStudents(
         p_required_role: 'academic_staff',
       })
       if (authorized !== true) {
-        return { data: MOCK_STUDENTS, demo: true }
+        return {
+          data: [],
+          demo: false,
+          loadError: 'Bạn không có quyền điểm danh buổi này.',
+        }
       }
     }
 
-    const { data: students } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .eq('role', 'student')
-      .eq('org_id', session.org_id)
-      .is('deleted_at', null)
-      .order('full_name')
-      .limit(50)
+    const [enrollRes, existingRes] = await Promise.all([
+      supabase
+        .from('enrollments')
+        .select('student_id, profiles!enrollments_student_id_fkey(id, full_name, deleted_at)')
+        .eq('class_id', session.class_id)
+        .eq('status', 'active')
+        .is('deleted_at', null),
+      supabase
+        .from('attendance')
+        .select('student_id, status')
+        .eq('session_id', sessionId)
+        .is('deleted_at', null),
+    ])
 
-    if (!students || students.length === 0) {
-      return { data: MOCK_STUDENTS, demo: true }
+    if (enrollRes.error) {
+      // Fallback 2 bước nếu join FK lỗi
+      const { data: enrollRows, error: e2 } = await supabase
+        .from('enrollments')
+        .select('student_id')
+        .eq('class_id', session.class_id)
+        .eq('status', 'active')
+        .is('deleted_at', null)
+      if (e2) {
+        return {
+          data: [],
+          demo: false,
+          loadError: `Không tải danh sách ghi danh: ${e2.message}`,
+        }
+      }
+      const ids = (enrollRows ?? []).map((r) => r.student_id)
+      let profiles: { id: string; full_name: string }[] = []
+      if (ids.length > 0) {
+        const { data: pRows, error: pErr } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', ids)
+          .eq('role', 'student')
+          .is('deleted_at', null)
+          .order('full_name')
+        if (pErr) {
+          return {
+            data: [],
+            demo: false,
+            loadError: `Không tải hồ sơ học viên: ${pErr.message}`,
+          }
+        }
+        profiles = pRows ?? []
+      }
+      const statusByStudent = new Map(
+        (existingRes.data ?? []).map((row) => [row.student_id, row.status])
+      )
+      return {
+        data: profiles.map((student) => {
+          const status = statusByStudent.get(student.id)
+          return {
+            id: student.id,
+            full_name: student.full_name,
+            status:
+              status === 'present' || status === 'excused' || status === 'absent'
+                ? status
+                : null,
+          }
+        }),
+        demo: false,
+        loadError: null,
+      }
     }
 
-    // Prefill từ lần điểm danh trước (nếu có)
-    const { data: existing } = await supabase
-      .from('attendance')
-      .select('student_id, status')
-      .eq('session_id', sessionId)
-      .is('deleted_at', null)
-
     const statusByStudent = new Map(
-      (existing ?? []).map((row) => [row.student_id, row.status])
+      (existingRes.data ?? []).map((row) => [row.student_id, row.status])
     )
 
-    const rows: SessionStudent[] = students.map((student) => {
-      const status = statusByStudent.get(student.id)
-      return {
-        id: student.id,
-        full_name: student.full_name,
+    const rows: SessionStudent[] = []
+    for (const row of enrollRes.data ?? []) {
+      const profile = row.profiles as
+        | { id?: string; full_name?: string; deleted_at?: string | null }
+        | { id?: string; full_name?: string; deleted_at?: string | null }[]
+        | null
+      const p = Array.isArray(profile) ? profile[0] : profile
+      if (!p?.id || p.deleted_at) continue
+      const status = statusByStudent.get(p.id)
+      rows.push({
+        id: p.id,
+        full_name: p.full_name ?? '—',
         status:
           status === 'present' || status === 'excused' || status === 'absent'
             ? status
             : null,
-      }
-    })
-    return { data: rows, demo: false }
-  } catch {
-    return { data: MOCK_STUDENTS, demo: true }
+      })
+    }
+    rows.sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'))
+
+    return { data: rows, demo: false, loadError: null }
+  } catch (e) {
+    return {
+      data: [],
+      demo: false,
+      loadError: e instanceof Error ? e.message : 'Không tải được danh sách học viên.',
+    }
   }
 }
