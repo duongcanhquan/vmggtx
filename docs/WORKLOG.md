@@ -112,3 +112,7 @@
 - KnowledgeRiver (header + rail 2 ben) chay moi trang marketing.
 - Feature highlights (3 diem nhan/nhom); chapter bullet 2 dau spotlight.
 - Anh chi con hero hub; push de production cap nhat.
+
+## 2026-08-02 | copy marketing don gian
+- Bo jargon (org_id, RAG, CRM, LMS, module...); viet lai hub + 5 chuong bang tieng Viet ro.
+- Vi du: tech strip -> "Don gian voi nha truong — phuc tap de phia sau".

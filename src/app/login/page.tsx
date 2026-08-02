@@ -6,9 +6,9 @@ import { LandingPage } from '@/components/landing/LandingPage'
 // Cơ sở: /coso/[slug]/login
 
 export const metadata: Metadata = {
-  title: 'EDU SYSTEM — Quản lý trường học đa cơ sở tích hợp AI',
+  title: 'EDU SYSTEM — Quản lý trường học nhiều cơ sở',
   description:
-    'Hệ thống quản lý giáo dục all-in-one: đa tầng, đa cơ sở, đào tạo, nhân sự, LMS, AI chatbot, lịch dạy thông minh.',
+    'Một hệ thống cho nhiều cơ sở: lớp học, điểm danh, học online, AI, học phí, sổ liên lạc phụ huynh.',
 }
 
 export default function LoginLandingPage() {

@@ -3,40 +3,61 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowRight, BookOpen, GraduationCap } from 'lucide-react'
-import { KNOWLEDGE_STREAM } from './chapters'
 import './landing.css'
 
-function KnowledgeRiver() {
-  const row = [...KNOWLEDGE_STREAM, ...KNOWLEDGE_STREAM]
+/** Công thức / kiến thức mờ làm nền — đặt mép & góc (tránh vùng chữ chính) */
+const FORMULA_FIELD: {
+  text: string
+  top?: string
+  left?: string
+  right?: string
+  bottom?: string
+  size: string
+  delay: string
+  dur: string
+  drift: 'a' | 'b' | 'c'
+}[] = [
+  { text: 'E = mc²', top: '12%', left: '3%', size: '1.35rem', delay: '0s', dur: '11s', drift: 'a' },
+  { text: 'a² + b² = c²', top: '28%', left: '1.5%', size: '1.05rem', delay: '2s', dur: '14s', drift: 'b' },
+  { text: '∫ f(x) dx', top: '48%', left: '4%', size: '1.2rem', delay: '4s', dur: '12s', drift: 'c' },
+  { text: 'F = ma', top: '68%', left: '2%', size: '1.15rem', delay: '1s', dur: '13s', drift: 'a' },
+  { text: 'PV = nRT', bottom: '14%', left: '5%', size: '1rem', delay: '3.5s', dur: '15s', drift: 'b' },
+  { text: 'H₂O', top: '18%', right: '4%', size: '1.4rem', delay: '1.5s', dur: '10s', drift: 'c' },
+  { text: 'V = IR', top: '36%', right: '2%', size: '1.1rem', delay: '5s', dur: '12s', drift: 'a' },
+  { text: 'λ = h / p', top: '55%', right: '3.5%', size: '1.05rem', delay: '0.8s', dur: '14s', drift: 'b' },
+  { text: 'C₆H₁₂O₆', top: '72%', right: '2%', size: '0.95rem', delay: '2.8s', dur: '11s', drift: 'c' },
+  { text: 'Present Perfect', bottom: '22%', right: '4%', size: '0.9rem', delay: '4.2s', dur: '16s', drift: 'a' },
+  { text: 'limₓ→∞', top: '8%', left: '22%', size: '0.95rem', delay: '6s', dur: '13s', drift: 'b' },
+  { text: 'Σ nᵢ', top: '10%', right: '22%', size: '1.05rem', delay: '3s', dur: '12s', drift: 'c' },
+  { text: 'Subject + Verb', bottom: '8%', left: '18%', size: '0.85rem', delay: '5.5s', dur: '15s', drift: 'a' },
+  { text: 'NaCl → Na⁺ + Cl⁻', bottom: '10%', right: '16%', size: '0.9rem', delay: '2.2s', dur: '14s', drift: 'b' },
+  { text: '√(x² + y²)', top: '42%', left: '8%', size: '0.9rem', delay: '7s', dur: '17s', drift: 'c' },
+  { text: 'Δx · Δp ≥ ℏ/2', top: '62%', right: '8%', size: '0.85rem', delay: '1.2s', dur: '13s', drift: 'a' },
+  { text: 'adverb / adjective', top: '88%', left: '38%', size: '0.8rem', delay: '4.8s', dur: '18s', drift: 'b' },
+  { text: 'e^{iπ} + 1 = 0', top: '22%', left: '12%', size: '0.9rem', delay: '8s', dur: '16s', drift: 'c' },
+]
+
+function FormulaField() {
   return (
-    <>
-      {/* Dải ngang — luôn chạy trên mọi trang marketing */}
-      <div className="lp-knowledge-bar" aria-hidden="true">
-        <div className="lp-knowledge-track">
-          {row.map((term, i) => (
-            <span key={`k-${i}`} className="lp-knowledge-chip">
-              {term}
-              <span className="lp-knowledge-dot" />
-            </span>
-          ))}
-        </div>
-      </div>
-      {/* Cột dọc hai bên (desktop) — dòng chảy kiến thức không ngừng */}
-      <div className="lp-knowledge-rail lp-knowledge-rail-l" aria-hidden="true">
-        <div className="lp-knowledge-rail-track">
-          {[...row, ...row].map((term, i) => (
-            <span key={`l-${i}`}>{term}</span>
-          ))}
-        </div>
-      </div>
-      <div className="lp-knowledge-rail lp-knowledge-rail-r" aria-hidden="true">
-        <div className="lp-knowledge-rail-track lp-knowledge-rail-track-rev">
-          {[...row, ...row].map((term, i) => (
-            <span key={`r-${i}`}>{term}</span>
-          ))}
-        </div>
-      </div>
-    </>
+    <div className="lp-formula-field" aria-hidden="true">
+      {FORMULA_FIELD.map((f, i) => (
+        <span
+          key={`${f.text}-${i}`}
+          className={`lp-formula lp-formula-${f.drift}`}
+          style={{
+            top: f.top,
+            left: f.left,
+            right: f.right,
+            bottom: f.bottom,
+            fontSize: f.size,
+            animationDelay: f.delay,
+            animationDuration: f.dur,
+          }}
+        >
+          {f.text}
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -161,6 +182,7 @@ export function MarketingShell({
         <div className="lp-orb lp-orb-a" />
         <div className="lp-orb lp-orb-b" />
         <div className="lp-orb lp-orb-c" />
+        <FormulaField />
         <Particles />
       </div>
 
@@ -201,7 +223,6 @@ export function MarketingShell({
             </Link>
           </nav>
         </div>
-        <KnowledgeRiver />
       </header>
 
       {children}

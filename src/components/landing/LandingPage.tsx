@@ -18,15 +18,14 @@ import { EDU_JOURNEY, FEATURE_GROUPS, HUB_PILLARS } from './chapters'
 import { MarketingShell, StaggerWords, useRevealRoot } from './MarketingShell'
 
 const MARQUEE = [
-  'Cá nhân hóa từng cơ sở',
-  'Đào tạo khép kín',
-  'LMS & AI',
+  'Mỗi cơ sở tùy chỉnh riêng',
+  'Đào tạo trọn chuỗi',
+  'Học online và AI',
   'Sổ liên lạc phụ huynh',
-  'Học phí minh bạch',
+  'Học phí rõ ràng',
   'Lịch dạy linh hoạt',
-  'Chuyển đổi số',
-  'Sát nhập & mở rộng',
-  'All-in-one',
+  'Mở rộng và sát nhập',
+  'Một hệ thống đủ dùng',
 ]
 
 const ROLE_CARDS = [
@@ -34,21 +33,21 @@ const ROLE_CARDS = [
     icon: GraduationCap,
     label: 'Thầy cô',
     title: 'Ít giấy tờ hơn mỗi buổi dạy',
-    line: 'Lịch hai chiều, điểm danh, sổ đầu bài và LMS — một chỗ, trên điện thoại.',
+    line: 'Lịch dạy, điểm danh, sổ đầu bài và bài học online — gọn trong một chỗ, dùng trên điện thoại.',
     tone: 'from-sky-500/25 to-transparent',
   },
   {
     icon: Users,
     label: 'Học viên',
-    title: 'Hồ sơ 360° + học số',
-    line: 'Bài giảng, bài tập, quiz, AI tutor — tiến độ học được ghi nhận rõ ràng.',
+    title: 'Hồ sơ đủ, học online rõ',
+    line: 'Bài giảng, bài tập, kiểm tra, hỏi AI — biết mình đã học đến đâu.',
     tone: 'from-teal-500/25 to-transparent',
   },
   {
     icon: HeartHandshake,
     label: 'Gia đình',
     title: 'Sổ liên lạc trên điện thoại',
-    line: 'Lịch học, điểm, học phí, dặn dò — phụ huynh nắm mà không cần hỏi thầy cô.',
+    line: 'Lịch học, điểm, học phí, dặn dò — phụ huynh xem được mà không phải hỏi thầy cô.',
     tone: 'from-amber-500/20 to-transparent',
   },
 ]
@@ -136,8 +135,8 @@ export function LandingPage() {
               </span>
             </h1>
             <p className="lp-instant mt-5 max-w-2xl text-lg leading-relaxed text-white/80 sm:text-xl">
-              Một dòng chảy: tuyển sinh → xếp lớp → giảng dạy → đánh giá → gia đình → vận hành.
-              <span className="lp-mark ml-1 font-semibold text-white">Tất cả trên một hệ thống.</span>
+              Từ tuyển sinh, xếp lớp, giảng dạy đến điểm số, phụ huynh và học phí —
+              <span className="lp-mark ml-1 font-semibold text-white">gọn trong một hệ thống.</span>
             </p>
             <div className="lp-instant mt-8 flex flex-wrap gap-3">
               <Link
@@ -151,7 +150,7 @@ export function LandingPage() {
                 href="#hanh-trinh"
                 className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-7 text-base font-semibold text-white/90 transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
               >
-                Xem dòng chảy giáo dục
+                Xem hành trình
               </a>
             </div>
           </div>
@@ -176,17 +175,16 @@ export function LandingPage() {
           <div className="relative mx-auto max-w-6xl">
             <div className="max-w-3xl">
               <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-teal-300">
-                Dòng chảy giáo dục
+                Hành trình nhà trường
               </p>
               <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold leading-[1.1] text-white sm:text-5xl md:text-6xl">
                 Từ tuyển sinh đến{' '}
                 <span className="bg-gradient-to-r from-amber-200 to-teal-200 bg-clip-text text-transparent">
-                  vận hành nhà trường
+                  vận hành hàng ngày
                 </span>
               </h2>
               <p className="lp-reveal lp-d2 mt-5 text-lg leading-relaxed text-white/65 sm:text-xl">
-                Không phải danh sách module rời rạc — mà một hành trình mà mỗi bước kéo theo bước
-                tiếp theo. Hệ thống ghi nhận{' '}
+                Các bước nối tiếp nhau — không phải nhiều phần rời rạc. Mỗi việc được ghi nhận{' '}
                 <span className="font-semibold text-white">đúng lúc, đúng người, đúng cơ sở.</span>
               </p>
             </div>
@@ -221,7 +219,7 @@ export function LandingPage() {
         <section className="px-4 py-12 sm:px-6 sm:py-20">
           <div className="mx-auto max-w-6xl">
             <p className="lp-reveal text-sm font-bold uppercase tracking-[0.28em] text-amber-200/90">
-              Ba vòng đời
+              Ba phía cùng dùng
             </p>
             <h2 className="lp-reveal lp-d1 mt-4 max-w-3xl font-heading text-4xl font-bold text-white sm:text-5xl">
               Thầy cô · Học viên · Gia đình
@@ -285,12 +283,11 @@ export function LandingPage() {
               </div>
               <div>
                 <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
-                  Công nghệ phục vụ giáo dục — không phải ngược lại
+                  Đơn giản với nhà trường — phức tạp để phía sau
                 </h2>
                 <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/65 sm:text-lg">
-                  Đa tầng tổ chức, phân quyền theo cây, dữ liệu gắn{' '}
-                  <span className="lp-mark font-semibold text-white">org_id</span>, LMS + AI trong phạm
-                  vi từng cơ sở. Nhà trường thấy kết quả; kỹ thuật nằm phía sau.
+                  Nhiều cơ sở, phân quyền rõ, dữ liệu không lẫn nhau. Học online và AI chỉ trong phạm
+                  vi cơ sở của bạn. Bạn thấy kết quả; phần kỹ thuật chạy phía sau.
                 </p>
               </div>
             </div>
@@ -305,10 +302,10 @@ export function LandingPage() {
                 Danh mục tính năng
               </p>
               <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold text-white sm:text-5xl">
-                Liệt kê rõ — bạn dùng được gì mỗi ngày
+                Bạn dùng được gì mỗi ngày
               </h2>
               <p className="lp-reveal lp-d2 mt-4 text-lg text-white/60">
-                Chọn nhóm bên trái. Mỗi dòng là một việc nhà trường làm thật — không slogan mơ hồ.
+                Chọn nhóm bên trái. Mỗi dòng là một việc nhà trường làm thật.
               </p>
             </div>
 
@@ -408,7 +405,7 @@ export function LandingPage() {
                 Năm chương trải nghiệm
               </p>
               <h2 className="lp-reveal lp-d1 mt-4 font-heading text-4xl font-bold text-white sm:text-5xl">
-                Đào sâu từng phần — thiết kế & câu chuyện, không ảnh trùng
+                Đọc sâu từng phần theo nhu cầu của bạn
               </h2>
             </div>
 
@@ -462,10 +459,10 @@ export function LandingPage() {
           <div className="lp-reveal relative mx-auto max-w-5xl overflow-hidden rounded-[1.75rem] border border-white/12 bg-gradient-to-br from-sky-700/35 via-[#0a1224]/95 to-teal-900/35 px-6 py-14 text-center sm:px-12">
             <div className="lp-grid-tech absolute inset-0 opacity-30" aria-hidden="true" />
             <h2 className="relative font-heading text-4xl font-bold text-white sm:text-5xl">
-              Sẵn sàng đưa nhà trường lên số?
+              Sẵn sàng bắt đầu?
             </h2>
             <p className="relative mx-auto mt-4 max-w-xl text-base text-white/70 sm:text-lg">
-              Chọn cổng cơ sở để đăng nhập. Hệ thống nhận diện đúng đơn vị ngay từ bước đầu.
+              Chọn cổng cơ sở để đăng nhập — vào đúng đơn vị của bạn ngay từ đầu.
             </p>
             <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
@@ -479,7 +476,7 @@ export function LandingPage() {
                 href="#hanh-trinh"
                 className="inline-flex min-h-12 cursor-pointer items-center rounded-2xl border border-white/25 px-7 text-base font-semibold text-white/90 transition hover:bg-white/10"
               >
-                Xem lại dòng chảy
+                Xem lại hành trình
               </a>
             </div>
           </div>
