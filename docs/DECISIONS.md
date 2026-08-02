@@ -49,3 +49,8 @@ Mỗi quyết định 1-3 dòng. Thêm mới vào CUỐI danh sách với mã D 
   `/reports` (campus/học vụ/KT), `/reports/academic`, `/reports/exams`,
   `/teacher/insights`, `/parent/insights`. Recharts + bento KPI; overview
   «Doanh thu đã thu» = tổng `payments` (không MOCK học phí).
+- **D18** CRM tuyển sinh chuyên nghiệp (migration 052): pipeline giữ 5 trạng thái
+  (`new → contacted → test_scheduled → enrolled | lost`); lead có nguồn/độ nóng/
+  follow-up/hẹn/lost_reason; chống trùng SĐT live per org; nhật ký chăm sóc bắt buộc
+  qua UI; mất lead bắt buộc lý do; convert → student qua modal (không kéo thẳng);
+  KHÔNG trả MOCK khi DB trống — trả rỗng + lỗi.

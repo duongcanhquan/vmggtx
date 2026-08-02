@@ -1,0 +1,623 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import {
+  CalendarClock,
+  Flame,
+  Loader2,
+  MessageSquarePlus,
+  Phone,
+  Save,
+  Trash2,
+  UserCheck,
+  X,
+} from 'lucide-react'
+import { leadActivitySchema, leadSchema } from '@/lib/validation/schemas'
+import {
+  addLeadActivity,
+  claimLead,
+  getLeadActivities,
+  softDeleteLead,
+  updateLead,
+  type LeadActivityRow,
+  type LeadCard,
+  type Option,
+  SOURCE_LABELS,
+} from './actions'
+
+const inputClass =
+  'min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const inputErrorClass = 'border-destructive focus-visible:ring-destructive'
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return (
+    <p role="alert" className="mt-1.5 text-xs font-medium text-destructive">
+      {message}
+    </p>
+  )
+}
+
+const activityFormSchema = leadActivitySchema.omit({ leadId: true })
+type ActivityInput = z.input<typeof activityFormSchema>
+type ActivityOutput = z.output<typeof activityFormSchema>
+type LeadFormInput = z.input<typeof leadSchema>
+type LeadFormOutput = z.output<typeof leadSchema>
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  call: 'Gọi điện',
+  email: 'Email',
+  meeting: 'Gặp mặt',
+  zalo: 'Zalo',
+  sms: 'SMS',
+  note: 'Ghi chú',
+  status_change: 'Đổi trạng thái',
+}
+
+const PRIORITY_LABELS: Record<string, string> = {
+  hot: 'Nóng',
+  warm: 'Ấm',
+  cold: 'Lạnh',
+}
+
+function toLocalInput(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+export function LeadDetailDrawer({
+  lead,
+  subjects,
+  sources,
+  priorities,
+  activityTypes,
+  onClose,
+  onChanged,
+  onToast,
+}: {
+  lead: LeadCard
+  subjects: Option[]
+  sources: { id: string; label: string }[]
+  priorities: { id: string; label: string }[]
+  activityTypes: { id: string; label: string }[]
+  onClose: () => void
+  onChanged: () => void
+  onToast: (type: 'success' | 'error', message: string) => void
+}) {
+  const [tab, setTab] = useState<'care' | 'edit'>('care')
+  const [activities, setActivities] = useState<LeadActivityRow[]>([])
+  const [loadingActs, setLoadingActs] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const readonly = lead.status === 'enrolled'
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setLoadingActs(true)
+      const res = await getLeadActivities(lead.id)
+      if (cancelled) return
+      setActivities(res.data)
+      setLoadingActs(false)
+      if (res.error) onToast('error', res.error)
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chi reload khi doi lead
+  }, [lead.id])
+
+  async function loadActs() {
+    setLoadingActs(true)
+    const res = await getLeadActivities(lead.id)
+    setActivities(res.data)
+    setLoadingActs(false)
+    if (res.error) onToast('error', res.error)
+  }
+
+  const activityForm = useForm<ActivityInput, unknown, ActivityOutput>({
+    resolver: zodResolver(activityFormSchema),
+    defaultValues: {
+      activityType: 'call',
+      description: '',
+      nextFollowUpAt: '',
+    },
+  })
+
+  const editForm = useForm<LeadFormInput, unknown, LeadFormOutput>({
+    resolver: zodResolver(leadSchema),
+    defaultValues: {
+      fullName: lead.full_name,
+      phone: lead.phone,
+      email: lead.email ?? '',
+      interestedSubjectId: lead.interested_subject_id ?? '',
+      source: lead.source ?? '',
+      priority: lead.priority || 'warm',
+      parentName: lead.parent_name ?? '',
+      parentPhone: lead.parent_phone ?? '',
+      nextFollowUpAt: toLocalInput(lead.next_follow_up_at),
+      appointmentAt: toLocalInput(lead.appointment_at),
+      notes: lead.notes ?? '',
+    },
+  })
+
+  async function onAddActivity(values: ActivityOutput) {
+    setBusy(true)
+    const fd = new FormData()
+    fd.set('leadId', lead.id)
+    fd.set('activityType', values.activityType)
+    fd.set('description', values.description)
+    fd.set('nextFollowUpAt', values.nextFollowUpAt || '')
+    const result = await addLeadActivity(fd)
+    setBusy(false)
+    if (result.error) {
+      onToast('error', result.error)
+      return
+    }
+    activityForm.reset({ activityType: 'call', description: '', nextFollowUpAt: '' })
+    onToast('success', 'Đã ghi nhật ký chăm sóc.')
+    await loadActs()
+    onChanged()
+  }
+
+  async function onSaveEdit(values: LeadFormOutput) {
+    setBusy(true)
+    const fd = new FormData()
+    fd.set('leadId', lead.id)
+    fd.set('fullName', values.fullName)
+    fd.set('phone', values.phone)
+    fd.set('email', values.email ?? '')
+    fd.set('interestedSubjectId', values.interestedSubjectId ?? '')
+    fd.set('source', values.source || '')
+    fd.set('priority', values.priority || 'warm')
+    fd.set('parentName', values.parentName ?? '')
+    fd.set('parentPhone', values.parentPhone ?? '')
+    fd.set('nextFollowUpAt', values.nextFollowUpAt || '')
+    fd.set('appointmentAt', values.appointmentAt || '')
+    fd.set('notes', values.notes ?? '')
+    const result = await updateLead(fd)
+    setBusy(false)
+    if (result.error) {
+      onToast('error', result.error)
+      return
+    }
+    onToast('success', 'Đã cập nhật lead.')
+    onChanged()
+  }
+
+  async function onClaim() {
+    setBusy(true)
+    const result = await claimLead(lead.id)
+    setBusy(false)
+    if (result.error) {
+      onToast('error', result.error)
+      return
+    }
+    onToast('success', 'Đã nhận lead về phụ trách.')
+    onChanged()
+  }
+
+  async function onDelete() {
+    if (!window.confirm(`Ẩn lead "${lead.full_name}" khỏi pipeline?`)) return
+    setBusy(true)
+    const result = await softDeleteLead(lead.id)
+    setBusy(false)
+    if (result.error) {
+      onToast('error', result.error)
+      return
+    }
+    onToast('success', 'Đã ẩn lead (soft-delete).')
+    onClose()
+    onChanged()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+      <button
+        type="button"
+        aria-label="Đóng"
+        className="absolute inset-0 bg-foreground/30"
+        onClick={onClose}
+      />
+      <div className="relative flex h-full w-full max-w-lg flex-col border-l border-border bg-surface shadow-2xl">
+        <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate font-heading text-lg font-bold">{lead.full_name}</h2>
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                {lead.phone}
+              </span>
+              {lead.source && (
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium">
+                  {SOURCE_LABELS[lead.source] || lead.source}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium">
+                <Flame className="h-3 w-3" aria-hidden="true" />
+                {PRIORITY_LABELS[lead.priority] || lead.priority}
+              </span>
+              {lead.is_overdue && (
+                <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-xs font-semibold text-destructive">
+                  Quá hạn follow-up
+                </span>
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={onClose}
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="flex gap-1 border-b border-border px-5 pt-2">
+          {(
+            [
+              ['care', 'Chăm sóc'],
+              ['edit', 'Hồ sơ'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={`min-h-10 cursor-pointer rounded-t-lg px-3 text-sm font-semibold ${
+                tab === key
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {tab === 'care' && (
+            <div className="space-y-5">
+              {(lead.next_follow_up_at || lead.appointment_at) && (
+                <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm">
+                  {lead.next_follow_up_at && (
+                    <p className="flex items-center gap-2">
+                      <CalendarClock className="h-4 w-4 text-primary" aria-hidden="true" />
+                      Follow-up:{' '}
+                      <strong>
+                        {new Date(lead.next_follow_up_at).toLocaleString('vi-VN')}
+                      </strong>
+                    </p>
+                  )}
+                  {lead.appointment_at && (
+                    <p className="mt-1 flex items-center gap-2">
+                      <CalendarClock className="h-4 w-4 text-primary" aria-hidden="true" />
+                      Hẹn test/gặp:{' '}
+                      <strong>
+                        {new Date(lead.appointment_at).toLocaleString('vi-VN')}
+                      </strong>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {lead.lost_reason && (
+                <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm">
+                  Lý do mất: <strong>{lead.lost_reason}</strong>
+                </p>
+              )}
+
+              {!readonly && (
+                <form
+                  onSubmit={activityForm.handleSubmit(onAddActivity)}
+                  className="space-y-3 rounded-xl border border-border p-3"
+                  noValidate
+                >
+                  <p className="flex items-center gap-2 text-sm font-semibold">
+                    <MessageSquarePlus className="h-4 w-4 text-primary" aria-hidden="true" />
+                    Ghi nhật ký chăm sóc
+                  </p>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="act-type">
+                      Loại
+                    </label>
+                    <select
+                      id="act-type"
+                      className={`${inputClass} cursor-pointer`}
+                      {...activityForm.register('activityType')}
+                    >
+                      {activityTypes.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="act-desc">
+                      Nội dung <span className="text-destructive">*</span>
+                    </label>
+                    <textarea
+                      id="act-desc"
+                      rows={3}
+                      className={`${inputClass} min-h-20 py-2 ${activityForm.formState.errors.description ? inputErrorClass : ''}`}
+                      {...activityForm.register('description')}
+                    />
+                    <FieldError
+                      message={activityForm.formState.errors.description?.message}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="act-follow">
+                      Hẹn follow-up tiếp
+                    </label>
+                    <input
+                      id="act-follow"
+                      type="datetime-local"
+                      className={inputClass}
+                      {...activityForm.register('nextFollowUpAt')}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+                  >
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Save className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    Lưu nhật ký
+                  </button>
+                </form>
+              )}
+
+              <div>
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                  Timeline ({activities.length})
+                </h3>
+                {loadingActs ? (
+                  <p className="text-sm text-muted-foreground">Đang tải…</p>
+                ) : activities.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                    Chưa có nhật ký chăm sóc.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {activities.map((act) => (
+                      <li
+                        key={act.id}
+                        className="rounded-xl border border-border bg-background p-3 text-sm"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-bold text-primary">
+                            {ACTIVITY_LABELS[act.activity_type] || act.activity_type}
+                          </span>
+                          <time className="text-xs text-muted-foreground">
+                            {new Date(act.created_at).toLocaleString('vi-VN')}
+                          </time>
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap text-foreground">
+                          {act.description}
+                        </p>
+                        {act.creator_name && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            — {act.creator_name}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === 'edit' && (
+            <form
+              onSubmit={editForm.handleSubmit(onSaveEdit)}
+              className="space-y-3"
+              noValidate
+            >
+              <fieldset disabled={readonly} className="space-y-3 disabled:opacity-70">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-name">
+                    Họ tên
+                  </label>
+                  <input
+                    id="edit-name"
+                    className={inputClass}
+                    {...editForm.register('fullName')}
+                  />
+                  <FieldError message={editForm.formState.errors.fullName?.message} />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-phone">
+                      SĐT
+                    </label>
+                    <input
+                      id="edit-phone"
+                      className={inputClass}
+                      {...editForm.register('phone')}
+                    />
+                    <FieldError message={editForm.formState.errors.phone?.message} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-email">
+                      Email
+                    </label>
+                    <input
+                      id="edit-email"
+                      type="email"
+                      className={inputClass}
+                      {...editForm.register('email')}
+                    />
+                    <FieldError message={editForm.formState.errors.email?.message} />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-source">
+                      Nguồn
+                    </label>
+                    <select
+                      id="edit-source"
+                      className={`${inputClass} cursor-pointer`}
+                      {...editForm.register('source')}
+                    >
+                      <option value="">— Chọn —</option>
+                      {sources.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-prio">
+                      Độ nóng
+                    </label>
+                    <select
+                      id="edit-prio"
+                      className={`${inputClass} cursor-pointer`}
+                      {...editForm.register('priority')}
+                    >
+                      {priorities.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-subject">
+                    Môn quan tâm
+                  </label>
+                  <select
+                    id="edit-subject"
+                    className={`${inputClass} cursor-pointer`}
+                    {...editForm.register('interestedSubjectId')}
+                  >
+                    <option value="">— Chưa rõ —</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-pname">
+                      Phụ huynh
+                    </label>
+                    <input
+                      id="edit-pname"
+                      className={inputClass}
+                      {...editForm.register('parentName')}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-pphone">
+                      SĐT PH
+                    </label>
+                    <input
+                      id="edit-pphone"
+                      className={inputClass}
+                      {...editForm.register('parentPhone')}
+                    />
+                    <FieldError message={editForm.formState.errors.parentPhone?.message} />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-follow">
+                      Follow-up
+                    </label>
+                    <input
+                      id="edit-follow"
+                      type="datetime-local"
+                      className={inputClass}
+                      {...editForm.register('nextFollowUpAt')}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-appt">
+                      Hẹn test/gặp
+                    </label>
+                    <input
+                      id="edit-appt"
+                      type="datetime-local"
+                      className={inputClass}
+                      {...editForm.register('appointmentAt')}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium" htmlFor="edit-notes">
+                    Ghi chú
+                  </label>
+                  <textarea
+                    id="edit-notes"
+                    rows={3}
+                    className={`${inputClass} min-h-20 py-2`}
+                    {...editForm.register('notes')}
+                  />
+                </div>
+              </fieldset>
+
+              {!readonly && (
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+                >
+                  {busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Save className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  Lưu hồ sơ
+                </button>
+              )}
+            </form>
+          )}
+        </div>
+
+        <footer className="flex flex-wrap gap-2 border-t border-border px-5 py-3">
+          {!lead.counselor_id && !readonly && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onClaim}
+              className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold hover:bg-muted"
+            >
+              <UserCheck className="h-4 w-4" aria-hidden="true" />
+              Nhận lead
+            </button>
+          )}
+          {!readonly && lead.status !== 'lost' && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onDelete}
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-destructive/30 px-3 text-sm font-semibold text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              Ẩn lead
+            </button>
+          )}
+        </footer>
+      </div>
+    </div>
+  )
+}

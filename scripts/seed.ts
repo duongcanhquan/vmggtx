@@ -749,16 +749,40 @@ async function seedBusinessData(
   // 12. CRM: leads đủ trạng thái + nhật ký chăm sóc
   console.log('12) Tạo leads tuyển sinh (CRM Kanban)...')
   const leadStatuses = ['new', 'new', 'contacted', 'contacted', 'test_scheduled', 'lost']
+  const leadSources = [
+    'hotline',
+    'facebook',
+    'zalo',
+    'walk_in',
+    'referral',
+    'website',
+  ] as const
+  const leadPriorities = ['hot', 'warm', 'warm', 'cold', 'hot', 'cold'] as const
   const leadRows: Record<string, unknown>[] = []
   campuses.forEach((campus, campusIdx) => {
     const counselor = admissionStaffByCampus[campusIdx]
     leadStatuses.forEach((status, l) => {
+      const followUp =
+        status === 'contacted' || status === 'new'
+          ? new Date(Date.now() + (l % 2 === 0 ? -2 : 2) * 86400_000).toISOString()
+          : null
       leadRows.push({
         org_id: campus.id,
         full_name: faker.person.fullName(),
         phone: vnPhone(),
+        email: faker.internet.email().toLowerCase(),
         interested_subject_id: subjects![l % subjects!.length].id,
         status,
+        source: leadSources[l % leadSources.length],
+        priority: leadPriorities[l % leadPriorities.length],
+        parent_name: faker.person.fullName(),
+        parent_phone: vnPhone(),
+        next_follow_up_at: followUp,
+        appointment_at:
+          status === 'test_scheduled'
+            ? new Date(Date.now() + 3 * 86400_000).toISOString()
+            : null,
+        lost_reason: status === 'lost' ? 'Phụ huynh báo đã chọn trung tâm khác.' : null,
         // Lead 'new' đầu tiên CHƯA có người phụ trách (demo nhận lead)
         counselor_id: l === 0 ? null : counselor.id,
         notes: status === 'lost' ? 'Phụ huynh báo đã chọn trung tâm khác.' : faker.lorem.sentence(),

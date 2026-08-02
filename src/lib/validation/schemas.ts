@@ -434,11 +434,61 @@ export const LEAD_STATUSES = [
   'lost',
 ] as const
 
-/** Form tạo Lead mới */
+/** Nguồn tiếp nhận lead (migration 052) */
+export const LEAD_SOURCES = [
+  'walk_in',
+  'hotline',
+  'facebook',
+  'zalo',
+  'website',
+  'referral',
+  'school_event',
+  'ads',
+  'other',
+] as const
+
+export const LEAD_PRIORITIES = ['hot', 'warm', 'cold'] as const
+
+export const LEAD_ACTIVITY_TYPES = [
+  'call',
+  'email',
+  'meeting',
+  'zalo',
+  'sms',
+  'note',
+  'status_change',
+] as const
+
+/** Form tạo / sửa Lead */
 export const leadSchema = z.object({
   fullName: safeText('Họ tên', 2, 120),
   phone: phoneVNSchema,
+  email: z
+    .string()
+    .trim()
+    .email('Email không hợp lệ.')
+    .optional()
+    .or(z.literal('')),
   interestedSubjectId: z.string().uuid('Môn quan tâm không hợp lệ.').optional().or(z.literal('')),
+  source: z.enum(LEAD_SOURCES).optional().or(z.literal('')),
+  priority: z.enum(LEAD_PRIORITIES).optional().default('warm'),
+  parentName: z
+    .string()
+    .trim()
+    .max(120, 'Tên phụ huynh tối đa 120 ký tự.')
+    .optional()
+    .default(''),
+  parentPhone: z
+    .string()
+    .trim()
+    .optional()
+    .default('')
+    .refine(
+      (v) => !v || /^0\d{9}$/.test(v.replace(/\D/g, '')),
+      'SĐT phụ huynh phải gồm 10 số bắt đầu bằng 0.'
+    ),
+  nextFollowUpAt: z.string().optional().or(z.literal('')),
+  appointmentAt: z.string().optional().or(z.literal('')),
   notes: z
     .string()
     .trim()
@@ -449,12 +499,49 @@ export const leadSchema = z.object({
 })
 
 /** Kéo thả đổi trạng thái Lead trên Kanban */
-export const leadStatusSchema = z.object({
+export const leadStatusSchema = z
+  .object({
+    leadId: requiredId('Thiếu ID lead.'),
+    status: z.enum(LEAD_STATUSES, {
+      errorMap: () => ({ message: 'Trạng thái lead không hợp lệ.' }),
+    }),
+    lostReason: z
+      .string()
+      .trim()
+      .max(300, 'Lý do mất lead tối đa 300 ký tự.')
+      .optional()
+      .default(''),
+    appointmentAt: z.string().optional().or(z.literal('')),
+    nextFollowUpAt: z.string().optional().or(z.literal('')),
+  })
+  .superRefine((val, ctx) => {
+    if (val.status === 'lost' && !val.lostReason?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Vui lòng nhập lý do mất lead.',
+        path: ['lostReason'],
+      })
+    }
+  })
+
+/** Nhật ký chăm sóc lead */
+export const leadActivitySchema = z.object({
   leadId: requiredId('Thiếu ID lead.'),
-  status: z.enum(LEAD_STATUSES, {
-    errorMap: () => ({ message: 'Trạng thái lead không hợp lệ.' }),
+  activityType: z.enum(LEAD_ACTIVITY_TYPES, {
+    errorMap: () => ({ message: 'Loại hoạt động không hợp lệ.' }),
   }),
+  description: z
+    .string()
+    .trim()
+    .min(2, 'Nội dung tối thiểu 2 ký tự.')
+    .max(1000, 'Nội dung tối đa 1000 ký tự.')
+    .refine((v) => !DANGEROUS_CHARS.test(v), 'Nội dung chứa ký tự không được phép.'),
+  nextFollowUpAt: z.string().optional().or(z.literal('')),
 })
+
+export type LeadSource = (typeof LEAD_SOURCES)[number]
+export type LeadPriority = (typeof LEAD_PRIORITIES)[number]
+export type LeadActivityType = (typeof LEAD_ACTIVITY_TYPES)[number]
 
 /** Modal chuyển hóa Lead -> Student chính thức (khi kéo vào cột Enrolled) */
 export const convertLeadSchema = z.object({

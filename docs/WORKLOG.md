@@ -157,3 +157,9 @@
 - MenuKey reports + /reports cockpit + academic + exams (Recharts bento).
 - /teacher/insights, /parent/insights; ReportKpiTile + ReportCharts.
 - Overview doanh thu = payments that; moduleCatalog reports. Build exit 0.
+
+## 2026-08-02 | CRM tuyen sinh chuyen nghiep (D18)
+- Migration 052: source/priority/follow-up/appointment/lost_reason + activities soft-delete.
+- actions: bo MOCK, chong trung SDT, CRUD, claim, soft-delete, activities, funnel.
+- UI: drawer cham soc, filter nguon/do nong/qua han, modal ly do mat + hen test.
+- Seed/check-db/checklist + STATE. Can chay 052 tren DB that.
