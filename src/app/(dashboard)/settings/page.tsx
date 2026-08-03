@@ -39,7 +39,7 @@ import { OrgLogoCard } from '@/components/settings/OrgLogoCard'
 //   (hàm SQL get_org_effective_config, migration 016).
 // ============================================================
 
-type TabId = 'academic' | 'communication' | 'finance' | 'identity' | 'crm'
+type TabId = 'academic' | 'communication' | 'finance' | 'identity' | 'crm' | 'ai'
 
 const TABS: { id: TabId; label: string; icon: typeof BookOpenCheck }[] = [
   { id: 'academic', label: 'Học vụ', icon: BookOpenCheck },
@@ -47,6 +47,7 @@ const TABS: { id: TabId; label: string; icon: typeof BookOpenCheck }[] = [
   { id: 'finance', label: 'Tài chính', icon: Wallet },
   { id: 'identity', label: 'Mã học viên', icon: IdCard },
   { id: 'crm', label: 'Tuyển sinh', icon: Megaphone },
+  { id: 'ai', label: 'Hỗ trợ AI', icon: BrainCircuit },
 ]
 
 /** Toggle Switch tự dựng theo chuẩn Shadcn Switch (dự án chưa cài Shadcn) */
@@ -534,6 +535,32 @@ export default function SettingsPage() {
                   với metadata <code className="rounded bg-muted px-1">category=admissions</code>.
                   Trường động lead: entity «Lead tuyển sinh» tại Trường dữ liệu động.
                 </p>
+              </>
+            )}
+
+            {activeTab === 'ai' && (
+              <>
+                <ToggleSwitch
+                  id="set-ai-assist"
+                  label="Bật hỗ trợ AI cho cơ sở"
+                  description="Khi tắt, mọi nút Hỏi AI / AI soạn sẽ báo: Chức năng AI chưa được kích hoạt, vui lòng liên hệ quản trị viên."
+                  checked={config.ai_assist_enabled}
+                  onChange={(v) => patch('ai_assist_enabled', v)}
+                />
+                <div className="rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
+                  <p className="font-semibold text-foreground">Cần có API Key</p>
+                  <p className="mt-1">
+                    Dù công tắc bật, nếu cơ sở chưa cấu hình API (và không kế thừa từ HQ/env),
+                    nhân viên vẫn thấy thông báo chưa kích hoạt.
+                  </p>
+                  <Link
+                    href="/settings/ai"
+                    className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-primary hover:bg-muted"
+                  >
+                    <BrainCircuit className="h-4 w-4" aria-hidden="true" />
+                    Mở trang cấu hình API AI
+                  </Link>
+                </div>
               </>
             )}
 

@@ -24,7 +24,10 @@ import {
   type AISettingsFormValues,
 } from '@/lib/validation/schemas'
 import { getAISettings, saveAISettings, type AISettingsView } from './actions'
+import { getOrgSettings, saveOrgSettings } from '../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { DEFAULT_ORG_CONFIG } from '@/lib/validation/schemas'
+import { AI_NOT_ACTIVATED_MESSAGE } from '@/lib/ai/aiMessages'
 
 // ============================================================
 // Cấu hình AI Đa khách hàng (/settings/ai) - Campus Admin.
@@ -59,6 +62,8 @@ export default function AISettingsPage() {
   const [view, setView] = useState<AISettingsView | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [assistEnabled, setAssistEnabled] = useState(true)
+  const [assistSaving, setAssistSaving] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
 
   const {
@@ -85,8 +90,12 @@ export default function AISettingsPage() {
       return
     }
     setLoading(true)
-    const result = await getAISettings(currentOrgId)
+    const [result, orgSettings] = await Promise.all([
+      getAISettings(currentOrgId),
+      getOrgSettings(currentOrgId),
+    ])
     setView(result)
+    setAssistEnabled(orgSettings.config?.ai_assist_enabled ?? DEFAULT_ORG_CONFIG.ai_assist_enabled)
     reset({
       aiProvider: result.aiProvider,
       defaultModel: result.defaultModel,
@@ -117,6 +126,29 @@ export default function AISettingsPage() {
     loadData()
   }
 
+  async function saveAssistToggle(next: boolean) {
+    if (!currentOrgId) return
+    setAssistEnabled(next)
+    setAssistSaving(true)
+    const current = await getOrgSettings(currentOrgId)
+    const result = await saveOrgSettings(currentOrgId, {
+      ...current.config,
+      ai_assist_enabled: next,
+    })
+    setAssistSaving(false)
+    if (result.error) {
+      setAssistEnabled(!next)
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({
+      type: 'success',
+      message: next
+        ? 'Đã bật hỗ trợ AI cho cơ sở.'
+        : 'Đã tắt hỗ trợ AI — nhân viên sẽ thấy thông báo liên hệ quản trị viên.',
+    })
+  }
+
   return (
     <RoleGuard
       allowedRoles={['super_admin', 'campus_admin']}
@@ -144,6 +176,44 @@ export default function AISettingsPage() {
             Mỗi cơ sở dùng API Key riêng để tự kiểm soát chi phí.
           </p>
         </div>
+
+        {/* ===== Công tắc hỗ trợ AI ===== */}
+        {!loading && (
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <label className="flex cursor-pointer items-start justify-between gap-4">
+              <span>
+                <span className="block text-sm font-semibold text-foreground">
+                  Bật hỗ trợ AI cho cơ sở
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Tắt hoặc chưa có API Key → nhân viên thấy: «{AI_NOT_ACTIVATED_MESSAGE}».
+                </span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={assistEnabled}
+                disabled={assistSaving || !currentOrgId}
+                onClick={() => void saveAssistToggle(!assistEnabled)}
+                className={`relative mt-0.5 h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 ${
+                  assistEnabled ? 'bg-primary' : 'bg-muted'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                    assistEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </label>
+            {!view?.configured && !view?.demo && (
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Cơ sở chưa lưu API Key riêng. Nếu HQ/env cũng không có key, AI sẽ báo chưa kích
+                hoạt dù công tắc đang bật.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ===== Cảnh báo billing ===== */}
         <div
@@ -285,7 +355,7 @@ export default function AISettingsPage() {
                 {...register('isActive')}
                 className="h-4 w-4 cursor-pointer rounded border-border accent-indigo-600"
               />
-              Kích hoạt AI cho cơ sở này
+              Dùng API Key của cơ sở này (tắt = kế thừa cấp trên / env nếu có)
             </label>
 
             <button

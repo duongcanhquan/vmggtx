@@ -3,7 +3,7 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { createClient } from '@/lib/supabase/server'
-import { getAIConfig } from '@/lib/ai/getTenantAIConfig'
+import { assertOrgAiReady, AI_NOT_ACTIVATED_MESSAGE } from '@/lib/ai/assertOrgAiReady'
 import { requiredId, zodFail } from '@/lib/validation/schemas'
 
 // ============================================================
@@ -272,13 +272,17 @@ export async function summarizeTeacherFeedback(
       return { error: 'Giáo viên này chưa có ý kiến đóng góp dạng văn bản nào.' }
     }
 
-    const aiConfig = await getAIConfig(orgParsed.data)
+    const aiGate = await assertOrgAiReady(orgParsed.data)
+    if (!aiGate.ok) {
+      return { error: aiGate.message || AI_NOT_ACTIVATED_MESSAGE }
+    }
+    const aiConfig = aiGate.config
     const apiKey =
       aiConfig.provider === 'openai' && aiConfig.apiKey
         ? aiConfig.apiKey
         : process.env.OPENAI_API_KEY
     if (!apiKey) {
-      return { error: 'Trợ lý AI đang bảo trì, vui lòng quay lại sau.' }
+      return { error: AI_NOT_ACTIVATED_MESSAGE }
     }
 
     try {

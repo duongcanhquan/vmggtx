@@ -10,6 +10,7 @@ import { getAIConfig, type TenantAIConfig } from '@/lib/ai/getTenantAIConfig'
 import { DEFAULT_ORG_CONFIG, orgConfigSchema } from '@/lib/validation/schemas'
 import { assertClassAccess } from '@/lib/auth/assertClassAccess'
 import { DRAFT_MODES, type DraftMode } from '@/lib/ai/draftAssist'
+import { assertOrgAiReady, AI_NOT_ACTIVATED_MESSAGE } from '@/lib/ai/assertOrgAiReady'
 
 export const maxDuration = 60
 
@@ -623,11 +624,16 @@ export async function POST(request: NextRequest) {
     })()
   }
 
+  const aiGate = await assertOrgAiReady(orgId)
+  if (!aiGate.ok) {
+    return new NextResponse(aiGate.message || AI_NOT_ACTIVATED_MESSAGE, { status: 403 })
+  }
+
   try {
-    const tenantConfig = await getAIConfig(orgId)
+    const tenantConfig = aiGate.config
     const aiModel = buildChatModel(tenantConfig)
     if (!aiModel) {
-      return new NextResponse(AI_MAINTENANCE_MESSAGE, { status: 503 })
+      return new NextResponse(AI_NOT_ACTIVATED_MESSAGE, { status: 403 })
     }
 
     const embeddingKey =

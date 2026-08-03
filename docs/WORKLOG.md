@@ -373,3 +373,8 @@
 - draft_assist: thong bao, ngan hang de, so LL, canh bao PH, khoan thu, ly do nghi.
 - Import HV: nut AI chuan hoa (validateImportData).
 - useEffectiveOrgId cho Staff portal thieu org store.
+
+## 2026-08-03 | AI gate bat/tat + thong bao chua kich hoat (D46)
+- orgConfig.ai_assist_enabled; tab Cai dat Ho tro AI + toggle /settings/ai.
+- assertOrgAiReady: tat hoac thieu API key ? thong bao lien he quan tri.
+- Copilot/tutor/LMS/warnings + AskAiPanel/AiDraftButton.

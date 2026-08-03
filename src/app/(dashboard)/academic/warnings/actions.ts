@@ -8,7 +8,7 @@ import {
   type ParentWarningNotification,
 } from '@/lib/integrations/n8n'
 import { resolveSetting } from '@/lib/utils/settingsResolver'
-import { getAIConfig } from '@/lib/ai/getTenantAIConfig'
+import { assertOrgAiReady, AI_NOT_ACTIVATED_MESSAGE } from '@/lib/ai/assertOrgAiReady'
 import { requiredId, zodFail } from '@/lib/validation/schemas'
 import { scanAttendanceWarningsCore } from '@/lib/academic/scanAttendanceWarnings'
 import { z } from 'zod'
@@ -683,12 +683,11 @@ export async function getWarningAiAssist(
       return `${i + 1}. ${name} · ${cls} · ${r.warning_type}/${(r as { severity?: string }).severity ?? 'early'} · ${r.status}: ${r.description}`
     })
 
-    const ai = await getAIConfig(orgId)
-    if (!ai.apiKey) {
-      return {
-        error: 'Chưa cấu hình AI (Settings → AI). Có thể xử lý thủ công theo quy trình.',
-      }
+    const aiGate = await assertOrgAiReady(orgId)
+    if (!aiGate.ok) {
+      return { error: aiGate.message || AI_NOT_ACTIVATED_MESSAGE }
     }
+    const ai = aiGate.config
 
     const { createOpenAI } = await import('@ai-sdk/openai')
     const { generateText } = await import('ai')

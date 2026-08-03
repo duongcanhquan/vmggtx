@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Bot, X } from 'lucide-react'
-import { useOrgStore } from '@/lib/store/useOrgStore'
 import { resolveModuleAiFromPath } from '@/lib/ai/moduleAssist'
 import { useEffectiveOrgId } from '@/lib/ai/useEffectiveOrgId'
 import { AskAiPanel } from './AskAiPanel'

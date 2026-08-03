@@ -8,7 +8,13 @@ import type { OrgConfig } from '@/lib/validation/schemas'
 // CHÍNH Đơn vị (type='campus') — cơ sở con chỉ đọc.
 // ============================================================
 
-export type SettingGroupKey = 'academic' | 'communication' | 'finance' | 'identity' | 'crm'
+export type SettingGroupKey =
+  | 'academic'
+  | 'communication'
+  | 'finance'
+  | 'identity'
+  | 'crm'
+  | 'ai'
 
 export type OverridePolicy = 'inherit' | 'locked' | 'required'
 
@@ -55,6 +61,11 @@ export const SETTING_GROUPS: {
       'crm_default_follow_up_hours',
       'crm_ai_system_note',
     ],
+  },
+  {
+    key: 'ai',
+    label: 'Hỗ trợ AI',
+    fields: ['ai_assist_enabled'],
   },
 ]
 

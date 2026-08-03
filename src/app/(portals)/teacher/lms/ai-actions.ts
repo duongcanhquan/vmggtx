@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAIConfig } from '@/lib/ai/getTenantAIConfig'
+import { assertOrgAiReady, AI_NOT_ACTIVATED_MESSAGE } from '@/lib/ai/assertOrgAiReady'
 
 // ============================================================
 // LMS x AI - phía GIÁO VIÊN:
@@ -56,7 +57,9 @@ async function authorize(classId: string): Promise<ClassAuth> {
 
 // ---------- API key AI theo tenant ----------
 async function getTenantOpenAI(orgId: string) {
-  const aiConfig = await getAIConfig(orgId)
+  const gate = await assertOrgAiReady(orgId)
+  if (!gate.ok) return null
+  const aiConfig = gate.config
   const apiKey =
     aiConfig.provider === 'openai' && aiConfig.apiKey ? aiConfig.apiKey : process.env.OPENAI_API_KEY
   if (!apiKey) return null
@@ -65,8 +68,7 @@ async function getTenantOpenAI(orgId: string) {
   return { client: createOpenAI({ apiKey }), model }
 }
 
-const AI_UNAVAILABLE =
-  'Chưa có API Key AI: cấu hình tại Cài đặt > Cấu hình AI hoặc đặt biến môi trường OPENAI_API_KEY.'
+const AI_UNAVAILABLE = AI_NOT_ACTIVATED_MESSAGE
 const AI_FAILED = 'Gọi AI thất bại (key hết hạn / hết quota?). Vui lòng thử lại sau.'
 
 // ============================================================

@@ -4,6 +4,8 @@ import { useCompletion } from 'ai/react'
 import { Loader2, Sparkles } from 'lucide-react'
 import { useRef } from 'react'
 import type { DraftMode } from '@/lib/ai/draftAssist'
+import { AI_NOT_ACTIVATED_MESSAGE } from '@/lib/ai/aiMessages'
+import { getAiAssistStatus } from '@/lib/ai/getAiAssistStatus'
 
 type Props = {
   orgId: string | null
@@ -63,13 +65,18 @@ export function AiDraftButton({
       else onErrorRef.current?.('AI không trả về nội dung.')
     },
     onError: (err) => {
-      onErrorRef.current?.(err.message || 'Không soạn được bằng AI.')
+      onErrorRef.current?.(err.message || AI_NOT_ACTIVATED_MESSAGE)
     },
   })
 
   async function run() {
     if (!orgId || isLoading || disabled) {
       if (!orgId) onErrorRef.current?.('Chọn cơ sở trên header trước khi dùng AI.')
+      return
+    }
+    const status = await getAiAssistStatus(orgId)
+    if (!status.ready) {
+      onErrorRef.current?.(status.message || AI_NOT_ACTIVATED_MESSAGE)
       return
     }
     await complete(prompt?.trim() || DEFAULT_PROMPTS[draftMode], {

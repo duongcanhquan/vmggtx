@@ -775,6 +775,11 @@ export const orgConfigSchema = z.object({
     ]),
   /** CRM / Tuyển sinh (migration 053) */
   crm_ai_enabled: z.boolean().default(true),
+  /**
+   * Bật/tắt toàn bộ hỗ trợ AI vận hành của cơ sở (FAB, soạn form, copilot…).
+   * Tắt hoặc chưa có API → thông báo liên hệ quản trị viên.
+   */
+  ai_assist_enabled: z.boolean().default(true),
   crm_require_cccd: z.boolean().default(false),
   crm_require_parent: z.boolean().default(true),
   crm_require_career: z.boolean().default(false),
@@ -847,6 +852,7 @@ export const DEFAULT_ORG_CONFIG: OrgConfig = {
     { id: 'absent_today', visible: true },
   ],
   crm_ai_enabled: true,
+  ai_assist_enabled: true,
   crm_require_cccd: false,
   crm_require_parent: true,
   crm_require_career: false,

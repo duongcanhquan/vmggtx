@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getAIConfig } from '@/lib/ai/getTenantAIConfig'
+import { assertOrgAiReady, AI_NOT_ACTIVATED_MESSAGE } from '@/lib/ai/assertOrgAiReady'
 import { assertClassAccess } from '@/lib/auth/assertClassAccess'
 
 // [QA GATE] Body phải qua Zod trước khi dùng (đồng bộ chuẩn với copilot route)
@@ -136,13 +136,17 @@ export async function POST(request: NextRequest) {
     // [MULTI-TENANT AI] Key theo cơ sở: org -> org Mẹ -> env OPENAI_API_KEY.
     // Embedding luôn dùng text-embedding-3-small (cột vector cố định 1536
     // chiều) - key tenant quyết định AI TRẢ PHÍ cho cơ sở nào.
-    const aiConfig = await getAIConfig(cls.org_id)
+    const aiGate = await assertOrgAiReady(cls.org_id)
+    if (!aiGate.ok) {
+      return new NextResponse(aiGate.message || AI_NOT_ACTIVATED_MESSAGE, { status: 403 })
+    }
+    const aiConfig = aiGate.config
     const apiKey =
       aiConfig.provider === 'openai' && aiConfig.apiKey
         ? aiConfig.apiKey
         : process.env.OPENAI_API_KEY
     if (!apiKey) {
-      return new NextResponse(AI_MAINTENANCE_MESSAGE, { status: 503 })
+      return new NextResponse(AI_NOT_ACTIVATED_MESSAGE, { status: 403 })
     }
     const openaiClient = createOpenAI({ apiKey })
     const chatModel =

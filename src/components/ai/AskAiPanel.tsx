@@ -2,7 +2,10 @@
 
 import { useCompletion } from 'ai/react'
 import { Bot, Loader2, Sparkles, StopCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import type { ModuleAiPreset } from '@/lib/ai/moduleAssist'
+import { getAiAssistStatus } from '@/lib/ai/getAiAssistStatus'
+import { AI_NOT_ACTIVATED_MESSAGE } from '@/lib/ai/aiMessages'
 
 type Props = {
   orgId: string | null
@@ -18,6 +21,27 @@ export function AskAiPanel({
   variant = 'compact',
   className = '',
 }: Props) {
+  const [gateMsg, setGateMsg] = useState<string | null>(null)
+  const [gateLoading, setGateLoading] = useState(Boolean(orgId))
+
+  useEffect(() => {
+    let cancelled = false
+    if (!orgId) {
+      setGateMsg(null)
+      setGateLoading(false)
+      return
+    }
+    setGateLoading(true)
+    void getAiAssistStatus(orgId).then((s) => {
+      if (cancelled) return
+      setGateMsg(s.ready ? null : s.message || AI_NOT_ACTIVATED_MESSAGE)
+      setGateLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
+
   const { completion, input, setInput, isLoading, stop, error, complete } =
     useCompletion({
       api: '/api/ai/copilot',
@@ -31,7 +55,7 @@ export function AskAiPanel({
 
   async function ask(prompt: string) {
     const q = prompt.trim()
-    if (!q || isLoading || !orgId) return
+    if (!q || isLoading || !orgId || gateMsg) return
     await complete(q, {
       body: {
         taskType: preset.taskType,
@@ -53,6 +77,28 @@ export function AskAiPanel({
         className={`rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground ${className}`}
       >
         Chọn cơ sở trên header để hỏi AI theo kho tri thức của đơn vị.
+      </p>
+    )
+  }
+
+  if (gateLoading) {
+    return (
+      <p
+        className={`flex items-center gap-2 rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground ${className}`}
+      >
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        Đang kiểm tra cấu hình AI…
+      </p>
+    )
+  }
+
+  if (gateMsg) {
+    return (
+      <p
+        role="status"
+        className={`rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 ${className}`}
+      >
+        {gateMsg}
       </p>
     )
   }
@@ -129,7 +175,7 @@ export function AskAiPanel({
 
       {error && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {error.message || 'Không gọi được AI. Kiểm tra API / kho tri thức.'}
+          {error.message || AI_NOT_ACTIVATED_MESSAGE}
         </p>
       )}
 

@@ -115,3 +115,5 @@ M?i quy?t ??nh 1-3 d?ng. Th?m m?i v?o CU?I danh s?ch v?i m? D ti?p theo.
 - **D44** AI nhung module: FAB «Hoi AI» + AskAiPanel theo route (admissions/training/admin/exams/hr/finance). Copilot them taskType module_assist + kbCategory; KB categories mo rong. RAG van loc org_id; khong biat chinh sach khi thieu tai lieu.
 
 - **D45** AI soan form: taskType draft_assist + draftMode (announcement/exam_paper/contact_book/…). AiDraftButton dien thang textarea. Import HV goi validateImportData (AI chuan hoa). useEffectiveOrgId fallback profiles tren Staff portal.
+
+- **D46** Admin co so bat/tat ai_assist_enabled (Cai dat → Ho tro AI /settings/ai). Thieu API hoac tat → thong bao «Chức năng AI chưa được kích hoạt, vui lòng liên hệ quản trị viên». assertOrgAiReady tren copilot/tutor/LMS/warnings.
