@@ -20,6 +20,7 @@ import { Toast, type ToastData } from '@/components/shared/Toast'
 import { campaignSchema, type CampaignValues } from '@/lib/validation/schemas'
 import { createCampaign, getCampaigns, type CampaignRow } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { EvaluationTabs } from '@/components/academic/EvaluationTabs'
 
 // ============================================================
 // DANH SÁCH ĐỢT KHẢO SÁT GIÁO VIÊN (/academic/campaigns)
@@ -109,14 +110,17 @@ export default function CampaignsPage() {
               (mỗi lớp 1 lần / kỳ).
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Mở đợt khảo sát
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <EvaluationTabs />
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Mở đợt khảo sát
+            </button>
+          </div>
         </div>
 
         {loadError && (

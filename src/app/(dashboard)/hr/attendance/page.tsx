@@ -14,6 +14,7 @@ import { useOrgStore } from '@/lib/store/useOrgStore'
 import { RoleGuard } from '@/components/shared/RoleGuard'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { HrLeaveTabs } from '@/components/campus-admin/HrLeaveTabs'
 import type { WorkdayOverrideStatus } from '@/lib/hr/workdays'
 import {
   listHrStaff,
@@ -220,13 +221,16 @@ export default function HrAttendancePage() {
       }
     >
       <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
-        <header className="space-y-1">
-          <h1 className="font-heading text-2xl font-bold text-foreground">
-            Ngày công & Phép
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Duyệt đơn nghỉ, bảng công tháng, quỹ phép và lương văn phòng.
-          </p>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="font-heading text-2xl font-bold text-foreground">
+              Ngày công & Phép
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Duyệt đơn nghỉ, bảng công tháng, quỹ phép và lương văn phòng.
+            </p>
+          </div>
+          <HrLeaveTabs />
         </header>
 
         {!orgId ? (

@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
+import { ScheduleOpsTabs } from '@/components/academic/ScheduleOpsTabs'
 import { getTeachersInOrg } from '@/app/(dashboard)/classes/actions'
 import {
   createClassAsStaff,
@@ -143,6 +144,9 @@ export default function StaffClassesPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
             Vận hành Lớp học
           </h1>
+          <div className="mt-2">
+            <ScheduleOpsTabs />
+          </div>
         </div>
         <button
           type="button"

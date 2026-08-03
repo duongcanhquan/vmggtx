@@ -1,7 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { PublicCampus } from './[slug]/actions'
+import type { PublicCampus } from '@/lib/campus/publicCampus'
 
 function mapCampus(row: {
   id: string

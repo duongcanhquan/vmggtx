@@ -257,7 +257,7 @@ export async function parentLogin(
       return { error: 'Số điện thoại hoặc mã OTP không hợp lệ.' }
     }
 
-    // Cổng /coso/[slug]/parent/login: học viên phải thuộc cây cơ sở đó
+    // Cổng /{slug}/login (tab gia đình): học viên phải thuộc cây cơ sở đó
     if (campusOrgId) {
       if (!student.org_id) {
         return { error: 'Số điện thoại hoặc mã OTP không hợp lệ.' }
@@ -274,7 +274,7 @@ export async function parentLogin(
       if (!allowed.includes(student.org_id)) {
         return {
           error:
-            'Số điện thoại này không thuộc cơ sở bạn đang truy cập. Kiểm tra lại đường dẫn /coso/… hoặc liên hệ nhà trường.',
+            'Số điện thoại này không thuộc cơ sở bạn đang truy cập. Kiểm tra lại đường dẫn /ten-co-so/login hoặc liên hệ nhà trường.',
         }
       }
     }
@@ -672,17 +672,55 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
       }
     }
 
-    // Thông báo chung của cơ sở (migration 030) - audience phụ huynh
+    // Thông báo chung của cơ sở (migration 030 + 076 targeting)
     if (studentProfile?.org_id) {
-      const { data: announcements } = await supabase
+      let announceRows:
+        | {
+            id: string
+            title: string
+            body: string
+            created_at: string
+            target_scope?: string | null
+            target_class_ids?: string[] | null
+            target_user_ids?: string[] | null
+          }[]
+        | null = null
+      const full = await supabase
         .from('announcements')
-        .select('id, title, body, created_at')
+        .select(
+          'id, title, body, created_at, target_scope, target_class_ids, target_user_ids'
+        )
         .eq('org_id', studentProfile.org_id)
         .in('audience', ['all', 'parents'])
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-        .limit(20)
-      for (const item of announcements ?? []) {
+        .limit(40)
+      if (full.error && /target_scope|42703|schema cache/i.test(full.error.message)) {
+        const basic = await supabase
+          .from('announcements')
+          .select('id, title, body, created_at')
+          .eq('org_id', studentProfile.org_id)
+          .in('audience', ['all', 'parents'])
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(20)
+        announceRows = basic.data
+      } else {
+        announceRows = full.data
+      }
+      const enrollClassIds = (enrolledClasses ?? []).map((row) => row.class_id)
+      const { announcementVisibleToRecipient } = await import(
+        '@/lib/announcements/visibility'
+      )
+      for (const item of announceRows ?? []) {
+        if (
+          !announcementVisibleToRecipient(item, {
+            userId: studentId,
+            classIds: enrollClassIds,
+          })
+        ) {
+          continue
+        }
         notices.push({
           id: `an-${item.id}`,
           kind: 'warning',

@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { getPublicCampusBySlug } from '@/app/coso/[slug]/actions'
+import { getPublicCampusBySlug } from '@/lib/campus/publicCampus'
 import { campusLoginPath } from '@/lib/utils/orgSlug'
 import { isReservedOrgSlug } from '@/lib/utils/reservedSlugs'
 

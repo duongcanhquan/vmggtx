@@ -39,8 +39,8 @@ import {
   type LeadFunnelStats,
   type LeadStatus,
   type Option,
-  SOURCE_LABELS,
 } from './actions'
+import { SOURCE_LABELS } from './constants'
 import { buildFunnelFromLeads } from './funnelStats'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { LeadDetailDrawer } from './LeadDetailDrawer'

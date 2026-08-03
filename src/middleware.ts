@@ -219,6 +219,8 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
       'super_admin',
       'campus_admin',
       'academic_staff',
+      'admission_staff',
+      'accountant',
       'teacher',
     ],
   },

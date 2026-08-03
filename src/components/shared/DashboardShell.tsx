@@ -77,6 +77,10 @@ type MenuLeaf = {
   roles?: Role[]
   /** Key trong menuRegistry - chịu phân quyền động; không có = luôn hiện theo roles */
   menuKey?: MenuKey
+  /** Key phụ: hiện nếu ma trận/grant có bất kỳ key nào trong [menuKey, ...alsoKeys] */
+  alsoKeys?: MenuKey[]
+  /** Path khác href — giữ mục active khi đứng trang tab của hub */
+  matchPrefixes?: string[]
 }
 
 type MenuGroup = {
@@ -151,25 +155,12 @@ const MENU: MenuEntry[] = [
     icon: BookOpen,
     children: [
       {
-        label: 'Chương trình môn học',
+        label: 'Quy trình đào tạo',
         href: '/academic/subjects',
         icon: BookMarked,
         roles: ACADEMIC,
         menuKey: 'classes',
-      },
-      {
-        label: 'Lớp hành chính',
-        href: '/classes/groups',
-        icon: Layers,
-        roles: ACADEMIC,
-        menuKey: 'classes',
-      },
-      {
-        label: 'Học phần',
-        href: '/classes',
-        icon: BookOpen,
-        roles: ACADEMIC,
-        menuKey: 'classes',
+        matchPrefixes: ['/classes/groups', '/classes'],
       },
       {
         label: 'LMS Online',
@@ -179,25 +170,16 @@ const MENU: MenuEntry[] = [
         menuKey: 'lms',
       },
       {
-        label: 'Xếp lịch / TKB',
+        label: 'Lịch & TKB',
         href: '/academic/schedule',
         icon: CalendarRange,
         roles: ACADEMIC,
         menuKey: 'staff_ops',
-      },
-      {
-        label: 'Thời khóa biểu tuần',
-        href: '/staff/timetable',
-        icon: Calendar,
-        roles: ACADEMIC,
-        menuKey: 'staff_ops',
-      },
-      {
-        label: 'Điều phối lịch (dạy thay/bù)',
-        href: '/staff/schedule-management',
-        icon: CalendarCog,
-        roles: ACADEMIC,
-        menuKey: 'staff_ops',
+        matchPrefixes: [
+          '/staff/timetable',
+          '/staff/schedule-management',
+          '/staff/classes',
+        ],
       },
       {
         label: 'Điểm danh',
@@ -205,13 +187,6 @@ const MENU: MenuEntry[] = [
         icon: ClipboardCheck,
         roles: [...ACADEMIC, 'teacher'],
         menuKey: 'attendance',
-      },
-      {
-        label: 'Lớp vận hành (Staff)',
-        href: '/staff/classes',
-        icon: Briefcase,
-        roles: ACADEMIC,
-        menuKey: 'staff_ops',
       },
       {
         label: 'Cảnh báo học vụ',
@@ -234,25 +209,12 @@ const MENU: MenuEntry[] = [
     icon: Building2,
     children: [
       {
-        label: 'Đặt phòng & thiết bị',
+        label: 'Đặt phòng / xe / danh mục',
         href: '/facilities',
         icon: CalendarPlus,
-        roles: [...ACADEMIC, 'teacher'],
+        roles: [...ACADEMIC, 'admission_staff', 'accountant', 'teacher'],
         menuKey: 'facilities',
-      },
-      {
-        label: 'Đặt xe công vụ',
-        href: '/facilities/vehicles',
-        icon: Car,
-        roles: [...ACADEMIC, 'teacher'],
-        menuKey: 'facilities',
-      },
-      {
-        label: 'Danh mục phòng / TB / xe',
-        href: '/academic/rooms',
-        icon: DoorOpen,
-        roles: ACADEMIC,
-        menuKey: 'facilities',
+        matchPrefixes: ['/facilities/vehicles', '/academic/rooms'],
       },
       {
         label: 'Tài sản & Khấu hao',
@@ -265,85 +227,21 @@ const MENU: MenuEntry[] = [
   },
   {
     label: 'Khảo thí',
+    href: '/staff/exam-office',
     icon: PenSquare,
-    children: [
-      {
-        label: 'Trung tâm Khảo thí',
-        href: '/staff/exam-office',
-        icon: ShieldCheck,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Ngân hàng đề',
-        href: '/staff/exam-bank',
-        icon: FileStack,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Kỳ thi',
-        href: '/staff/exams',
-        icon: PenSquare,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Lịch thi & Giám thị',
-        href: '/staff/exam-schedule',
-        icon: CalendarClock,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Tổ chức thi & Thi lại',
-        href: '/staff/assessments',
-        icon: RefreshCcw,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Quản lý & công bố điểm',
-        href: '/staff/exam-grades',
-        icon: CheckSquare,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Xuất thông tin thi',
-        href: '/staff/exam-export',
-        icon: FileSpreadsheet,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Bảng điểm tổng',
-        href: '/academic/transcripts',
-        icon: BookOpenCheck,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Báo cáo thi cử',
-        href: '/reports/exams',
-        icon: BarChart3,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Lộ trình học tập HV',
-        href: '/staff/learning-pathways',
-        icon: GraduationCap,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
-      {
-        label: 'Xét duyệt kết quả',
-        href: '/staff/results-approval',
-        icon: CheckSquare,
-        roles: ACADEMIC,
-        menuKey: 'exams',
-      },
+    roles: ACADEMIC,
+    menuKey: 'exams',
+    matchPrefixes: [
+      '/staff/exam-bank',
+      '/staff/exams',
+      '/staff/exam-schedule',
+      '/staff/assessments',
+      '/staff/exam-grades',
+      '/staff/exam-export',
+      '/academic/transcripts',
+      '/reports/exams',
+      '/staff/learning-pathways',
+      '/staff/results-approval',
     ],
   },
   {
@@ -372,18 +270,12 @@ const MENU: MenuEntry[] = [
         menuKey: 'teacher_requests',
       },
       {
-        label: 'Đợt đánh giá GV',
+        label: 'Đánh giá giáo viên',
         href: '/academic/campaigns',
-        icon: ClipboardList,
-        roles: ACADEMIC,
-        menuKey: 'evaluations',
-      },
-      {
-        label: 'Báo cáo đánh giá GV',
-        href: '/academic/evaluations',
         icon: Star,
         roles: ACADEMIC,
         menuKey: 'evaluations',
+        matchPrefixes: ['/academic/evaluations'],
       },
     ],
   },
@@ -397,54 +289,36 @@ const MENU: MenuEntry[] = [
         icon: Users,
         roles: MANAGERS,
         menuKey: 'staff_users',
+        alsoKeys: ['hr_personnel', 'payroll_contracts'],
+        matchPrefixes: [
+          '/campus-admin/job-titles',
+          '/hr/personnel',
+          '/hr/contracts',
+          '/finance/payroll',
+        ],
       },
       {
-        label: 'Chức danh & mẫu quyền',
-        href: '/campus-admin/job-titles',
-        icon: ShieldCheck,
-        roles: MANAGERS,
-        menuKey: 'staff_users',
-      },
-      {
-        label: 'Hồ sơ & giấy tờ',
+        label: 'Hồ sơ & lương',
         href: '/hr/personnel',
         icon: Briefcase,
-        roles: [...MANAGERS, 'accountant', 'academic_staff'],
+        roles: ['accountant', 'academic_staff'],
         menuKey: 'hr_personnel',
+        alsoKeys: ['payroll_contracts'],
+        matchPrefixes: ['/hr/contracts', '/finance/payroll'],
       },
       {
-        label: 'Lương & Hợp đồng',
-        href: '/hr/contracts',
-        icon: FileSignature,
-        roles: [...MANAGERS, 'accountant'],
-        menuKey: 'payroll_contracts',
-      },
-      {
-        label: 'Kỳ tính lương',
-        href: '/finance/payroll',
-        icon: Calculator,
-        roles: [...MANAGERS, 'accountant'],
-        menuKey: 'payroll_contracts',
-      },
-      {
-        label: 'Ngày công & Phép',
+        label: 'Duyệt công & phép',
         href: '/hr/attendance',
         icon: CalendarClock,
         roles: [...ACADEMIC, 'accountant'],
         menuKey: 'hr_leave',
+        matchPrefixes: ['/hr/my-leave'],
       },
       {
-        label: 'Xin nghỉ phép',
+        label: 'Xin nghỉ của tôi',
         href: '/hr/my-leave',
         icon: Plane,
-        roles: [
-          'teacher',
-          'academic_staff',
-          'admission_staff',
-          'accountant',
-          'campus_admin',
-          'super_admin',
-        ],
+        roles: ['teacher', 'admission_staff'],
         menuKey: 'hr_leave',
       },
     ],
@@ -466,13 +340,6 @@ const MENU: MenuEntry[] = [
         icon: Calculator,
         roles: [...ACADEMIC, 'accountant'],
         menuKey: 'finance_invoices',
-      },
-      {
-        label: 'Kỳ tính lương',
-        href: '/finance/payroll',
-        icon: Wallet,
-        roles: [...MANAGERS, 'accountant'],
-        menuKey: 'payroll_contracts',
       },
     ],
   },
@@ -507,6 +374,13 @@ const MENU: MenuEntry[] = [
         icon: Sparkles,
         roles: MANAGERS,
         menuKey: 'settings_org',
+      },
+      {
+        label: 'Phân quyền & AI quản lý',
+        href: '/ai/guide',
+        icon: ShieldCheck,
+        roles: MANAGERS,
+        menuKey: 'permissions',
       },
       {
         label: 'Trường tùy chỉnh',
@@ -552,7 +426,7 @@ const SUPER_MENU: MenuEntry[] = [
   },
 ]
 
-const GROUPS_STORAGE_KEY = 'gdtx-menu-groups-v2'
+const GROUPS_STORAGE_KEY = 'gdtx-menu-groups-v3'
 
 function isGroup(entry: MenuEntry): entry is MenuGroup {
   return 'children' in entry
@@ -581,6 +455,27 @@ function grantedByMatrix(
   return menuKeys.includes(leafKey)
 }
 
+function leafMenuKeys(leaf: MenuLeaf): MenuKey[] {
+  const keys: MenuKey[] = []
+  if (leaf.menuKey) keys.push(leaf.menuKey)
+  if (leaf.alsoKeys) keys.push(...leaf.alsoKeys)
+  return keys
+}
+
+function leafMatchesPath(leaf: MenuLeaf, pathname: string): number {
+  if (leaf.href === '/') return pathname === '/' ? 1 : 0
+  let score = 0
+  if (pathname === leaf.href || pathname.startsWith(leaf.href + '/')) {
+    score = leaf.href.length
+  }
+  for (const prefix of leaf.matchPrefixes ?? []) {
+    if (pathname === prefix || pathname.startsWith(prefix + '/')) {
+      score = Math.max(score, prefix.length)
+    }
+  }
+  return score
+}
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const role = useMyRole()
@@ -605,15 +500,28 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const visibleMenu = useMemo(() => {
     const disabledModules = moduleFlags?.modules ?? []
     const grants = menuGrants ?? []
-    const allowLeaf = (leaf: MenuLeaf) =>
-      ((canSee(role, leaf.roles) && grantedByMatrix(role, menuKeys, leaf.menuKey)) ||
-        (!!leaf.menuKey && grants.includes(leaf.menuKey))) &&
-      !(leaf.menuKey && role !== 'super_admin' && disabledModules.includes(leaf.menuKey))
+    const allowLeaf = (leaf: MenuLeaf) => {
+      const keys = leafMenuKeys(leaf)
+      const byRoleMatrix =
+        canSee(role, leaf.roles) &&
+        (keys.length === 0 ||
+          keys.some((k) => grantedByMatrix(role, menuKeys, k)))
+      const byGrant = keys.some((k) => grants.includes(k))
+      const moduleOff = keys.some(
+        (k) => role !== 'super_admin' && disabledModules.includes(k)
+      )
+      return (byRoleMatrix || byGrant) && !moduleOff
+    }
     const result: MenuEntry[] = []
     for (const entry of baseMenu) {
       if (isGroup(entry)) {
         const children = entry.children.filter(allowLeaf)
-        if (children.length > 0) result.push({ ...entry, children })
+        // 1 con trùng tên nhóm → đẩy thành leaf (tránh click 2 lần)
+        if (children.length === 1 && children[0].label === entry.label) {
+          result.push(children[0])
+        } else if (children.length > 0) {
+          result.push({ ...entry, children })
+        }
       } else if (allowLeaf(entry)) {
         result.push(entry)
       }
@@ -621,17 +529,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     return result
   }, [role, menuKeys, menuGrants, moduleFlags, baseMenu])
 
-  // Mục ACTIVE = leaf có href khớp DÀI NHẤT (tránh /students sáng cùng /students/import)
+  // Mục ACTIVE = khớp href/prefix DÀI NHẤT (hub tab vẫn sáng đúng mục)
   const activeHref = useMemo(() => {
     let best = ''
+    let bestScore = 0
     for (const entry of visibleMenu) {
       const leaves = isGroup(entry) ? entry.children : [entry]
       for (const leaf of leaves) {
-        const match =
-          leaf.href === '/'
-            ? pathname === '/'
-            : pathname === leaf.href || pathname.startsWith(leaf.href + '/')
-        if (match && leaf.href.length > best.length) best = leaf.href
+        const score = leafMatchesPath(leaf, pathname)
+        if (score > bestScore) {
+          bestScore = score
+          best = leaf.href
+        }
       }
     }
     return best
@@ -648,16 +557,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     }
   }, [])
   useEffect(() => {
-    if (!activeHref) return
+    if (!pathname) return
     const owner = baseMenu.find(
-      (entry) => isGroup(entry) && entry.children.some((leaf) => leaf.href === activeHref)
+      (entry) =>
+        isGroup(entry) &&
+        entry.children.some((leaf) => leafMatchesPath(leaf, pathname) > 0)
     )
     if (owner) {
       setExpanded((prev) =>
         prev[owner.label] ? prev : { ...prev, [owner.label]: true }
       )
     }
-  }, [activeHref, baseMenu])
+  }, [pathname, baseMenu])
 
   function toggleGroup(label: string) {
     setExpanded((prev) => {
@@ -719,8 +630,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
           const GroupIcon = entry.icon
           const containsActive = entry.children.some((leaf) => leaf.href === activeHref)
-          // Mặc định MỞ hết nhóm để hiện đủ module đã phát triển (user đóng tay thì nhớ localStorage)
-          const isOpen = expanded[entry.label] ?? true
+          // Mặc định THU GỌN — bấm nhóm để sổ (nhớ localStorage; nhóm trang hiện tại tự mở)
+          const isOpen = expanded[entry.label] ?? false
           return (
             <div key={entry.label}>
               <button

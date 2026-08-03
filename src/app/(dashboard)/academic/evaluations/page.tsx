@@ -23,6 +23,7 @@ const EvaluationBarChart = dynamic(() => import('@/components/charts/EvaluationB
 })
 import { RoleGuard } from '@/components/shared/RoleGuard'
 import { Toast, type ToastData } from '@/components/shared/Toast'
+import { EvaluationTabs } from '@/components/academic/EvaluationTabs'
 import {
   getEvaluationReport,
   summarizeTeacherFeedback,
@@ -149,13 +150,7 @@ export default function EvaluationReportPage() {
               Tổng hợp khảo sát ẩn danh từ học sinh · mỗi lớp 1 lần / kỳ · thang 1–5
             </p>
           </div>
-          <Link
-            href="/academic/campaigns"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-foreground hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Vote className="h-4 w-4" aria-hidden="true" />
-            Quản lý đợt khảo sát
-          </Link>
+          <EvaluationTabs />
         </div>
 
         {campaigns.length > 0 && (

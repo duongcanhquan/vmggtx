@@ -350,3 +350,16 @@
 - Load: grades loadError; facility bookings error; exam-grades fail-soft 075;
   org_ai_settings error; settings demo banner; exam-export enroll error.
 - UI: Duyet facility busy; pathway m?c theo id; search HV tra error.
+
+## 2026-08-03 | CRM fix + UX van hanh (D42)
+- CRM: tach SOURCE_LABELS khoi use server (het RSC crash prod).
+- Menu mac dinh thu gon; thong bao PH/HV/GV (all/lop/ca nhan) + mig 076.
+- Login /{slug}; CSVC dat phong/xe tren staff+teacher; /ai/guide.
+
+## 2026-08-03 | Menu hub + tab gon (D43)
+- Nhan su: To chuc NS / Ho so&luong + Ngay cong&phep (HrLeaveTabs).
+- OrgStaffTabs them Ky tinh luong; gop Khao thi/CSVC/Dao tao/Danh gia GV.
+
+## 2026-08-03 | Audit fix gaps D42-D43
+- roleIs fail-closed; hub matchPrefixes/alsoKeys; Khao thi leaf.
+- AdminOpsTabs tren /assets; doi nhan Duyet cong / Xin nghi.

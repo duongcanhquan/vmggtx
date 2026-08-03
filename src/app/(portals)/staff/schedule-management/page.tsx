@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { ScheduleOpsTabs } from '@/components/academic/ScheduleOpsTabs'
 import {
   assignSubstitute,
   cancelAndMakeup,
@@ -313,6 +314,9 @@ export default function ScheduleManagementPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Bấm buổi học → gán GV thay hoặc xếp bù, tự chống trùng.
           </p>
+          <div className="mt-2">
+            <ScheduleOpsTabs />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button

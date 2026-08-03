@@ -20,6 +20,7 @@ import { useOrgStore } from '@/lib/store/useOrgStore'
 import { RowActions, SmartTable, sortableHeader } from '@/components/shared/SmartTable'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { AdminOpsTabs } from '@/components/admin/AdminOpsTabs'
 import {
   changeAssetStatus,
   createAsset,
@@ -989,6 +990,9 @@ export default function AssetsPage() {
             Sổ tài sản của đơn vị đang chọn + toàn bộ chi nhánh con. Khấu hao đường thẳng
             tính đến hôm nay.
           </p>
+          <div className="mt-2">
+            <AdminOpsTabs />
+          </div>
         </div>
         <button
           type="button"

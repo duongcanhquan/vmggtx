@@ -5,6 +5,7 @@ import { CalendarOff, Loader2, Palmtree, Send, XCircle } from 'lucide-react'
 import { RoleGuard } from '@/components/shared/RoleGuard'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { HrLeaveTabs } from '@/components/campus-admin/HrLeaveTabs'
 import {
   cancelLeaveRequest,
   createLeaveRequest,
@@ -116,11 +117,14 @@ export default function MyLeavePage() {
       }
     >
       <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-        <header className="space-y-1">
-          <h1 className="font-heading text-2xl font-bold text-foreground">Xin nghỉ phép</h1>
-          <p className="text-sm text-muted-foreground">
-            Gửi đơn nghỉ phép năm / không lương — tách khỏi xin nghỉ buổi dạy.
-          </p>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="font-heading text-2xl font-bold text-foreground">Xin nghỉ phép</h1>
+            <p className="text-sm text-muted-foreground">
+              Gửi đơn nghỉ phép năm / không lương — tách khỏi xin nghỉ buổi dạy.
+            </p>
+          </div>
+          <HrLeaveTabs />
         </header>
 
         {loading ? (

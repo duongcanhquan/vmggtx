@@ -19,6 +19,7 @@ import {
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { generateStudentCode } from '@/lib/utils/studentCode'
 import { checkStudentCapacity } from '@/lib/licensing/capacity'
+import { SOURCE_LABELS } from './constants'
 
 // ============================================================
 // CRM Tuyen sinh (/crm/leads) — quy trinh chuyen nghiep
@@ -109,18 +110,6 @@ export type LeadFunnelStats = {
 }
 
 type ActionResult = { error: string } | { error?: undefined; warning?: string }
-
-const SOURCE_LABELS: Record<LeadSource, string> = {
-  walk_in: 'Walk-in',
-  hotline: 'Hotline',
-  facebook: 'Facebook',
-  zalo: 'Zalo',
-  website: 'Website',
-  referral: 'Giới thiệu',
-  school_event: 'Sự kiện trường',
-  ads: 'Quảng cáo',
-  other: 'Khác',
-}
 
 /** Cột nhẹ cho danh sách / kanban / funnel — không kéo text dài hồ sơ */
 const LEAD_LIST_SELECT =
@@ -1725,5 +1714,3 @@ export async function getLeadPaymentInfo(
     }
   }
 }
-
-export { SOURCE_LABELS }

@@ -176,19 +176,64 @@ export async function getStudentHome(): Promise<StudentHomeResult> {
         href: '/grades',
       })
     }
-    // Thông báo chung của cơ sở (migration 030) - audience học viên
+    // Thông báo chung của cơ sở (migration 030 + 076) - audience học viên
     const orgId = (profileResult.data as { org_id?: string } | null)?.org_id
     if (orgId) {
-      const { data: announcements } = await admin
+      const { announcementVisibleToRecipient } = await import(
+        '@/lib/announcements/visibility'
+      )
+      const { data: enrolls } = await admin
+        .from('enrollments')
+        .select('class_id')
+        .eq('student_id', user.id)
+        .eq('status', 'active')
+        .is('deleted_at', null)
+      const classIds = (enrolls ?? []).map((e) => e.class_id)
+
+      let announceRows:
+        | {
+            id: string
+            title: string
+            body: string
+            target_scope?: string | null
+            target_class_ids?: string[] | null
+            target_user_ids?: string[] | null
+          }[]
+        | null = null
+      const full = await admin
         .from('announcements')
-        .select('id, title, body')
+        .select('id, title, body, target_scope, target_class_ids, target_user_ids')
         .eq('org_id', orgId)
         .in('audience', ['all', 'students'])
         .is('deleted_at', null)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(3)
-      for (const item of announcements ?? []) {
+        .limit(12)
+      if (full.error && /target_scope|42703|schema cache/i.test(full.error.message)) {
+        const basic = await admin
+          .from('announcements')
+          .select('id, title, body')
+          .eq('org_id', orgId)
+          .in('audience', ['all', 'students'])
+          .is('deleted_at', null)
+          .order('pinned', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(3)
+        announceRows = basic.data
+      } else {
+        announceRows = full.data
+      }
+
+      let shown = 0
+      for (const item of announceRows ?? []) {
+        if (
+          !announcementVisibleToRecipient(item, {
+            userId: user.id,
+            classIds,
+          })
+        ) {
+          continue
+        }
         alerts.push({
           id: `announce-${item.id}`,
           kind: 'announcement',
@@ -197,6 +242,8 @@ export async function getStudentHome(): Promise<StudentHomeResult> {
           severe: false,
           href: '/student',
         })
+        shown += 1
+        if (shown >= 3) break
       }
     }
 

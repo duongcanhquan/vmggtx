@@ -153,7 +153,7 @@ export const MENU_SECTIONS: MenuSection[] = [
   {
     key: 'facilities',
     label: 'Hành chính & CSVC',
-    defaultRoles: [...ACADEMIC, 'teacher'],
+    defaultRoles: [...ACADEMIC, 'admission_staff', 'accountant', 'teacher'],
     prefixes: [
       '/facilities',
       '/academic/rooms',
@@ -181,26 +181,26 @@ export const MENU_SECTIONS: MenuSection[] = [
   },
   {
     key: 'staff_users',
-    label: 'Tổ chức nhân sự',
+    label: 'Tổ chức nhân sự (hub)',
     defaultRoles: MANAGERS,
     prefixes: ['/campus-admin/users', '/campus-admin/job-titles'],
   },
   {
     key: 'hr_personnel',
-    label: 'Hồ sơ & giấy tờ NS',
+    label: 'Hồ sơ NS (tab trong hub)',
     defaultRoles: [...MANAGERS, 'accountant', 'academic_staff'],
     prefixes: ['/hr/personnel'],
   },
   {
     key: 'payroll_contracts',
-    label: 'Lương & Hợp đồng',
+    label: 'Lương & HĐ (tab trong hub)',
     defaultRoles: [...MANAGERS, 'accountant'],
     prefixes: ['/hr/contracts', '/finance/payroll'],
   },
   {
     key: 'hr_leave',
-    label: 'Ngày công & Phép',
-    defaultRoles: [...MANAGERS, 'academic_staff', 'accountant', 'teacher'],
+    label: 'Ngày công & Phép (hub)',
+    defaultRoles: [...MANAGERS, 'academic_staff', 'accountant', 'teacher', 'admission_staff'],
     prefixes: ['/hr/attendance', '/hr/my-leave'],
   },
   {
@@ -238,7 +238,7 @@ export const MENU_SECTIONS: MenuSection[] = [
     key: 'permissions',
     label: 'Phân quyền truy cập',
     defaultRoles: MANAGERS,
-    prefixes: ['/admin/permissions'],
+    prefixes: ['/admin/permissions', '/ai/guide'],
   },
   {
     key: 'settings_global',

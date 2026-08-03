@@ -377,6 +377,11 @@ await checkTable('learning_pathway_milestones', '075_exam_module_publish_pathway
 await checkTable('student_pathway_enrollments', '075_exam_module_publish_pathways.sql')
 await checkTable('student_pathway_progress', '075_exam_module_publish_pathways.sql')
 
+console.log('\n-- Migration 076 (thong bao: pham vi lop / ca nhan) --')
+await checkColumn('announcements', 'target_scope', '076_announcement_targeting.sql')
+await checkColumn('announcements', 'target_class_ids', '076_announcement_targeting.sql')
+await checkColumn('announcements', 'target_user_ids', '076_announcement_targeting.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

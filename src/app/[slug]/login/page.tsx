@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { CampusLoginTabs } from '@/components/auth/CampusLoginTabs'
-import { getPublicCampusBySlug } from '@/app/coso/[slug]/actions'
+import { getPublicCampusBySlug } from '@/lib/campus/publicCampus'
 import { isReservedOrgSlug } from '@/lib/utils/reservedSlugs'
 
 export const dynamic = 'force-dynamic'

@@ -33,7 +33,6 @@ import {
   type PayrollResultRow,
 } from '../payroll/actions'
 import { FunLoader } from '@/components/shared/FunLoader'
-import { SectionTabs } from '@/components/shared/SectionTabs'
 import { OrgStaffTabs } from '@/components/campus-admin/OrgStaffTabs'
 
 // ============================================================
@@ -709,12 +708,6 @@ export default function HrContractsPage() {
           </div>
           <OrgStaffTabs />
         </div>
-        <SectionTabs
-          tabs={[
-            { label: 'Hợp đồng Giáo viên', href: '/hr/contracts', icon: FileSignature },
-            { label: 'Kỳ tính lương', href: '/finance/payroll', icon: Calculator },
-          ]}
-        />
       </div>
 
       {isDemo && (

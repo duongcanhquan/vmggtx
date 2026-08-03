@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { getOrgTimetable, type TimetableSession } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { ScheduleOpsTabs } from '@/components/academic/ScheduleOpsTabs'
 
 // ============================================================
 // THỜI KHÓA BIỂU TUẦN TOÀN CƠ SỞ (Staff Portal)
@@ -100,6 +101,9 @@ export default function StaffTimetablePage() {
             Thời khóa biểu
           </h1>
           {orgName && <p className="mt-1 text-sm text-slate-500">{orgName}</p>}
+          <div className="mt-2">
+            <ScheduleOpsTabs />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

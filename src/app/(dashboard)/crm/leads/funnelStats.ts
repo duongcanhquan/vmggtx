@@ -3,18 +3,7 @@ import {
   type LeadSource,
 } from '@/lib/validation/schemas'
 import type { LeadCard, LeadFunnelStats, LeadStatus } from './actions'
-
-const SOURCE_LABELS: Record<LeadSource, string> = {
-  walk_in: 'Walk-in',
-  hotline: 'Hotline',
-  facebook: 'Facebook',
-  zalo: 'Zalo',
-  website: 'Website',
-  referral: 'Giới thiệu',
-  school_event: 'Sự kiện trường',
-  ads: 'Quảng cáo',
-  other: 'Khác',
-}
+import { SOURCE_LABELS } from './constants'
 
 function emptyFunnel(): LeadFunnelStats {
   return {

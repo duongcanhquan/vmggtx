@@ -28,8 +28,8 @@ import {
   type LeadCard,
   type LeadPaymentInfo,
   type Option,
-  SOURCE_LABELS,
 } from './actions'
+import { SOURCE_LABELS } from './constants'
 import { LeadAiAssist } from './LeadAiAssist'
 
 const inputClass =

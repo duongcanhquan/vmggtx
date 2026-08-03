@@ -5,13 +5,11 @@ import {
   AlertCircle,
   Building2,
   CalendarDays,
-  Calculator,
-  FileSignature,
   Loader2,
   PlayCircle,
   Wallet,
 } from 'lucide-react'
-import { SectionTabs } from '@/components/shared/SectionTabs'
+import { OrgStaffTabs } from '@/components/campus-admin/OrgStaffTabs'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { runMonthlyPayroll, setPayrollStatus, type PayrollTableRow } from './actions'
 
@@ -114,12 +112,7 @@ export default function FinancePayrollPage() {
             Kết quả lưu dạng <strong>draft</strong> để Kế toán dò lại.
           </p>
         </div>
-        <SectionTabs
-          tabs={[
-            { label: 'Hợp đồng Giáo viên', href: '/hr/contracts', icon: FileSignature },
-            { label: 'Kỳ tính lương', href: '/finance/payroll', icon: Calculator },
-          ]}
-        />
+        <OrgStaffTabs />
       </div>
 
       {!currentOrgId ? (

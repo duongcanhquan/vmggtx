@@ -170,7 +170,7 @@ export async function getTeacherHome(): Promise<TeacherHomeResult> {
       return { error: `Không tải được lịch dạy: ${todayResult.error.message}` }
     }
 
-    // Thông báo chung của cơ sở (audience GV) - bỏ qua êm nếu chưa chạy 030
+    // Thông báo chung của cơ sở (audience GV) - 030 + 076
     let announcements: TeacherAnnouncement[] = []
     const { data: myProfile } = await supabase
       .from('profiles')
@@ -178,21 +178,72 @@ export async function getTeacherHome(): Promise<TeacherHomeResult> {
       .eq('id', user.id)
       .maybeSingle()
     if (myProfile?.org_id) {
-      const { data: announceRows } = await supabase
+      const { announcementVisibleToRecipient } = await import(
+        '@/lib/announcements/visibility'
+      )
+      const { data: teaching } = await supabase
+        .from('classes')
+        .select('id')
+        .eq('teacher_id', user.id)
+        .is('deleted_at', null)
+      const classIds = (teaching ?? []).map((c) => c.id)
+
+      let announceRows:
+        | {
+            id: string
+            title: string
+            body: string
+            created_at: string
+            target_scope?: string | null
+            target_class_ids?: string[] | null
+            target_user_ids?: string[] | null
+          }[]
+        | null = null
+      const full = await supabase
         .from('announcements')
-        .select('id, title, body, created_at')
+        .select(
+          'id, title, body, created_at, target_scope, target_class_ids, target_user_ids'
+        )
         .eq('org_id', myProfile.org_id)
         .in('audience', ['all', 'teachers'])
         .is('deleted_at', null)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(3)
-      announcements = (announceRows ?? []).map((row) => ({
-        id: row.id,
-        title: row.title,
-        body: row.body,
-        createdAt: row.created_at,
-      }))
+        .limit(12)
+      if (full.error && /target_scope|42703|schema cache/i.test(full.error.message)) {
+        const basic = await supabase
+          .from('announcements')
+          .select('id, title, body, created_at')
+          .eq('org_id', myProfile.org_id)
+          .in('audience', ['all', 'teachers'])
+          .is('deleted_at', null)
+          .order('pinned', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(3)
+        announceRows = basic.data
+      } else {
+        announceRows = full.data
+      }
+
+      let shown = 0
+      for (const row of announceRows ?? []) {
+        if (
+          !announcementVisibleToRecipient(row, {
+            userId: user.id,
+            classIds,
+          })
+        ) {
+          continue
+        }
+        announcements.push({
+          id: row.id,
+          title: row.title,
+          body: row.body,
+          createdAt: row.created_at,
+        })
+        shown += 1
+        if (shown >= 3) break
+      }
     }
 
     return {

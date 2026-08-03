@@ -17,6 +17,7 @@ import {
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { ScheduleOpsTabs } from '@/components/academic/ScheduleOpsTabs'
 import { findConflictIds } from '@/lib/schedule/conflicts'
 import {
   localDateKey,
@@ -88,14 +89,7 @@ export default function AcademicSchedulePage() {
             .
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/classes"
-            className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted"
-          >
-            Danh sách lớp
-          </Link>
-        </div>
+        <ScheduleOpsTabs />
       </div>
 
       <div

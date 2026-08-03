@@ -7,7 +7,7 @@ export type OrgFlat = {
   name: string
   type: OrgType
   parent_id: string | null
-  /** Slug URL công khai (campus) → /coso/[slug] */
+  /** Slug URL công khai (campus) → /{slug}/login */
   slug?: string | null
   /** Logo thương hiệu */
   logo_url?: string | null

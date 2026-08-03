@@ -107,3 +107,7 @@ M?i quy?t ??nh 1-3 d?ng. Th?m m?i v?o CU?I danh s?ch v?i m? D ti?p theo.
 - **D40** Super Admin UX: Goi dich vu gon; Cai dat chung gom API theo don vi; Admin Don vi CRUD hien ro tren cay + ho so (#admins).
 
 - **D41** Cong bo diem: sau 075, HV/PH chi thay diem khi class_results.is_published=true (thieu dong = chua cong bo). Thieu cot = legacy fail-open. Load path bao loi thay vi UI trong gia.
+
+- **D42** Khong export value tu 'use server' (CRM SOURCE_LABELS). Menu nhom mac dinh thu gon. Thong bao targeting (076). Coso chi con redirect → /{slug}/login. CSVC dat cho staff/GV; quan ly duyet.
+
+- **D43** Menu van hanh: hub + tab thay vi nhieu leaf trung lap. Nhan su = To chuc NS / Ho so&luong + Ngay cong&phep; Khao thi / CSVC / Dao tao / Danh gia GV giong pattern do.

@@ -1,9 +1,10 @@
 import { FacilityBoard } from '@/components/shared/FacilityBoard'
 
-// ============================================================
-// Đặt phòng & Thiết bị - Staff Portal (/staff/facilities) - 033.
-// ============================================================
-
 export default function StaffFacilitiesPage() {
-  return <FacilityBoard />
+  return (
+    <FacilityBoard
+      title="Đặt phòng, thiết bị & xe"
+      subtitle="Cán bộ đặt CSVC / xe công vụ. Quản lý duyệt các lượt chờ (pending)."
+    />
+  )
 }

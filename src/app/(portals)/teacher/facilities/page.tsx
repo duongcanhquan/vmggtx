@@ -1,10 +1,15 @@
 import { FacilityBoard } from '@/components/shared/FacilityBoard'
 
 // ============================================================
-// Đặt phòng & Thiết bị - Teacher Portal (/teacher/facilities) - 033.
-// GV xem lịch trống và tự đặt phòng máy/thiết bị cho buổi dạy.
+// Đặt phòng / thiết bị / xe — Teacher Portal
+// GV đặt CSVC cho buổi dạy; quản lý duyệt lượt pending.
 // ============================================================
 
 export default function TeacherFacilitiesPage() {
-  return <FacilityBoard />
+  return (
+    <FacilityBoard
+      title="Đặt phòng, thiết bị & xe"
+      subtitle="Xem lịch trống và đặt trước. Lượt của giáo viên chờ quản lý duyệt khi cần."
+    />
+  )
 }

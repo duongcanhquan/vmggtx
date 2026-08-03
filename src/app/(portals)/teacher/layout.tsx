@@ -36,7 +36,7 @@ const TEACHER_MENU = [
   { label: 'Việc được giao', href: '/teacher/tasks', icon: ClipboardList },
   { label: 'Lịch coi thi', href: '/teacher/exams', icon: ClipboardCheck },
   { label: 'Dịch vụ', href: '/teacher/services', icon: TicketCheck },
-  { label: 'Đặt phòng', href: '/teacher/facilities', icon: Projector },
+  { label: 'Đặt phòng & xe', href: '/teacher/facilities', icon: Projector },
   { label: 'LMS Online', href: '/teacher/lms', icon: MonitorPlay },
   { label: 'Trợ lý AI', href: '/teacher/assistant', icon: Sparkles },
 ]
