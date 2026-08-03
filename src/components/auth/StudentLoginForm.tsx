@@ -122,11 +122,13 @@ export function StudentLoginForm({
       setServerError('Không xác định được vai trò tài khoản. Liên hệ nhà trường.')
       return
     }
-    if (role !== 'student' && role !== 'super_admin') {
+    if (role !== 'student') {
       await supabase.auth.signOut()
       setWrongPortal(true)
       setServerError(
-        'Đây là Cổng Học viên. Tài khoản của bạn thuộc khối Nhà trường/Giảng viên - vui lòng dùng cổng quản lý.'
+        role === 'super_admin'
+          ? 'Super Admin đăng nhập tại /login/admin — không dùng cổng học viên.'
+          : 'Đây là Cổng Học viên. Tài khoản của bạn thuộc khối Nhà trường/Giảng viên - vui lòng dùng cổng quản lý.'
       )
       return
     }

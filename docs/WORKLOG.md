@@ -171,12 +171,12 @@
 
 ## 2026-08-02 | CRM bugfix pass
 - Soft-delete: log activity TRUOC khi an lead (RLS).
-- datetime-local -> ISO timestamptz; createLead khong ghi de follow-up thô.
+- datetime-local -> ISO timestamptz; createLead khong ghi de follow-up th?.
 - AI form luon mode rag; drawer key=lead.id; fallback cot/activities/convert.
 
 ## 2026-08-02 | CRM bang dong + ho so day du (054)
 - Migration 054: strengths/weaknesses/needs/potential_rating/deposit/payment_notes.
-- UI: toggle Dng (table + pagination 10/20/50) / Kanban; drawer tab Tong quan/Cham soc/Sua/Dong tien/AI.
+- UI: toggle D?ng (table + pagination 10/20/50) / Kanban; drawer tab Tong quan/Cham soc/Sua/Dong tien/AI.
 - getLeadPaymentInfo: dat coc + hoa don HV khi da convert. Build exit 0. Can chay 052-054 tren DB.
 
 ## 2026-08-02 | fix Bang diem tong shell + tong hop
@@ -195,8 +195,8 @@
 
 ## 2026-08-02 | Chuc danh + mau quyen (056 / D23)
 - Migration 056: job_titles + profiles.job_title_id; get_my_menu_grants = title ? grants.
-- UI /campus-admin/job-titles (CRUD ma tran tick); gan chuc danh o S?a ti kho?n.
-- Menu staff_users + DashboardShell; GrantsModal hien Theo chuc danh. Can chay 056 tren DB.
+- UI /campus-admin/job-titles (CRUD ma tran tick); gan chuc danh o S?a t?i kho?n.
+- Menu staff_users + DashboardShell; GrantsModal hien ?Theo chuc danh?. Can chay 056 tren DB.
 
 ## 2026-08-02 | Gap audit 7 nhom + uu tien TKB
 - Audit DONE/PARTIAL/MISSING; chon cum TKB (A theo tang).
@@ -234,7 +234,7 @@
 
 ## 2026-08-02 | Kho tri thuc AI UI (option B)
 - Nap theo org dang chon (useOrgStore), mon tu subjects, category training/admissions/general.
-- Filter danh sach: mon · lop · category; bat buoc mon khi category Dao tao.
+- Filter danh sach: mon ? lop ? category; bat buoc mon khi category Dao tao.
 - /settings/ai: huong dan 5 buoc + link /ai/knowledge-base.
 - Build sach. Khong migration moi.
 
@@ -262,3 +262,91 @@
 ## 2026-08-02 | Commit QA High + HR/LMS batch
 - Migration numbering: 067 HR leave, 068 MaSV backfill.
 - Build + tsc sach truoc push.
+
+## 2026-08-03 | URL cong co so rut gon + sign-out
+- Bo tien to /coso: /{slug}/login (legacy /coso/* redirect).
+- Landing /login: bam goc trai duoi -> icon Super Admin -> /login/admin.
+- login_portal chuan hoa; dang xuat ve dung cong co so (khong ve landing).
+- Cap nhat D14, demo-accounts, UI admin copy link.
+- Can deploy Vercel + verify build.
+
+## 2026-08-03 | Perf CRM + dashboard load
+- CRM: bo double getLeads; slim LEAD_LIST_SELECT; RPC crm_lead_activity_stats; getLeadById drawer.
+- Migration 069 indexes + sum_org_payments; overview dung RPC tong thu.
+- classes/schedule dung getDescendantOrgIds cache; limit students/invoices/classes.
+- Can chay 069 tren DB + deploy. Build verify.
+
+## 2026-08-03 | Phong hoc + menu GV
+- An "Lich cua toi" khoi menu quan ly (chi GV portal).
+- Menu Giao vien: Danh sach / Duyet don / Danh gia.
+- Them /academic/rooms (capacity, code, location, room_kind) + migration 070.
+- TKB dropdown phong hien suc chua/vi tri; link quan ly phong.
+- Can chay 070 tren DB.
+
+## 2026-08-03 | Danh gia GV = khao sat HS theo ky (D29)
+- Mo dot: tu phat phieu moi lop co GV+HV; chan overlap dot active.
+- Dong dot + Dong bo phieu (HV ghi danh muon).
+- Bao cao /academic/evaluations: loc dot, ty le hoan thanh, so lop/GV.
+- Portal HS: copy "moi lop 1 lan trong ky". Khong migration moi (022).
+
+## 2026-08-03 | To chuc nhan su (D30)
+- Menu ?To chuc nhan su? thay 2 muc rieng; tabs Tai khoan + Chuc danh.
+- Copy: campus_admin setup/phan quyen cao nhat; chuc danh = mau menu theo CS.
+- Cap nhat menuRegistry, moduleCatalog, admin portal shortcuts.
+
+## 2026-08-03 | Fix mask luong campus_admin (D31)
+- Migration 071: get_my_can_view_financials luon true cho campus_admin/super_admin.
+- App: getViewerPermissions + getContracts unmask cho admin; toggle Xem luong.
+- Can chay 071 tren DB (app da unmask tam cho admin).
+
+## 2026-08-03 | Ho so NS chuyen nghiep (D32)
+- Migration 072: staff_documents, probation_end_date, notif HR types.
+- /hr/personnel: CCCD/DOB/dia chi + upload R2; khoa hr_sensitive_locked.
+- Hop dong: ngay het thu viec; cron /api/cron/hr-reminders; mau chuc danh Truong phong NS.
+- Can chay 072 + R2 tren moi truong that.
+
+## 2026-08-03 | Quy trinh Dao tao / lop hanh chinh (D33)
+- Menu: Chuong trinh mon ? Lop hanh chinh ? Hoc phan; AcademicFlowTabs.
+- Them HV: search/filter/multi-select; sync roster ? hoc phan; ghep HV section.
+- /classes CTA uu tien tu lop hanh chinh. Khong migration moi (064).
+
+## 2026-08-03 | Hanh chinh & CSVC (D34)
+- Menu moi: Dat phong/TB, Dat xe, Danh muc, So tai san.
+- /facilities + /facilities/vehicles (FacilityBoard); type vehicle (073).
+- rooms + actions + menuRegistry/middleware. Can chay 073 tren DB.
+
+## 2026-08-03 | Menu hien thi du module (D35)
+- Sidebar: khao thi, bao cao con, dot DG GV, ky luong, chuc danh, settings AI/fields.
+- Nhom menu mac dinh mo (gdtx-menu-groups-v2).
+
+## 2026-08-03 | Tach cong + cach ly du lieu (D36)
+- Middleware chan super khoi cong van hanh truong.
+- Login admin chi super; slug tu choi super; sai co so signOut.
+- Cohort/enroll chan HV ngoai subtree; campaigns RoleGuard bo super.
+
+## 2026-08-03 | Sweep fix Critical/High (D37)
+- 074: record_payment_atomic + facility pending/duyet.
+- Bo role_hint cookie; enroll/CRM chan cheo org; tat mock prod.
+- CSVC: GV pending, quan ly confirmed + nut Duyet.
+- TKB: chan trung lich HV khi insert/move session; form lop/CSVC bo seed mock.
+
+## 2026-08-03 | Super Admin API + quyen module (D38)
+- /admin/ai: gan API AI theo don vi (key rieng / ke thua HQ/env).
+- /admin/modules: mo ta howItWorks, badge Trong goi, cap quyen 2 buoc ro.
+- Nav Super + middleware /admin/ai. Khong migration moi (017).
+
+## 2026-08-03 | Module Khao thi tach rieng (D39)
+- MenuKey exams tach khoi staff_ops (dao tao/TKB).
+- Hub /staff/exam-office; exam-grades (tao cot + cong bo); exam-export; learning-pathways.
+- Migration 075 + backfill license staff_ops -> exams. Can chay 075 tren DB.
+
+## 2026-08-03 | Super Admin UX (D40)
+- Goi dich vu: the module gon (Cap/Go + Chi tiet); tab nhom mac dinh.
+- Cai dat chung (gop API HQ + API theo don vi); /admin/ai redirect.
+- Quan ly Don vi: nut Admin -> ho so #admins (CRUD Admin), khong nhay campus-admin/users.
+
+## 2026-08-03 | Stabilization load + cong bo diem (D41)
+- Cong bo diem: HV + PH chi thay lop is_published=true; helper publishedClasses.
+- Load: grades loadError; facility bookings error; exam-grades fail-soft 075;
+  org_ai_settings error; settings demo banner; exam-export enroll error.
+- UI: Duyet facility busy; pathway m?c theo id; search HV tra error.

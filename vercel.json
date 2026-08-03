@@ -6,6 +6,10 @@
     {
       "path": "/api/cron/tuition-reminders",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/hr-reminders",
+      "schedule": "15 1 * * *"
     }
   ]
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { contractSchema, requiredId, zodFail } from '@/lib/validation/schemas'
 
 // ============================================================
@@ -36,6 +37,7 @@ export type ContractRow = {
   tax_percentage: number
   start_date: string | null
   end_date: string | null
+  probation_end_date: string | null
   is_active: boolean
   /** true = số tiền đã bị Secure View che (migration 015) */
   financials_masked: boolean
@@ -45,56 +47,10 @@ export type TeacherOption = { id: string; full_name: string }
 
 type ActionResult = { error: string } | { error?: undefined }
 
-// ---- Mock cho chế độ demo (chưa đăng nhập / DB trống) ----
-
-const MOCK_TEACHERS: TeacherOption[] = [
-  { id: 'gv-001', full_name: 'Nguyễn Thị Hoa' },
-  { id: 'gv-002', full_name: 'Phạm Văn Long' },
-  { id: 'gv-003', full_name: 'Trần Minh Đức' },
-]
-
-const MOCK_CONTRACTS: ContractRow[] = [
-  {
-    id: 'hd-001',
-    teacher_id: 'gv-001',
-    teacher_name: 'Nguyễn Thị Hoa',
-    org_id: 'org-cs1',
-    org_name: 'Cơ sở Hà Nội 1',
-    contract_type: 'full_time',
-    base_salary: 12_000_000,
-    insurance_salary: 10_000_000,
-    base_hourly_rate: 150_000,
-    required_hours_per_month: 40,
-    insurance_percentage: 10.5,
-    tax_percentage: 5,
-    start_date: '2025-09-01',
-    end_date: null,
-    is_active: true,
-    financials_masked: false,
-  },
-  {
-    id: 'hd-002',
-    teacher_id: 'gv-002',
-    teacher_name: 'Phạm Văn Long',
-    org_id: 'org-cs1',
-    org_name: 'Cơ sở Hà Nội 1',
-    contract_type: 'visiting',
-    base_salary: 0,
-    insurance_salary: 0,
-    base_hourly_rate: 250_000,
-    required_hours_per_month: 0,
-    insurance_percentage: 0,
-    tax_percentage: 10,
-    start_date: '2026-01-01',
-    end_date: '2026-12-31',
-    is_active: true,
-    financials_masked: false,
-  },
-]
-
 /**
  * Quyền của người đang đăng nhập với dữ liệu tài chính nhạy cảm.
- * Đọc từ profiles.can_view_financials (migration 015).
+ * campus_admin / super_admin luôn được xem (D30); role khác theo
+ * profiles.can_view_financials (migration 015 + 071).
  */
 export async function getViewerPermissions(): Promise<{
   canViewFinancials: boolean
@@ -105,14 +61,18 @@ export async function getViewerPermissions(): Promise<{
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    // [QA-FIX C] Chưa login → KHÔNG mở số lương (trước đây demo:true lộ UI)
     if (!user) return { canViewFinancials: false, demo: false }
 
     const { data } = await supabase
       .from('profiles')
-      .select('can_view_financials')
+      .select('role, can_view_financials')
       .eq('id', user.id)
       .maybeSingle()
+
+    const role = data?.role as string | undefined
+    if (role === 'super_admin' || role === 'campus_admin') {
+      return { canViewFinancials: true, demo: false }
+    }
     return { canViewFinancials: data?.can_view_financials === true, demo: false }
   } catch {
     return { canViewFinancials: false, demo: false }
@@ -177,7 +137,7 @@ export async function getContracts(
     const { data, error } = await supabase
       .from('vw_teacher_contracts_secure')
       .select(
-        'id, teacher_id, org_id, contract_type, base_salary, insurance_salary, base_hourly_rate, required_hours_per_month, insurance_percentage, tax_percentage, start_date, end_date, is_active, financials_masked'
+        'id, teacher_id, org_id, contract_type, base_salary, insurance_salary, base_hourly_rate, required_hours_per_month, insurance_percentage, tax_percentage, start_date, end_date, probation_end_date, is_active, financials_masked'
       )
       .in('org_id', ids)
       .is('deleted_at', null)
@@ -210,26 +170,103 @@ export async function getContracts(
     )
     const orgNameById = new Map((orgResult.data ?? []).map((o) => [o.id, o.name]))
 
-    const rows: ContractRow[] = data.map((row) => ({
-      id: row.id,
-      teacher_id: row.teacher_id,
-      teacher_name: teacherNameById.get(row.teacher_id) ?? '—',
-      org_id: row.org_id,
-      org_name: orgNameById.get(row.org_id) ?? '—',
-      contract_type: row.contract_type as ContractType,
-      base_salary: row.base_salary === null ? null : Number(row.base_salary),
-      insurance_salary:
-        row.insurance_salary === null ? null : Number(row.insurance_salary),
-      base_hourly_rate:
-        row.base_hourly_rate === null ? null : Number(row.base_hourly_rate),
-      required_hours_per_month: row.required_hours_per_month,
-      insurance_percentage: Number(row.insurance_percentage),
-      tax_percentage: Number(row.tax_percentage),
-      start_date: row.start_date,
-      end_date: row.end_date,
-      is_active: row.is_active,
-      financials_masked: row.financials_masked === true,
-    }))
+    // Campus Admin / Super Admin luôn xem số tiền (D30) — kể cả khi
+    // get_my_can_view_financials chưa cập nhật (migration 071 chưa chạy).
+    let amountById = new Map<
+      string,
+      {
+        base_salary: number | null
+        insurance_salary: number | null
+        base_hourly_rate: number | null
+      }
+    >()
+    const needsUnmask = data.some((row) => row.financials_masked === true)
+    if (needsUnmask) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        const { data: me } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (me?.role === 'campus_admin' || me?.role === 'super_admin') {
+          const { data: authorized } = await supabase.rpc('is_authorized', {
+            p_user_id: user.id,
+            p_target_org_id: orgId,
+            p_required_role: 'campus_admin',
+          })
+          if (authorized === true) {
+            const admin = createAdminClient()
+            const { data: raw } = await admin
+              .from('teacher_contracts')
+              .select('id, base_salary, insurance_salary, base_hourly_rate')
+              .in(
+                'id',
+                data.map((row) => row.id)
+              )
+              .is('deleted_at', null)
+            amountById = new Map(
+              (raw ?? []).map((row) => [
+                row.id as string,
+                {
+                  base_salary:
+                    row.base_salary === null ? null : Number(row.base_salary),
+                  insurance_salary:
+                    row.insurance_salary === null
+                      ? null
+                      : Number(row.insurance_salary),
+                  base_hourly_rate:
+                    row.base_hourly_rate === null
+                      ? null
+                      : Number(row.base_hourly_rate),
+                },
+              ])
+            )
+          }
+        }
+      }
+    }
+
+    const rows: ContractRow[] = data.map((row) => {
+      const unlocked = amountById.get(row.id)
+      const baseSalary = unlocked
+        ? unlocked.base_salary
+        : row.base_salary === null
+          ? null
+          : Number(row.base_salary)
+      const insuranceSalary = unlocked
+        ? unlocked.insurance_salary
+        : row.insurance_salary === null
+          ? null
+          : Number(row.insurance_salary)
+      const hourlyRate = unlocked
+        ? unlocked.base_hourly_rate
+        : row.base_hourly_rate === null
+          ? null
+          : Number(row.base_hourly_rate)
+      return {
+        id: row.id,
+        teacher_id: row.teacher_id,
+        teacher_name: teacherNameById.get(row.teacher_id) ?? '—',
+        org_id: row.org_id,
+        org_name: orgNameById.get(row.org_id) ?? '—',
+        contract_type: row.contract_type as ContractType,
+        base_salary: baseSalary,
+        insurance_salary: insuranceSalary,
+        base_hourly_rate: hourlyRate,
+        required_hours_per_month: row.required_hours_per_month,
+        insurance_percentage: Number(row.insurance_percentage),
+        tax_percentage: Number(row.tax_percentage),
+        start_date: row.start_date,
+        end_date: row.end_date,
+        probation_end_date:
+          (row as { probation_end_date?: string | null }).probation_end_date ?? null,
+        is_active: row.is_active,
+        financials_masked: unlocked ? false : row.financials_masked === true,
+      }
+    })
     return { data: rows, demo: false }
   } catch {
     console.error('[QA-FIX C] getContracts exception')
@@ -268,6 +305,7 @@ export async function upsertTeacherContract(formData: FormData): Promise<ActionR
     taxPercentage: Number(formData.get('taxPercentage') ?? Number.NaN),
     startDate: String(formData.get('startDate') ?? ''),
     endDate: String(formData.get('endDate') ?? ''),
+    probationEndDate: String(formData.get('probationEndDate') ?? ''),
   })
   if (!parsed.success) return zodFail(parsed.error)
 
@@ -348,9 +386,18 @@ export async function upsertTeacherContract(formData: FormData): Promise<ActionR
       tax_percentage: values.taxPercentage,
       start_date: values.startDate || null,
       end_date: values.endDate || null,
+      probation_end_date: values.probationEndDate || null,
       is_active: true,
     })
-    if (insertError) return { error: `Không thể tạo hợp đồng: ${insertError.message}` }
+    if (insertError) {
+      if (/probation_end_date/i.test(insertError.message)) {
+        return {
+          error:
+            'Database chưa có cột ngày hết thử việc. Chạy migration 072_hr_personnel_dossier.sql.',
+        }
+      }
+      return { error: `Không thể tạo hợp đồng: ${insertError.message}` }
+    }
 
     revalidatePath('/hr/contracts')
     return {}

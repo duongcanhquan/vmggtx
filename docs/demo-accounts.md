@@ -23,8 +23,8 @@ Gói BASIC của Thăng Long **không có**: Kho tri thức AI (`ai_kb`), Tài s
 | Ai | URL | Cách nhập |
 |---|---|---|
 | **Super Admin** | `/login/admin` | Email + mật khẩu |
-| **Quản lý / GV** | `/coso/{slug}/login` — tab Nhà trường | Email/SĐT + mật khẩu |
-| **Học viên** | `/coso/{slug}/login?tab=family` — Học viên | MaSV hoặc email + mật khẩu |
+| **Quản lý / GV** | `/{slug}/login` — tab Nhà trường | Email/SĐT + mật khẩu |
+| **Học viên** | `/{slug}/login?tab=family` — Học viên | MaSV hoặc email + mật khẩu |
 | **Phụ huynh** | `?tab=family&who=parent` — Phụ huynh | Email + mật khẩu (cần migration **050**) |
 
 Email PH demo (sau 050): `parent.vm240001@gdtx-demo.edu.vn` (MaSV bỏ dấu `-`). Mật khẩu chung `Demo@123456`.

@@ -386,7 +386,7 @@ function ManualTab({
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium" htmlFor="sch-facility">
-                Phòng CSVC (tuỳ chọn)
+                Phòng học
               </label>
               <select
                 id="sch-facility"
@@ -395,28 +395,43 @@ function ManualTab({
                   const id = e.target.value
                   setFacilityId(id)
                   const f = facilities.find((x) => x.id === id)
-                  if (f) setRoom(f.name)
+                  if (f) setRoom(f.code?.trim() || f.name)
                 }}
                 className={inputClass}
               >
-                <option value="">— Nhập tay bên dưới —</option>
-                {facilities.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
+                <option value="">— Chọn phòng đã khai báo —</option>
+                {facilities.map((f) => {
+                  const bits = [
+                    f.code || f.name,
+                    f.capacity != null ? `${f.capacity} chỗ` : null,
+                    f.location || null,
+                    f.orgName || null,
+                  ].filter(Boolean)
+                  return (
+                    <option key={f.id} value={f.id}>
+                      {bits.join(' · ')}
+                    </option>
+                  )
+                })}
               </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Quản lý danh mục tại{' '}
+                <a href="/academic/rooms" className="font-semibold text-primary hover:underline">
+                  Phòng học
+                </a>
+                .
+              </p>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium" htmlFor="sch-room">
-                Phòng (text)
+                Nhãn phòng trên TKB
               </label>
               <input
                 id="sch-room"
                 value={room}
                 onChange={(e) => setRoom(e.target.value)}
                 className={inputClass}
-                placeholder="P.301"
+                placeholder="Tự điền khi chọn phòng"
               />
             </div>
           </div>

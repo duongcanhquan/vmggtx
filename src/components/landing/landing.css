@@ -321,7 +321,13 @@
 
 @media (hover: none) {
   .lp-secret-book {
-    opacity: 0.16;
+    /* Mobile: chỉ hiện sau khi bấm góc (class is-near), không lộ sẵn */
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(6px);
+  }
+  .lp-secret-book.is-near {
+    opacity: 0.85;
     pointer-events: auto;
     transform: none;
   }

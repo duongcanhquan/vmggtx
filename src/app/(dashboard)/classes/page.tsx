@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Plus, BookOpen, AlertCircle, Building2, Sparkles, MonitorPlay } from 'lucide-react'
 import { useCampusStore } from '@/lib/store/useCampusStore'
 import { getClasses, type ClassRow } from './actions'
+import { AcademicFlowTabs } from '@/components/academic/AcademicFlowTabs'
 
 function formatDate(value: string | null) {
   if (!value) return '—'
@@ -39,19 +40,22 @@ export default function ClassesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            Quản lý Lớp học
+            Học phần (lớp môn)
           </h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Mỗi học phần gắn một môn + GV. Nên tạo từ{' '}
+            <Link href="/classes/groups" className="font-semibold text-primary hover:underline">
+              Lớp hành chính
+            </Link>{' '}
+            để đồng bộ sĩ số; «Tạo lớp mới» chỉ dùng khi học phần độc lập / ghép.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/classes/groups"
-            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-          >
-            Lớp hành chính
-          </Link>
+        <div className="flex flex-col items-end gap-2">
+          <AcademicFlowTabs />
+          <div className="flex flex-wrap items-center justify-end gap-2">
           <Link
             href="/academic/lms"
             className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
@@ -66,12 +70,19 @@ export default function ClassesPage() {
             Xếp lịch / TKB
           </Link>
           <Link
-            href="/classes/new"
+            href="/classes/groups"
             className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Tạo lớp mới
+            Từ lớp hành chính
           </Link>
+          <Link
+            href="/classes/new"
+            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Tạo học phần độc lập
+          </Link>
+          </div>
         </div>
       </div>
 

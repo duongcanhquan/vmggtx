@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyPassword } from '@/lib/auth/passwordHash'
 import { phoneVNSchema, zodFail } from '@/lib/validation/schemas'
+import { resolvePublishedClassIds } from '@/lib/grades/publishedClasses'
 
 // ============================================================
 // PARENT PORTAL - Sổ Liên Lạc Điện Tử cho Phụ huynh
@@ -479,7 +480,7 @@ export async function getAttendanceSummary(): Promise<AttendanceSummary> {
   }
 }
 
-/** 3 cột điểm mới nhất */
+/** 3 cột điểm mới nhất (chỉ lớp đã công bố — migration 075) */
 export async function getRecentGrades(): Promise<RecentGrade[]> {
   const studentId = getSessionStudentId()
   if (!studentId) return []
@@ -489,31 +490,54 @@ export async function getRecentGrades(): Promise<RecentGrade[]> {
     const supabase = admin()
     const { data, error } = await supabase
       .from('grades')
-      .select('id, score, created_at, assessments(name, classes(name))')
+      .select('id, score, created_at, assessments(name, class_id, classes(name))')
       .eq('student_id', studentId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(3)
+      .limit(24)
     if (error) throw error
 
-    return (data ?? []).map((row) => {
-      const assessment = (Array.isArray(row.assessments)
-        ? row.assessments[0]
-        : row.assessments) as unknown as {
-        name?: string
-        classes?: { name?: string } | { name?: string }[] | null
-      } | null
-      const cls = Array.isArray(assessment?.classes)
-        ? assessment?.classes[0]
-        : assessment?.classes
-      return {
-        id: row.id,
-        class_name: cls?.name ?? '—',
-        assessment_name: assessment?.name ?? 'Bài kiểm tra',
-        score: Number(row.score),
-        created_at: row.created_at,
-      }
-    })
+    const rows = data ?? []
+    const classIds = [
+      ...new Set(
+        rows
+          .map((row) => {
+            const assessment = (
+              Array.isArray(row.assessments) ? row.assessments[0] : row.assessments
+            ) as { class_id?: string } | null
+            return assessment?.class_id
+          })
+          .filter((id): id is string => Boolean(id))
+      ),
+    ]
+    const pub = await resolvePublishedClassIds(supabase, classIds)
+    const allow =
+      pub.mode === 'legacy' ? null : pub.published
+
+    return rows
+      .map((row) => {
+        const assessment = (Array.isArray(row.assessments)
+          ? row.assessments[0]
+          : row.assessments) as unknown as {
+          name?: string
+          class_id?: string
+          classes?: { name?: string } | { name?: string }[] | null
+        } | null
+        const cls = Array.isArray(assessment?.classes)
+          ? assessment?.classes[0]
+          : assessment?.classes
+        return {
+          id: row.id,
+          class_id: assessment?.class_id,
+          class_name: cls?.name ?? '—',
+          assessment_name: assessment?.name ?? 'Bài kiểm tra',
+          score: Number(row.score),
+          created_at: row.created_at,
+        }
+      })
+      .filter((row) => !allow || (row.class_id && allow.has(row.class_id)))
+      .slice(0, 3)
+      .map(({ class_id: _cid, ...rest }) => rest)
   } catch {
     console.error('[parent] getRecentGrades failed — empty fallback')
     return []
@@ -798,7 +822,7 @@ export async function getParentNotices(): Promise<ParentNotice[]> {
   }
 }
 
-/** Sổ điểm đầy đủ nhóm theo lớp (tab Sổ điểm) */
+/** Sổ điểm đầy đủ nhóm theo lớp (tab Sổ điểm) — chỉ lớp đã công bố */
 export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
   const studentId = getSessionStudentId()
   if (!studentId) return []
@@ -809,11 +833,26 @@ export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
     const { data, error } = await supabase
       .from('grades')
       .select(
-        'score, assessments(name, weight, assessment_types(weight), classes(name))'
+        'score, assessments(name, weight, class_id, assessment_types(weight), classes(name))'
       )
       .eq('student_id', studentId)
       .is('deleted_at', null)
     if (error) throw error
+
+    const classIds = [
+      ...new Set(
+        (data ?? [])
+          .map((row) => {
+            const assessment = (
+              Array.isArray(row.assessments) ? row.assessments[0] : row.assessments
+            ) as { class_id?: string } | null
+            return assessment?.class_id
+          })
+          .filter((id): id is string => Boolean(id))
+      ),
+    ]
+    const pub = await resolvePublishedClassIds(supabase, classIds)
+    const allow = pub.mode === 'legacy' ? null : pub.published
 
     const byClass = new Map<string, ParentGradeReport>()
     for (const row of data ?? []) {
@@ -822,10 +861,12 @@ export async function getParentGradeReport(): Promise<ParentGradeReport[]> {
         : row.assessments) as unknown as {
         name?: string
         weight?: number | null
+        class_id?: string
         assessment_types?: { weight?: number | null } | { weight?: number | null }[] | null
         classes?: { name?: string } | { name?: string }[] | null
       } | null
       if (!assessment) continue
+      if (allow && (!assessment.class_id || !allow.has(assessment.class_id))) continue
 
       const cls = Array.isArray(assessment.classes)
         ? assessment.classes[0]
@@ -1045,11 +1086,11 @@ export async function getParentInsights(): Promise<{
         .eq('student_id', studentId),
       supabase
         .from('grades')
-        .select('score, created_at, assessments(name)')
+        .select('score, created_at, assessments(name, class_id)')
         .eq('student_id', studentId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
-        .limit(12),
+        .limit(40),
       supabase
         .from('attendance')
         .select('status, created_at')
@@ -1078,13 +1119,36 @@ export async function getParentInsights(): Promise<{
       0
     )
 
-    const scores = (gradesRes.data ?? []).map((g) => Number(g.score))
+    const gradeRowsRaw = gradesRes.data ?? []
+    const gradeClassIds = [
+      ...new Set(
+        gradeRowsRaw
+          .map((g) => {
+            const a = (
+              Array.isArray(g.assessments) ? g.assessments[0] : g.assessments
+            ) as { class_id?: string } | null
+            return a?.class_id
+          })
+          .filter((id): id is string => Boolean(id))
+      ),
+    ]
+    const gradePub = await resolvePublishedClassIds(supabase, gradeClassIds)
+    const gradeAllow = gradePub.mode === 'legacy' ? null : gradePub.published
+    const gradeRows = gradeRowsRaw.filter((g) => {
+      if (!gradeAllow) return true
+      const a = (
+        Array.isArray(g.assessments) ? g.assessments[0] : g.assessments
+      ) as { class_id?: string } | null
+      return Boolean(a?.class_id && gradeAllow.has(a.class_id))
+    }).slice(-12)
+
+    const scores = gradeRows.map((g) => Number(g.score))
     const avgScore =
       scores.length > 0
         ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
         : null
 
-    const gradeTrend = (gradesRes.data ?? []).map((g) => {
+    const gradeTrend = gradeRows.map((g) => {
       const a = (
         Array.isArray(g.assessments) ? g.assessments[0] : g.assessments
       ) as { name?: string } | null

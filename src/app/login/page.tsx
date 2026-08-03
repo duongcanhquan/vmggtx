@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { LandingPage } from '@/components/landing/LandingPage'
 
-// Trang chủ công khai — landing giới thiệu EDU SYSTEM.
-// Superadmin: icon sách mờ góc trái dưới → /login/admin
-// Cơ sở: /coso/[slug]/login
+// Trang chủ công khai — landing EDU SYSTEM.
+// Superadmin: bấm góc trái dưới → icon sách → /login/admin
+// Cơ sở: /{slug}/login (vd. /viet-my/login)
 
 export const metadata: Metadata = {
   title: 'EDU SYSTEM — Quản lý trường học nhiều cơ sở',

@@ -21,6 +21,7 @@ export type MenuKey =
   | 'classes'
   | 'attendance'
   | 'staff_ops'
+  | 'exams'
   | 'academic_warnings'
   | 'work_tasks'
   | 'teachers'
@@ -29,10 +30,12 @@ export type MenuKey =
   | 'evaluations'
   | 'students'
   | 'staff_users'
+  | 'hr_personnel'
   | 'payroll_contracts'
   | 'hr_leave'
   | 'finance_invoices'
   | 'assets'
+  | 'facilities'
   | 'ai_kb'
   | 'settings_org'
   | 'organizations'
@@ -82,9 +85,32 @@ export const MENU_SECTIONS: MenuSection[] = [
   },
   {
     key: 'staff_ops',
-    label: 'Vận hành Giáo vụ & Khảo thí',
+    label: 'Vận hành Giáo vụ (lớp · TKB)',
     defaultRoles: [...ACADEMIC, 'admission_staff', 'accountant'],
-    prefixes: ['/staff', '/academic/schedule', '/academic/transcripts'],
+    prefixes: [
+      '/staff/classes',
+      '/staff/timetable',
+      '/staff/schedule-management',
+      '/academic/schedule',
+    ],
+  },
+  {
+    key: 'exams',
+    label: 'Khảo thí',
+    defaultRoles: [...ACADEMIC, 'admission_staff', 'accountant'],
+    prefixes: [
+      '/staff/exam-office',
+      '/staff/exam-bank',
+      '/staff/exams',
+      '/staff/exam-schedule',
+      '/staff/assessments',
+      '/staff/results-approval',
+      '/staff/exam-grades',
+      '/staff/exam-export',
+      '/staff/learning-pathways',
+      '/academic/transcripts',
+      '/reports/exams',
+    ],
   },
   {
     key: 'academic_warnings',
@@ -108,20 +134,32 @@ export const MENU_SECTIONS: MenuSection[] = [
     key: 'reports',
     label: 'Báo cáo & Phân tích',
     defaultRoles: [...ACADEMIC, 'accountant'],
-    prefixes: ['/reports'],
+    prefixes: ['/reports', '/reports/academic'],
   },
   {
     // Danh bạ giảng viên + gán lớp cho giảng viên (admin-side)
     key: 'teachers',
-    label: 'Hồ sơ Giảng viên (gán lớp)',
+    label: 'Danh sách giáo viên',
     defaultRoles: ACADEMIC,
     prefixes: ['/teachers'],
   },
   {
+    // Chỉ cổng giáo viên — KHÔNG đưa vào menu quản lý cơ sở
     key: 'teacher_schedule',
     label: 'Lịch dạy của tôi (GV)',
-    defaultRoles: [...ACADEMIC, 'teacher'],
+    defaultRoles: ['teacher'],
     prefixes: ['/teacher/schedule'],
+  },
+  {
+    key: 'facilities',
+    label: 'Hành chính & CSVC',
+    defaultRoles: [...ACADEMIC, 'teacher'],
+    prefixes: [
+      '/facilities',
+      '/academic/rooms',
+      '/staff/facilities',
+      '/teacher/facilities',
+    ],
   },
   {
     key: 'teacher_requests',
@@ -143,9 +181,15 @@ export const MENU_SECTIONS: MenuSection[] = [
   },
   {
     key: 'staff_users',
-    label: 'Tài khoản & Nhân viên',
+    label: 'Tổ chức nhân sự',
     defaultRoles: MANAGERS,
     prefixes: ['/campus-admin/users', '/campus-admin/job-titles'],
+  },
+  {
+    key: 'hr_personnel',
+    label: 'Hồ sơ & giấy tờ NS',
+    defaultRoles: [...MANAGERS, 'accountant', 'academic_staff'],
+    prefixes: ['/hr/personnel'],
   },
   {
     key: 'payroll_contracts',
@@ -198,7 +242,7 @@ export const MENU_SECTIONS: MenuSection[] = [
   },
   {
     key: 'settings_global',
-    label: 'Cài đặt Toàn cục',
+    label: 'Cài đặt chung',
     defaultRoles: ['super_admin'],
     prefixes: ['/admin/settings'],
   },

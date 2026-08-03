@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Medal, Percent, XCircle } from 'lucide-react'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { ExamOpsTabs } from '@/components/shared/ExamOpsTabs'
 import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
 import { ReportKpiTile } from '@/components/reports/ReportKpiTile'
 import { getExamAnalyticsReport, type ExamAnalyticsReport } from '../actions'
@@ -53,6 +54,7 @@ export default function ExamReportsPage() {
           Báo cáo khảo thí
         </h1>
       </div>
+      <ExamOpsTabs />
 
       {error && (
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">

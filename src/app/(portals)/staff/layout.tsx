@@ -8,24 +8,25 @@ import {
   ClipboardCheck,
   FileSpreadsheet,
   FileStack,
+  GraduationCap,
   PenSquare,
   Projector,
   RefreshCcw,
   ShieldCheck,
   Users,
+  LayoutDashboard,
+  BarChart3,
 } from 'lucide-react'
 import { PortalShell, type PortalNavGroup } from '@/components/shared/PortalShell'
 import { MyOrgBadge } from '@/components/shared/MyOrgBadge'
 
 // ============================================================
-// Layout STAFF PORTAL (/staff/*) — Vận hành & Khảo thí.
-// Header hiển thị TÊN CƠ SỞ đang trực thuộc (badge tĩnh —
-// Staff KHÔNG được đổi cơ sở, khác Admin dùng OrgTreeSelector).
+// Layout STAFF PORTAL — tách Hành chính (đào tạo) vs Khảo thí.
 // ============================================================
 
 const STAFF_NAV: PortalNavGroup[] = [
   {
-    label: 'Hành chính',
+    label: 'Hành chính · Đào tạo',
     items: [
       { label: 'Học viên', href: '/students', icon: Users },
       { label: 'Lớp học', href: '/staff/classes', icon: BookOpen },
@@ -39,11 +40,16 @@ const STAFF_NAV: PortalNavGroup[] = [
   {
     label: 'Khảo thí',
     items: [
+      { label: 'Trung tâm Khảo thí', href: '/staff/exam-office', icon: LayoutDashboard },
       { label: 'Ngân hàng đề', href: '/staff/exam-bank', icon: FileStack },
       { label: 'Kỳ thi', href: '/staff/exams', icon: PenSquare },
       { label: 'Lịch thi & Giám thị', href: '/staff/exam-schedule', icon: ShieldCheck },
       { label: 'Tổ chức thi & Thi lại', href: '/staff/assessments', icon: RefreshCcw },
+      { label: 'Điểm & công bố', href: '/staff/exam-grades', icon: CheckSquare },
+      { label: 'Xuất TT thi', href: '/staff/exam-export', icon: FileSpreadsheet },
       { label: 'Bảng điểm tổng', href: '/academic/transcripts', icon: FileSpreadsheet },
+      { label: 'Báo cáo thi cử', href: '/reports/exams', icon: BarChart3 },
+      { label: 'Lộ trình học tập', href: '/staff/learning-pathways', icon: GraduationCap },
       { label: 'Xét duyệt kết quả', href: '/staff/results-approval', icon: CheckSquare },
     ],
   },

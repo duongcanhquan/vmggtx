@@ -94,7 +94,7 @@ export default function ParentDashboardPage() {
 
   async function handleLogout() {
     await parentLogout()
-    // Quay về đúng cổng đã đăng nhập (cơ sở -> /coso/[slug]/login tab Gia đình)
+    // Quay về đúng cổng đã đăng nhập (/{slug}/login tab Gia đình)
     router.replace(readLoginPortal() ?? '/parent/login')
   }
 

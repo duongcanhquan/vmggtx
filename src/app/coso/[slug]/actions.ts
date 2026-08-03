@@ -233,12 +233,8 @@ export async function getPublicBranchChain(
 }
 
 /**
- * Sau khi đăng nhập: xác nhận user thuộc cây cơ sở (super_admin luôn được).
- * Truyền `userId` từ client (sau signIn) để KHÔNG phụ thuộc cookie session
- * (tránh race cookie chưa kịp → "Bạn chưa đăng nhập").
- *
- * Trả về thêm ĐƠN VỊ TRỰC TIẾP của user (userOrgId/userOrgName + chuỗi
- * cấp trên) để hệ thống nhận diện ngay "ở đơn vị nào, thuộc cơ sở nào".
+ * Sau khi đăng nhập: xác nhận user thuộc cây cơ sở.
+ * Super Admin bị từ chối (D36 — chỉ /login/admin).
  */
 export async function assertUserInCampus(
   campusId: string,
@@ -288,8 +284,12 @@ export async function assertUserInCampus(
 
     if (!campus) return { error: 'Cơ sở không tồn tại hoặc đã bị xóa.' }
     if (!profile) return { error: 'Không tìm thấy hồ sơ người dùng.' }
+    // D36: Super Admin không vào cổng cơ sở — dùng /login/admin
     if (profile.role === 'super_admin') {
-      return { campusId: campus.id, campusName: campus.name }
+      return {
+        error:
+          'Super Admin đăng nhập tại /login/admin. Không dùng link cổng cơ sở.',
+      }
     }
     if (!profile.org_id) {
       return { error: 'Tài khoản chưa được gắn cơ sở.' }
@@ -298,7 +298,7 @@ export async function assertUserInCampus(
     const subtree = await getDescendantOrgIds(admin, campus.id)
     if (!subtree.includes(profile.org_id)) {
       return {
-        error: `Tài khoản không thuộc cơ sở "${campus.name}". Dùng đúng link /coso/…/login do nhà trường gửi.`,
+        error: `Tài khoản không thuộc cơ sở "${campus.name}". Dùng đúng link /…/login do nhà trường gửi.`,
       }
     }
 

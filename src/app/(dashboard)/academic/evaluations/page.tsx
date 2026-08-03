@@ -7,6 +7,7 @@ import {
   Inbox,
   Loader2,
   MessageSquareQuote,
+  Percent,
   Sparkles,
   Star,
   Users,
@@ -16,7 +17,6 @@ import dynamic from 'next/dynamic'
 import { ChartSkeleton } from '@/components/charts/ChartSkeleton'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 
-// Lazy-load recharts: không chặn thời điểm trang tương tác được
 const EvaluationBarChart = dynamic(() => import('@/components/charts/EvaluationBarChart'), {
   ssr: false,
   loading: () => <ChartSkeleton />,
@@ -26,14 +26,13 @@ import { Toast, type ToastData } from '@/components/shared/Toast'
 import {
   getEvaluationReport,
   summarizeTeacherFeedback,
+  type CampaignOption,
+  type EvaluationCompletion,
   type TeacherEvalStat,
 } from './actions'
 
 // ============================================================
-// BÁO CÁO ĐÁNH GIÁ GIÁO VIÊN (/academic/evaluations)
-// Bar chart so sánh AVG rating giữa các giáo viên + panel chi tiết
-// với nút [AI Tóm tắt ý kiến] (Điểm mạnh / Cần cải thiện).
-// Dữ liệu 100% ẨN DANH - không truy ngược được học sinh nào chấm.
+// BÁO CÁO ĐÁNH GIÁ GIÁO VIÊN — tổng hợp khảo sát ẩn danh theo đợt.
 // ============================================================
 
 const RATING_LABELS: { key: keyof TeacherEvalStat; label: string }[] = [
@@ -48,10 +47,18 @@ function ratingColor(score: number): string {
   return 'text-rose-600'
 }
 
+function formatVnDate(iso: string): string {
+  const [year, month, day] = iso.split('-')
+  return `${day}/${month}/${year}`
+}
+
 export default function EvaluationReportPage() {
   const currentOrgId = useOrgStore((state) => state.currentOrgId)
 
   const [stats, setStats] = useState<TeacherEvalStat[]>([])
+  const [campaigns, setCampaigns] = useState<CampaignOption[]>([])
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
+  const [completion, setCompletion] = useState<EvaluationCompletion | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selected, setSelected] = useState<TeacherEvalStat | null>(null)
@@ -59,24 +66,38 @@ export default function EvaluationReportPage() {
   const [summarizing, setSummarizing] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
 
-  const loadData = useCallback(async () => {
-    if (!currentOrgId) {
+  const loadData = useCallback(
+    async (campaignId?: string) => {
+      if (!currentOrgId) {
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      setLoadError(null)
+      setSelected(null)
+      setSummary(null)
+      const result = await getEvaluationReport(currentOrgId, campaignId || null)
+      if (result.error !== undefined) {
+        setLoadError(result.error)
+        setStats([])
+        setCompletion(null)
+        setCampaigns([])
+      } else {
+        setStats(result.stats)
+        setCompletion(result.completion)
+        setCampaigns(result.campaigns)
+        if (!campaignId && result.campaigns.length > 0) {
+          const preferred =
+            result.campaigns.find((c) => c.status === 'active')?.id ?? result.campaigns[0].id
+          setSelectedCampaignId(preferred)
+        } else if (campaignId) {
+          setSelectedCampaignId(campaignId)
+        }
+      }
       setLoading(false)
-      return
-    }
-    setLoading(true)
-    setLoadError(null)
-    setSelected(null)
-    setSummary(null)
-    const result = await getEvaluationReport(currentOrgId)
-    if (result.error !== undefined) {
-      setLoadError(result.error)
-      setStats([])
-    } else {
-      setStats(result.stats)
-    }
-    setLoading(false)
-  }, [currentOrgId])
+    },
+    [currentOrgId]
+  )
 
   useEffect(() => {
     loadData()
@@ -86,7 +107,11 @@ export default function EvaluationReportPage() {
     if (!selected || !currentOrgId) return
     setSummarizing(true)
     setSummary(null)
-    const result = await summarizeTeacherFeedback(selected.teacherId, currentOrgId)
+    const result = await summarizeTeacherFeedback(
+      selected.teacherId,
+      currentOrgId,
+      selectedCampaignId || null
+    )
     setSummarizing(false)
     if (result.error !== undefined) {
       setToast({ type: 'error', message: result.error })
@@ -102,6 +127,8 @@ export default function EvaluationReportPage() {
     'Đúng giờ': stat.avgPunctuality,
   }))
 
+  const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId)
+
   return (
     <RoleGuard
       allowedRoles={['super_admin', 'campus_admin']}
@@ -112,14 +139,15 @@ export default function EvaluationReportPage() {
       }
     >
       <div className="space-y-6">
-        {/* ===== Header ===== */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
               <Star className="h-7 w-7 text-primary" aria-hidden="true" />
               Báo cáo Đánh giá Giáo viên
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">Khảo sát ẩn danh · thang 1-5</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Tổng hợp khảo sát ẩn danh từ học sinh · mỗi lớp 1 lần / kỳ · thang 1–5
+            </p>
           </div>
           <Link
             href="/academic/campaigns"
@@ -129,6 +157,80 @@ export default function EvaluationReportPage() {
             Quản lý đợt khảo sát
           </Link>
         </div>
+
+        {campaigns.length > 0 && (
+          <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-4">
+            <div className="min-w-[220px] flex-1">
+              <label htmlFor="campaignFilter" className="text-sm font-semibold">
+                Đợt khảo sát (kỳ)
+              </label>
+              <select
+                id="campaignFilter"
+                value={selectedCampaignId}
+                onChange={(event) => {
+                  const next = event.target.value
+                  setSelectedCampaignId(next)
+                  loadData(next)
+                }}
+                className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {campaigns.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                    {campaign.status === 'active' ? ' · Đang mở' : ' · Đã đóng'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedCampaign && (
+              <p className="pb-2.5 text-sm text-muted-foreground">
+                {formatVnDate(selectedCampaign.startDate)} –{' '}
+                {formatVnDate(selectedCampaign.endDate)}
+              </p>
+            )}
+          </div>
+        )}
+
+        {completion && (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-border bg-surface p-4">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Percent className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                Tỷ lệ hoàn thành
+              </p>
+              <p className="mt-2 font-heading text-2xl font-bold tabular-nums text-foreground">
+                {completion.responseRate}%
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {completion.usedCount}/{completion.issuedCount} phiếu đã nộp
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-surface p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Phiếu đã phát
+              </p>
+              <p className="mt-2 font-heading text-2xl font-bold tabular-nums">
+                {completion.issuedCount}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-surface p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Lớp đã mở đánh giá
+              </p>
+              <p className="mt-2 font-heading text-2xl font-bold tabular-nums">
+                {completion.classCount}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-surface p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Giáo viên có điểm
+              </p>
+              <p className="mt-2 font-heading text-2xl font-bold tabular-nums">
+                {completion.teacherCount}
+              </p>
+            </div>
+          </div>
+        )}
 
         {loadError && (
           <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -141,14 +243,29 @@ export default function EvaluationReportPage() {
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Đang tổng hợp kết quả khảo sát…
           </div>
+        ) : campaigns.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface p-12 text-center">
+            <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">
+              Chưa mở đợt khảo sát. Tạo đợt để học sinh đánh giá giảng viên các lớp đang học.
+            </p>
+            <Link
+              href="/academic/campaigns"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              <Vote className="h-4 w-4" aria-hidden="true" />
+              Mở đợt khảo sát
+            </Link>
+          </div>
         ) : stats.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">Chưa có kết quả khảo sát.</p>
+            <p className="text-sm text-muted-foreground">
+              Đợt này chưa có phiếu nộp. Học sinh vào Cổng học sinh để đánh giá khi đợt đang mở.
+            </p>
           </div>
         ) : (
           <>
-            {/* ===== Bar chart so sánh giáo viên ===== */}
             <div className="rounded-2xl border border-border bg-surface p-5">
               <h2 className="font-heading text-base font-bold">
                 So sánh điểm trung bình giữa các giáo viên
@@ -159,19 +276,32 @@ export default function EvaluationReportPage() {
               </div>
             </div>
 
-            {/* ===== Danh sách + chi tiết ===== */}
             <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
-              {/* Bảng xếp hạng */}
               <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-                <table className="w-full min-w-[560px] text-left text-sm">
+                <table className="w-full min-w-[620px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-border bg-slate-50 text-xs uppercase tracking-wide text-muted-foreground">
-                      <th scope="col" className="px-5 py-3.5 font-semibold">Giáo viên</th>
-                      <th scope="col" className="px-5 py-3.5 font-semibold">Sư phạm</th>
-                      <th scope="col" className="px-5 py-3.5 font-semibold">Thái độ</th>
-                      <th scope="col" className="px-5 py-3.5 font-semibold">Đúng giờ</th>
-                      <th scope="col" className="px-5 py-3.5 font-semibold">TB chung</th>
-                      <th scope="col" className="px-5 py-3.5 font-semibold">Lượt</th>
+                      <th scope="col" className="px-5 py-3.5 font-semibold">
+                        Giáo viên
+                      </th>
+                      <th scope="col" className="px-5 py-3.5 font-semibold">
+                        Sư phạm
+                      </th>
+                      <th scope="col" className="px-5 py-3.5 font-semibold">
+                        Thái độ
+                      </th>
+                      <th scope="col" className="px-5 py-3.5 font-semibold">
+                        Đúng giờ
+                      </th>
+                      <th scope="col" className="px-5 py-3.5 font-semibold">
+                        TB chung
+                      </th>
+                      <th scope="col" className="px-5 py-3.5 font-semibold">
+                        Lượt
+                      </th>
+                      <th scope="col" className="px-5 py-3.5 font-semibold">
+                        Lớp
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -195,22 +325,22 @@ export default function EvaluationReportPage() {
                         <td className={`px-5 py-3.5 font-semibold ${ratingColor(stat.avgAttitude)}`}>
                           {stat.avgAttitude}
                         </td>
-                        <td className={`px-5 py-3.5 font-semibold ${ratingColor(stat.avgPunctuality)}`}>
+                        <td
+                          className={`px-5 py-3.5 font-semibold ${ratingColor(stat.avgPunctuality)}`}
+                        >
                           {stat.avgPunctuality}
                         </td>
                         <td className={`px-5 py-3.5 font-bold ${ratingColor(stat.avgOverall)}`}>
                           {stat.avgOverall}
                         </td>
-                        <td className="px-5 py-3.5 text-muted-foreground">
-                          {stat.totalResponses}
-                        </td>
+                        <td className="px-5 py-3.5 text-muted-foreground">{stat.totalResponses}</td>
+                        <td className="px-5 py-3.5 text-muted-foreground">{stat.classCount}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Panel chi tiết + AI tóm tắt */}
               <div className="space-y-4">
                 {!selected ? (
                   <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
@@ -221,7 +351,7 @@ export default function EvaluationReportPage() {
                   <div className="rounded-2xl border border-border bg-surface p-5">
                     <h2 className="font-heading text-base font-bold">{selected.teacherName}</h2>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {selected.totalResponses} lượt đánh giá ·{' '}
+                      {selected.totalResponses} lượt · {selected.classCount} lớp ·{' '}
                       {selected.feedbackCount} ý kiến văn bản
                     </p>
 
@@ -232,9 +362,7 @@ export default function EvaluationReportPage() {
                           <div key={key}>
                             <div className="flex items-center justify-between text-sm">
                               <dt className="text-muted-foreground">{label}</dt>
-                              <dd className={`font-bold ${ratingColor(score)}`}>
-                                {score}/5
-                              </dd>
+                              <dd className={`font-bold ${ratingColor(score)}`}>{score}/5</dd>
                             </div>
                             <div
                               role="progressbar"

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { OrgStaffTabs } from '@/components/campus-admin/OrgStaffTabs'
 import { MENU_SECTIONS, defaultKeysForRole, type MenuKey } from '@/lib/auth/menuRegistry'
 import {
   createJobTitle,
@@ -37,12 +38,17 @@ const PRESETS = [
   { id: 'academic_staff', label: 'Mẫu Giáo vụ' },
   { id: 'admission_staff', label: 'Mẫu Tuyển sinh' },
   { id: 'accountant', label: 'Mẫu Kế toán' },
-  { id: 'teacher', label: 'Mẫu Giáo viên' },
+  { id: 'hr_head', label: 'Mẫu Trưởng phòng NS' },
 ] as const
 
 const GRANTABLE_SECTIONS = MENU_SECTIONS.filter((s) => s.key !== 'settings_global')
 
 function presetMenuKeysForRole(role: string): MenuKey[] {
+  if (role === 'hr_head') {
+    return (['staff_users', 'hr_personnel', 'payroll_contracts', 'hr_leave'] as MenuKey[]).filter(
+      (k) => GRANTABLE_SECTIONS.some((s) => s.key === k)
+    )
+  }
   if (
     role !== 'academic_staff' &&
     role !== 'admission_staff' &&
@@ -207,38 +213,34 @@ export default function JobTitlesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
-            <Briefcase className="h-5 w-5" aria-hidden="true" />
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Tổ chức nhân sự
+            </h1>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Quản lý cơ sở setup quyền truy cập cao nhất trong cơ sở. Đặt tên chức danh theo cơ sở
+              (VD: Phó giám đốc, Thư ký). Mỗi chức danh là một mẫu menu; gán cho nhân sự tại tab
+              «Tài khoản & Nhân viên». Vai trò kỹ thuật (cổng/RLS) giữ nguyên. Ngành / môn dạy giáo
+              viên gán tại Hồ sơ Giảng viên, không gắn vào chức danh.
+            </p>
           </div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Chức danh & mẫu quyền
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Chức danh = mẫu menu phân quyền (không thay role kỹ thuật). Ngành /
-            môn dạy của giáo viên gán tại{' '}
-            <a href="/teachers" className="font-semibold text-primary underline-offset-2 hover:underline">
-              Hồ sơ Giảng viên
-            </a>
-            , không gắn vào chức danh.
-          </p>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Đặt tên chức danh theo cơ sở (VD: Phó giám đốc, Thư ký). Mỗi chức danh là một mẫu
-            menu; gán cho nhân sự tại «Tài khoản & Nhân viên». Vai trò kỹ thuật (cổng/RLS) giữ
-            nguyên.
-          </p>
+          <OrgStaffTabs />
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Thêm chức danh
-        </button>
-      </header>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-heading text-lg font-bold text-foreground">Chức danh</h2>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Thêm chức danh
+          </button>
+        </div>
+      </div>
 
       <div className="grid gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm sm:grid-cols-[1fr_1fr_auto]">
         <div>

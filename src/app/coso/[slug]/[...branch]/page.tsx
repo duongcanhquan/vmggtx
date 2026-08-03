@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 type Props = { params: { slug: string; branch: string[] } }
 
-/** Nhánh con → thẳng login của đơn vị gốc (bỏ màn chọn trung gian). */
+/** Nhánh cũ /coso/{slug}/... → login đơn vị gốc (URL mới) */
 export default async function BranchPortalPage({ params }: Props) {
   const { data } = await getPublicBranchChain(params.slug, params.branch)
   if (!data) notFound()

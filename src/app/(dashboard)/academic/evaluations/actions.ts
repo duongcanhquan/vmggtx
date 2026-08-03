@@ -8,10 +8,7 @@ import { requiredId, zodFail } from '@/lib/validation/schemas'
 
 // ============================================================
 // BÁO CÁO ĐÁNH GIÁ GIÁO VIÊN (/academic/evaluations)
-// - getEvaluationReport: AVG 3 tiêu chí theo từng giáo viên trong
-//   subtree của currentOrgId (RLS 022 là lớp chặn thứ 2).
-// - summarizeTeacherFeedback: [AI TÓM TẮT] gom toàn bộ feedback_text
-//   của 1 giáo viên -> gpt-4o-mini viết "Điểm mạnh / Cần cải thiện".
+// Tổng hợp kết quả khảo sát ẩn danh từ học sinh theo đợt (kỳ).
 // ============================================================
 
 export type TeacherEvalStat = {
@@ -23,15 +20,36 @@ export type TeacherEvalStat = {
   avgOverall: number
   totalResponses: number
   feedbackCount: number
+  classCount: number
+}
+
+export type EvaluationCompletion = {
+  issuedCount: number
+  usedCount: number
+  responseRate: number
+  classCount: number
+  teacherCount: number
+}
+
+export type CampaignOption = {
+  id: string
+  name: string
+  status: 'active' | 'closed'
+  startDate: string
+  endDate: string
 }
 
 export type EvaluationReportResult =
   | { error: string }
-  | { error?: undefined; stats: TeacherEvalStat[] }
+  | {
+      error?: undefined
+      stats: TeacherEvalStat[]
+      completion: EvaluationCompletion | null
+      campaigns: CampaignOption[]
+    }
 
 const round1 = (n: number) => Math.round(n * 10) / 10
 
-/** Chốt cửa chung: campus_admin trở lên trên org đích */
 async function assertCampusAdmin(orgId: string): Promise<string | null> {
   const supabase = createClient()
   const {
@@ -51,7 +69,20 @@ async function assertCampusAdmin(orgId: string): Promise<string | null> {
   return null
 }
 
-export async function getEvaluationReport(orgId: string): Promise<EvaluationReportResult> {
+async function resolveOrgIds(orgId: string): Promise<string[]> {
+  const supabase = createClient()
+  const { data: subtree } = await supabase.rpc('get_descendant_org_ids', {
+    p_org_id: orgId,
+  })
+  const orgIds = (subtree as string[] | null) ?? [orgId]
+  if (!orgIds.includes(orgId)) orgIds.push(orgId)
+  return orgIds
+}
+
+export async function getEvaluationReport(
+  orgId: string,
+  campaignId?: string | null
+): Promise<EvaluationReportResult> {
   const orgParsed = requiredId('Thiếu org_id: vui lòng chọn cơ sở.').safeParse(orgId)
   if (!orgParsed.success) return zodFail(orgParsed.error)
 
@@ -60,25 +91,80 @@ export async function getEvaluationReport(orgId: string): Promise<EvaluationRepo
     if (authError) return { error: authError }
 
     const supabase = createClient()
-    const { data: subtree } = await supabase.rpc('get_descendant_org_ids', {
-      p_org_id: orgParsed.data,
-    })
-    const orgIds = (subtree as string[] | null) ?? [orgParsed.data]
-    if (!orgIds.includes(orgParsed.data)) orgIds.push(orgParsed.data)
+    const orgIds = await resolveOrgIds(orgParsed.data)
 
-    // [ĐA TẦNG] Lọc org_id tường minh; RLS 022 chặn thêm ở tầng DB
-    const { data: results, error } = await supabase
-      .from('evaluation_results')
-      .select('teacher_id, rating_teaching, rating_attitude, rating_punctuality, feedback_text')
+    const { data: campaignRows } = await supabase
+      .from('evaluation_campaigns')
+      .select('id, name, status, start_date, end_date')
       .in('org_id', orgIds)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+
+    const campaigns: CampaignOption[] = (campaignRows ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      status: row.status as 'active' | 'closed',
+      startDate: row.start_date,
+      endDate: row.end_date,
+    }))
+
+    // Mặc định: đợt đang mở mới nhất; nếu không có thì đợt gần nhất.
+    let selectedCampaignId = campaignId ?? null
+    if (!selectedCampaignId && campaigns.length > 0) {
+      selectedCampaignId =
+        campaigns.find((c) => c.status === 'active')?.id ?? campaigns[0].id
+    }
+
+    let resultsQuery = supabase
+      .from('evaluation_results')
+      .select(
+        'teacher_id, class_id, rating_teaching, rating_attitude, rating_punctuality, feedback_text'
+      )
+      .in('org_id', orgIds)
+
+    if (selectedCampaignId) {
+      resultsQuery = resultsQuery.eq('campaign_id', selectedCampaignId)
+    }
+
+    const { data: results, error } = await resultsQuery
     if (error) return { error: `Không đọc được kết quả khảo sát: ${error.message}` }
 
-    if (!results || results.length === 0) return { stats: [] }
+    let completion: EvaluationCompletion | null = null
+    if (selectedCampaignId) {
+      const { data: tokens } = await supabase
+        .from('evaluation_tokens')
+        .select('is_used, class_id')
+        .eq('campaign_id', selectedCampaignId)
+      const issuedCount = tokens?.length ?? 0
+      const usedCount = (tokens ?? []).filter((t) => t.is_used).length
+      const classCount = new Set((tokens ?? []).map((t) => t.class_id)).size
+      completion = {
+        issuedCount,
+        usedCount,
+        responseRate: issuedCount === 0 ? 0 : round1((usedCount / issuedCount) * 100),
+        classCount,
+        teacherCount: 0,
+      }
+    }
 
-    // Group theo giáo viên -> AVG từng tiêu chí
+    if (!results || results.length === 0) {
+      return {
+        stats: [],
+        completion,
+        campaigns,
+      }
+    }
+
     const byTeacher = new Map<
       string,
-      { teaching: number; attitude: number; punctuality: number; count: number; feedback: number }
+      {
+        teaching: number
+        attitude: number
+        punctuality: number
+        count: number
+        feedback: number
+        classes: Set<string>
+      }
     >()
     for (const row of results) {
       const acc =
@@ -88,12 +174,14 @@ export async function getEvaluationReport(orgId: string): Promise<EvaluationRepo
           punctuality: 0,
           count: 0,
           feedback: 0,
+          classes: new Set<string>(),
         }
       acc.teaching += row.rating_teaching
       acc.attitude += row.rating_attitude
       acc.punctuality += row.rating_punctuality
       acc.count += 1
       if (row.feedback_text) acc.feedback += 1
+      if (row.class_id) acc.classes.add(row.class_id)
       byTeacher.set(row.teacher_id, acc)
     }
 
@@ -119,11 +207,16 @@ export async function getEvaluationReport(orgId: string): Promise<EvaluationRepo
           avgOverall: round1((avgTeaching + avgAttitude + avgPunctuality) / 3),
           totalResponses: acc.count,
           feedbackCount: acc.feedback,
+          classCount: acc.classes.size,
         }
       })
       .sort((a, b) => b.avgOverall - a.avgOverall)
 
-    return { stats }
+    if (completion) {
+      completion = { ...completion, teacherCount: stats.length }
+    }
+
+    return { stats, completion, campaigns }
   } catch (error) {
     return {
       error:
@@ -137,12 +230,12 @@ export type SummarizeResult =
   | { error?: undefined; summary: string; feedbackCount: number }
 
 /**
- * [AI TÓM TẮT] Gom toàn bộ ý kiến tự do của 1 giáo viên và nhờ
- * gpt-4o-mini viết tóm tắt "Điểm mạnh / Cần cải thiện".
+ * [AI TÓM TẮT] Gom ý kiến tự do của 1 giáo viên (theo đợt nếu có).
  */
 export async function summarizeTeacherFeedback(
   teacherId: string,
-  orgId: string
+  orgId: string,
+  campaignId?: string | null
 ): Promise<SummarizeResult> {
   const teacherParsed = requiredId('Thiếu ID giáo viên.').safeParse(teacherId)
   if (!teacherParsed.success) return zodFail(teacherParsed.error)
@@ -154,13 +247,9 @@ export async function summarizeTeacherFeedback(
     if (authError) return { error: authError }
 
     const supabase = createClient()
-    const { data: subtree } = await supabase.rpc('get_descendant_org_ids', {
-      p_org_id: orgParsed.data,
-    })
-    const orgIds = (subtree as string[] | null) ?? [orgParsed.data]
-    if (!orgIds.includes(orgParsed.data)) orgIds.push(orgParsed.data)
+    const orgIds = await resolveOrgIds(orgParsed.data)
 
-    const { data: rows, error } = await supabase
+    let query = supabase
       .from('evaluation_results')
       .select('feedback_text')
       .eq('teacher_id', teacherParsed.data)
@@ -168,6 +257,12 @@ export async function summarizeTeacherFeedback(
       .not('feedback_text', 'is', null)
       .order('created_at', { ascending: false })
       .limit(100)
+
+    if (campaignId) {
+      query = query.eq('campaign_id', campaignId)
+    }
+
+    const { data: rows, error } = await query
     if (error) return { error: `Không đọc được ý kiến: ${error.message}` }
 
     const feedbacks = (rows ?? [])
@@ -177,7 +272,6 @@ export async function summarizeTeacherFeedback(
       return { error: 'Giáo viên này chưa có ý kiến đóng góp dạng văn bản nào.' }
     }
 
-    // ===== Gọi AI (key theo tenant, fallback env) =====
     const aiConfig = await getAIConfig(orgParsed.data)
     const apiKey =
       aiConfig.provider === 'openai' && aiConfig.apiKey

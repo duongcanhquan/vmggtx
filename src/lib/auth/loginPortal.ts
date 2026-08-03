@@ -1,10 +1,7 @@
 // ============================================================
 // GHI NHỚ CỔNG ĐĂNG NHẬP (login_portal cookie)
-// Vấn đề: nhân sự/học viên đăng nhập qua cổng cơ sở /coso/[slug]/login
-// nhưng khi ĐĂNG XUẤT hoặc HẾT PHIÊN lại bị đẩy về /login chung của
-// hệ thống (cổng super admin) -> mất ngữ cảnh cơ sở.
-// Giải pháp: sau khi đăng nhập THÀNH CÔNG, lưu cookie `login_portal`
-// = đường dẫn cổng đã dùng. Đăng xuất / hết phiên -> quay đúng cổng đó.
+// Nhân sự/HV đăng nhập qua /{slug}/login — khi ĐĂNG XUẤT hoặc HẾT PHIÊN
+// phải quay về ĐÚNG cổng login cơ sở đó (không về landing /login).
 // Cookie sống 180 ngày, chỉ dùng để ĐIỀU HƯỚNG (không mang quyền).
 // ============================================================
 
@@ -20,10 +17,47 @@ export function isSafeLoginPath(value: string): boolean {
   )
 }
 
+/**
+ * Chuẩn hóa cổng login:
+ * - /coso/{slug}/login… → /{slug}/login… (tương thích cookie cũ)
+ * - /{slug}/login… giữ nguyên
+ * - /login/admin | /student/login | /parent/login giữ nguyên
+ */
+export function normalizeLoginPortal(path: string): string | null {
+  if (!isSafeLoginPath(path)) return null
+
+  const [pathname, query = ''] = path.split('?')
+  const q = query ? `?${query}` : ''
+
+  const legacy = pathname.match(
+    /^\/coso\/([a-z0-9][a-z0-9-]{0,46}[a-z0-9]|[a-z0-9])(?:\/(login|student\/login|parent\/login))?\/?$/
+  )
+  if (legacy) {
+    const slug = legacy[1]
+    const rest = legacy[2]
+    if (!rest || rest === 'login') return `/${slug}/login${q}`
+    if (rest === 'student/login') return `/${slug}/login?tab=family`
+    if (rest === 'parent/login') return `/${slug}/login?tab=family&who=parent`
+  }
+
+  if (
+    /^\/[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?\/login\/?$/.test(pathname) ||
+    pathname === '/login/admin' ||
+    pathname === '/student/login' ||
+    pathname === '/parent/login'
+  ) {
+    return `${pathname.replace(/\/$/, '')}${q}`
+  }
+
+  return null
+}
+
 /** Lưu cổng đăng nhập vừa dùng (gọi ngay sau khi login thành công) */
 export function rememberLoginPortal(path: string): void {
-  if (typeof document === 'undefined' || !isSafeLoginPath(path)) return
-  document.cookie = `${LOGIN_PORTAL_COOKIE}=${encodeURIComponent(path)}; path=/; max-age=15552000; samesite=lax`
+  if (typeof document === 'undefined') return
+  const normalized = normalizeLoginPortal(path)
+  if (!normalized) return
+  document.cookie = `${LOGIN_PORTAL_COOKIE}=${encodeURIComponent(normalized)}; path=/; max-age=15552000; samesite=lax`
 }
 
 /** Đọc cổng đăng nhập đã lưu (null nếu chưa có / không hợp lệ) */
@@ -34,8 +68,7 @@ export function readLoginPortal(): string | null {
   )
   if (!match) return null
   try {
-    const value = decodeURIComponent(match[1])
-    return isSafeLoginPath(value) ? value : null
+    return normalizeLoginPortal(decodeURIComponent(match[1]))
   } catch {
     return null
   }

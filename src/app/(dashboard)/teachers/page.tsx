@@ -122,7 +122,7 @@ export default function TeachersPage() {
           <Users className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">
             {teachers.length === 0
-              ? 'Chưa có giảng viên nào. Tạo tài khoản giáo viên trong "Tài khoản & Nhân viên".'
+              ? 'Chưa có giảng viên nào. Tạo tài khoản giáo viên trong «Tổ chức nhân sự».'
               : 'Không có giảng viên nào khớp tìm kiếm.'}
           </p>
         </div>

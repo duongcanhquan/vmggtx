@@ -255,6 +255,8 @@ export const updateUserSchema = z.object({
   phone: z.union([z.literal(''), phoneVNSchema]).default(''),
   /** Chức danh (056) — chuỗi rỗng = gỡ gắn */
   jobTitleId: z.union([z.literal(''), requiredId('ID chức danh không hợp lệ.')]).default(''),
+  /** Xem lương/đơn giá — campus_admin luôn true ở server */
+  canViewFinancials: z.boolean().default(false),
 })
 
 /** Form Cấp lại mật khẩu (Campus Admin) */
@@ -316,10 +318,24 @@ export const contractSchema = z
       .max(100, '% thuế tối đa 100.'),
     startDate: optionalDateSchema,
     endDate: optionalDateSchema,
+    probationEndDate: optionalDateSchema,
   })
   .refine(
-    (data) => !data.startDate || !data.endDate || data.endDate >= data.startDate,
+    (v) =>
+      !v.startDate ||
+      !v.endDate ||
+      v.endDate >= v.startDate,
     { message: 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.', path: ['endDate'] }
+  )
+  .refine(
+    (v) =>
+      !v.startDate ||
+      !v.probationEndDate ||
+      v.probationEndDate >= v.startDate,
+    {
+      message: 'Ngày hết thử việc phải sau hoặc bằng ngày bắt đầu HĐ.',
+      path: ['probationEndDate'],
+    }
   )
   .refine(
     (data) =>

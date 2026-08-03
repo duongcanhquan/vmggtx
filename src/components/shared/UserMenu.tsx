@@ -15,8 +15,7 @@ import { readLoginPortal } from '@/lib/auth/loginPortal'
 // ============================================================
 // UserMenu - nút tài khoản ở header (mọi portal dùng Supabase Auth):
 //   · Đổi mật khẩu (modal, supabase.auth.updateUser)
-//   · Đăng xuất (signOut + xóa cookie hint + về ĐÚNG CỔNG đã đăng nhập:
-//     ai vào từ /coso/[slug]/login sẽ quay về đó, không bị đá về /login chung)
+//   · Đăng xuất → về ĐÚNG cổng login đã vào (/{slug}/login), không về landing
 // ============================================================
 
 export function UserMenu({ loginPath = '/login' }: { loginPath?: string }) {
@@ -46,18 +45,18 @@ export function UserMenu({ loginPath = '/login' }: { loginPath?: string }) {
 
   async function handleSignOut() {
     setSigningOut(true)
+    const portal = readLoginPortal()
     try {
       await createClient().auth.signOut()
     } catch {
       /* vẫn tiếp tục về trang login */
     }
-    // Xóa cookie hint để middleware không dùng lại dữ liệu phiên cũ
-    // (GIỮ login_portal để lần sau vẫn đăng nhập đúng cổng cơ sở)
+    // Xóa cookie hint phiên; GIỮ login_portal để về đúng cổng cơ sở
     for (const name of ['role_hint', 'menu_hint', 'license_hint']) {
       document.cookie = `${name}=; path=/; max-age=0`
     }
-    // Quay về đúng cổng đã đăng nhập (cơ sở -> /coso/[slug]/login)
-    window.location.href = readLoginPortal() ?? loginPath
+    // Ưu tiên cookie cổng cơ sở (/viet-my/login) — không về landing /login
+    window.location.href = portal ?? loginPath
   }
 
   return (

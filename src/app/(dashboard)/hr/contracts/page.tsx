@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
@@ -33,6 +34,7 @@ import {
 } from '../payroll/actions'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { SectionTabs } from '@/components/shared/SectionTabs'
+import { OrgStaffTabs } from '@/components/campus-admin/OrgStaffTabs'
 
 // ============================================================
 // Quản lý Hợp đồng Giáo viên (/hr/contracts) - Campus Admin
@@ -151,6 +153,7 @@ function ContractSheet({
           taxPercentage: existing.tax_percentage,
           startDate: existing.start_date ?? '',
           endDate: existing.end_date ?? '',
+          probationEndDate: existing.probation_end_date ?? '',
         }
       : {
           teacherId: row.teacher_id,
@@ -163,6 +166,7 @@ function ContractSheet({
           taxPercentage: 0,
           startDate: '',
           endDate: '',
+          probationEndDate: '',
         },
   })
 
@@ -200,6 +204,7 @@ function ContractSheet({
     formData.set('taxPercentage', String(values.taxPercentage))
     formData.set('startDate', values.startDate ?? '')
     formData.set('endDate', values.endDate ?? '')
+    formData.set('probationEndDate', values.probationEndDate ?? '')
 
     const result = await upsertTeacherContract(formData)
     setSubmitting(false)
@@ -436,7 +441,7 @@ function ContractSheet({
             </div>
             <div>
               <label htmlFor="ct-end" className="mb-1.5 block text-sm font-medium">
-                Ngày kết thúc
+                Ngày kết thúc HĐ
               </label>
               <input
                 id="ct-end"
@@ -446,6 +451,22 @@ function ContractSheet({
                 {...register('endDate')}
               />
               <FieldError message={errors.endDate?.message} />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="ct-probation" className="mb-1.5 block text-sm font-medium">
+                Hết thời gian thử việc
+              </label>
+              <input
+                id="ct-probation"
+                type="date"
+                aria-invalid={!!errors.probationEndDate}
+                className={`${inputClass} ${errors.probationEndDate ? inputErrorClass : ''}`}
+                {...register('probationEndDate')}
+              />
+              <FieldError message={errors.probationEndDate?.message} />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Để trống nếu không theo dõi thử việc. Hệ thống nhắc trước 14 ngày.
+              </p>
             </div>
           </div>
 
@@ -672,11 +693,22 @@ export default function HrContractsPage() {
 
   return (
     <div className="space-y-6">
-      {/* ===== Header + Tabs mục "Lương & Hợp đồng" ===== */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-          Lương &amp; Hợp đồng
-        </h1>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+              Lương &amp; Hợp đồng
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Tạo/cấu hình HĐ, theo dõi thử việc &amp; hết hạn. Hồ sơ CCCD/giấy tờ tại{' '}
+              <Link href="/hr/personnel" className="font-semibold text-primary underline-offset-2 hover:underline">
+                Hồ sơ &amp; giấy tờ
+              </Link>
+              .
+            </p>
+          </div>
+          <OrgStaffTabs />
+        </div>
         <SectionTabs
           tabs={[
             { label: 'Hợp đồng Giáo viên', href: '/hr/contracts', icon: FileSignature },
@@ -693,8 +725,9 @@ export default function HrContractsPage() {
 
       {!isDemo && !canViewFinancials && (
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          Lương/đơn giá đang bị <strong>che (Masked)</strong> — tài khoản chưa có quyền{' '}
-          <code>can_view_financials</code>.
+          Lương/đơn giá đang bị <strong>che</strong> — tài khoản chưa được cấp quyền xem dữ liệu
+          tài chính. Liên hệ Quản lý cơ sở để bật tại «Tổ chức nhân sự» → Sửa tài khoản → «Xem
+          lương / đơn giá».
         </p>
       )}
 

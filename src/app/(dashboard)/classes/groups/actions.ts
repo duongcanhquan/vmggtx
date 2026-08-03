@@ -33,6 +33,19 @@ async function requireScope(orgId: string) {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Chưa đăng nhập.' as const }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (profile?.role === 'super_admin') {
+    return {
+      error:
+        'Super Admin không vận hành lớp tại cơ sở. Dùng tài khoản Quản lý cơ sở / Giáo vụ.' as const,
+    }
+  }
+
   const auth = await isAuthorizedRpc(supabase, {
     p_user_id: user.id,
     p_target_org_id: orgId,
@@ -48,6 +61,36 @@ async function requireScope(orgId: string) {
     userId: user.id,
     orgIds: orgIds.includes(orgId) ? orgIds : [orgId, ...orgIds],
   }
+}
+
+/** Chỉ nhận HV thuộc subtree org — chặn ghi danh chéo cơ sở. */
+async function assertStudentsInScope(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgIds: string[],
+  studentIds: string[]
+): Promise<{ error?: string; ids: string[] }> {
+  const unique = [...new Set(studentIds.filter(Boolean))]
+  if (unique.length === 0) return { ids: [] }
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, org_id, role')
+    .in('id', unique)
+    .eq('role', 'student')
+    .is('deleted_at', null)
+  if (error) return { error: error.message, ids: [] }
+  const allowed = new Set(
+    (data ?? [])
+      .filter((p) => orgIds.includes(p.org_id as string))
+      .map((p) => p.id as string)
+  )
+  if (allowed.size !== unique.length) {
+    return {
+      error:
+        'Có học viên không thuộc cơ sở đang thao tác — từ chối ghi danh / ghép chéo đơn vị.',
+      ids: [],
+    }
+  }
+  return { ids: unique }
 }
 
 export async function listClassGroups(
@@ -291,14 +334,24 @@ export async function createSectionFromGroup(
 export async function listGroupMembers(
   orgId: string,
   groupId: string
-): Promise<{ data: { id: string; student_id: string; full_name: string }[]; error?: string }> {
+): Promise<{
+  data: {
+    id: string
+    student_id: string
+    full_name: string
+    student_code: string | null
+  }[]
+  error?: string
+}> {
   try {
     const scope = await requireScope(orgId)
     if ('error' in scope) return { data: [], error: scope.error }
 
     const { data, error } = await scope.supabase
       .from('class_group_members')
-      .select('id, student_id, profiles!class_group_members_student_id_fkey(full_name)')
+      .select(
+        'id, student_id, profiles!class_group_members_student_id_fkey(full_name, student_code)'
+      )
       .eq('group_id', groupId)
       .is('deleted_at', null)
       .order('created_at')
@@ -315,29 +368,43 @@ export async function listGroupMembers(
       const { data: profiles } = ids.length
         ? await scope.supabase
             .from('profiles')
-            .select('id, full_name')
+            .select('id, full_name, student_code')
             .in('id', ids)
         : { data: [] }
-      const nameMap = new Map(
-        (profiles ?? []).map((p) => [p.id as string, p.full_name as string])
+      const profileMap = new Map(
+        (profiles ?? []).map((p) => [
+          p.id as string,
+          {
+            full_name: p.full_name as string,
+            student_code: (p.student_code as string | null) ?? null,
+          },
+        ])
       )
       return {
-        data: (fb.data ?? []).map((r) => ({
-          id: r.id as string,
-          student_id: r.student_id as string,
-          full_name: nameMap.get(r.student_id as string) ?? '—',
-        })),
+        data: (fb.data ?? []).map((r) => {
+          const p = profileMap.get(r.student_id as string)
+          return {
+            id: r.id as string,
+            student_id: r.student_id as string,
+            full_name: p?.full_name ?? '—',
+            student_code: p?.student_code ?? null,
+          }
+        }),
       }
     }
 
     return {
       data: (data ?? []).map((r) => {
-        const p = r.profiles as { full_name?: string } | { full_name?: string }[] | null
-        const name = Array.isArray(p) ? p[0]?.full_name : p?.full_name
+        const p = r.profiles as
+          | { full_name?: string; student_code?: string | null }
+          | { full_name?: string; student_code?: string | null }[]
+          | null
+        const row = Array.isArray(p) ? p[0] : p
         return {
           id: r.id as string,
           student_id: r.student_id as string,
-          full_name: name ?? '—',
+          full_name: row?.full_name ?? '—',
+          student_code: row?.student_code ?? null,
         }
       }),
     }
@@ -348,23 +415,55 @@ export async function listGroupMembers(
 
 export async function listStudentsForGroupPick(
   orgId: string
-): Promise<{ data: { id: string; full_name: string }[]; error?: string }> {
+): Promise<{
+  data: {
+    id: string
+    full_name: string
+    student_code: string | null
+    email: string | null
+    phone: string | null
+  }[]
+  error?: string
+}> {
   try {
     const scope = await requireScope(orgId)
     if ('error' in scope) return { data: [], error: scope.error }
     const { data, error } = await scope.supabase
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, student_code, email, phone')
       .eq('role', 'student')
       .in('org_id', scope.orgIds)
       .is('deleted_at', null)
       .order('full_name')
-      .limit(500)
-    if (error) return { data: [], error: error.message }
+      .limit(800)
+    if (error) {
+      // Fallback thiếu student_code
+      const fb = await scope.supabase
+        .from('profiles')
+        .select('id, full_name, email, phone')
+        .eq('role', 'student')
+        .in('org_id', scope.orgIds)
+        .is('deleted_at', null)
+        .order('full_name')
+        .limit(800)
+      if (fb.error) return { data: [], error: fb.error.message }
+      return {
+        data: (fb.data ?? []).map((r) => ({
+          id: r.id as string,
+          full_name: r.full_name as string,
+          student_code: null,
+          email: (r.email as string | null) ?? null,
+          phone: (r.phone as string | null) ?? null,
+        })),
+      }
+    }
     return {
       data: (data ?? []).map((r) => ({
         id: r.id as string,
         full_name: r.full_name as string,
+        student_code: (r.student_code as string | null) ?? null,
+        email: (r.email as string | null) ?? null,
+        phone: (r.phone as string | null) ?? null,
       })),
     }
   } catch {
@@ -372,11 +471,82 @@ export async function listStudentsForGroupPick(
   }
 }
 
+/** Đồng bộ sĩ số cohort → mọi học phần đã gắn group_id (idempotent). */
+export async function syncGroupRosterToSections(
+  orgId: string,
+  groupId: string
+): Promise<{ error?: string; enrolled?: number; sectionCount?: number }> {
+  try {
+    const scope = await requireScope(orgId)
+    if ('error' in scope) return { error: scope.error }
+
+    const { data: group } = await scope.supabase
+      .from('class_groups')
+      .select('id, org_id')
+      .eq('id', groupId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!group || !scope.orgIds.includes(group.org_id as string)) {
+      return { error: 'Lớp hành chính không hợp lệ.' }
+    }
+
+    const [{ data: members }, { data: sections }] = await Promise.all([
+      scope.supabase
+        .from('class_group_members')
+        .select('student_id')
+        .eq('group_id', groupId)
+        .is('deleted_at', null),
+      scope.supabase
+        .from('classes')
+        .select('id')
+        .eq('group_id', groupId)
+        .is('deleted_at', null),
+    ])
+
+    const studentIds = [...new Set((members ?? []).map((m) => m.student_id as string))]
+    const sectionIds = (sections ?? []).map((s) => s.id as string)
+    if (sectionIds.length === 0) {
+      return { enrolled: 0, sectionCount: 0 }
+    }
+    if (studentIds.length === 0) {
+      return { enrolled: 0, sectionCount: sectionIds.length }
+    }
+
+    let enrolled = 0
+    for (const classId of sectionIds) {
+      const { data: existing } = await scope.supabase
+        .from('enrollments')
+        .select('student_id')
+        .eq('class_id', classId)
+        .is('deleted_at', null)
+      const have = new Set((existing ?? []).map((e) => e.student_id as string))
+      const rows = studentIds
+        .filter((sid) => !have.has(sid))
+        .map((sid) => ({
+          org_id: group.org_id,
+          class_id: classId,
+          student_id: sid,
+          status: 'active',
+        }))
+      if (rows.length === 0) continue
+      const { error } = await scope.supabase.from('enrollments').insert(rows)
+      if (!error) enrolled += rows.length
+    }
+
+    revalidatePath('/classes/groups')
+    revalidatePath('/classes')
+    return { enrolled, sectionCount: sectionIds.length }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lỗi đồng bộ sĩ số.' }
+  }
+}
+
 export async function addStudentsToGroup(
   orgId: string,
   groupId: string,
-  studentIds: string[]
-): Promise<{ error?: string; added?: number }> {
+  studentIds: string[],
+  options?: { syncSections?: boolean }
+): Promise<{ error?: string; added?: number; synced?: number }> {
   if (!studentIds.length) return { error: 'Chọn ít nhất một học viên.' }
   try {
     const scope = await requireScope(orgId)
@@ -392,8 +562,16 @@ export async function addStudentsToGroup(
       return { error: 'Lớp hành chính không hợp lệ.' }
     }
 
+    const scoped = await assertStudentsInScope(
+      scope.supabase,
+      scope.orgIds,
+      studentIds
+    )
+    if (scoped.error) return { error: scoped.error }
+    const validIds = scoped.ids
+
     let added = 0
-    for (const sid of studentIds) {
+    for (const sid of validIds) {
       const { data: existing } = await scope.supabase
         .from('class_group_members')
         .select('id, deleted_at')
@@ -416,10 +594,134 @@ export async function addStudentsToGroup(
         if (!error) added += 1
       }
     }
+
+    let synced = 0
+    if (options?.syncSections !== false) {
+      const sync = await syncGroupRosterToSections(orgId, groupId)
+      if (sync.error) {
+        revalidatePath('/classes/groups')
+        return { added, synced: 0, error: `Đã thêm HV nhưng đồng bộ học phần lỗi: ${sync.error}` }
+      }
+      synced = sync.enrolled ?? 0
+    }
+
     revalidatePath('/classes/groups')
-    return { added }
+    revalidatePath('/classes')
+    return { added, synced }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Lỗi thêm HV.' }
+  }
+}
+
+/** Ghép thêm HV vào 1 học phần (có thể khác cohort — lớp ghép). */
+export async function enrollStudentsToSection(
+  orgId: string,
+  classId: string,
+  studentIds: string[]
+): Promise<{ error?: string; enrolled?: number }> {
+  if (!studentIds.length) return { error: 'Chọn ít nhất một học viên.' }
+  try {
+    const scope = await requireScope(orgId)
+    if ('error' in scope) return { error: scope.error }
+
+    const { data: cls } = await scope.supabase
+      .from('classes')
+      .select('id, org_id')
+      .eq('id', classId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!cls || !scope.orgIds.includes(cls.org_id as string)) {
+      return { error: 'Học phần không hợp lệ.' }
+    }
+
+    const scoped = await assertStudentsInScope(
+      scope.supabase,
+      scope.orgIds,
+      studentIds
+    )
+    if (scoped.error) return { error: scoped.error }
+
+    const { data: existing } = await scope.supabase
+      .from('enrollments')
+      .select('student_id')
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+    const have = new Set((existing ?? []).map((e) => e.student_id as string))
+    const rows = scoped.ids
+      .filter((sid) => !have.has(sid))
+      .map((sid) => ({
+        org_id: cls.org_id,
+        class_id: classId,
+        student_id: sid,
+        status: 'active',
+      }))
+    if (rows.length === 0) return { enrolled: 0 }
+    const { error } = await scope.supabase.from('enrollments').insert(rows)
+    if (error) return { error: error.message }
+    revalidatePath('/classes/groups')
+    revalidatePath('/classes')
+    return { enrolled: rows.length }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lỗi ghi danh học phần.' }
+  }
+}
+
+export async function listSectionsByGroup(
+  orgId: string,
+  groupId: string
+): Promise<{
+  data: { id: string; name: string; teacher_name: string; enrolled_count: number }[]
+  error?: string
+}> {
+  try {
+    const scope = await requireScope(orgId)
+    if ('error' in scope) return { data: [], error: scope.error }
+    const { data, error } = await scope.supabase
+      .from('classes')
+      .select('id, name, teacher_id')
+      .eq('group_id', groupId)
+      .is('deleted_at', null)
+      .order('name')
+    if (error) return { data: [], error: migHint(error.message) }
+
+    const teacherIds = [
+      ...new Set((data ?? []).map((c) => c.teacher_id).filter(Boolean) as string[]),
+    ]
+    const nameById = new Map<string, string>()
+    if (teacherIds.length > 0) {
+      const { data: teachers } = await scope.supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', teacherIds)
+      for (const t of teachers ?? []) nameById.set(t.id, t.full_name)
+    }
+
+    const classIds = (data ?? []).map((c) => c.id as string)
+    const countByClass = new Map<string, number>()
+    if (classIds.length > 0) {
+      const { data: ens } = await scope.supabase
+        .from('enrollments')
+        .select('class_id')
+        .in('class_id', classIds)
+        .is('deleted_at', null)
+      for (const e of ens ?? []) {
+        const cid = e.class_id as string
+        countByClass.set(cid, (countByClass.get(cid) ?? 0) + 1)
+      }
+    }
+
+    return {
+      data: (data ?? []).map((c) => ({
+        id: c.id as string,
+        name: c.name as string,
+        teacher_name: c.teacher_id
+          ? (nameById.get(c.teacher_id as string) ?? '—')
+          : 'Chưa gán GV',
+        enrolled_count: countByClass.get(c.id as string) ?? 0,
+      })),
+    }
+  } catch (e) {
+    return { data: [], error: e instanceof Error ? e.message : 'Lỗi tải học phần.' }
   }
 }
 

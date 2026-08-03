@@ -5,6 +5,7 @@ import { BookMarked, Loader2, Plus, Trash2 } from 'lucide-react'
 import { useOrgStore } from '@/lib/store/useOrgStore'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { Toast, type ToastData } from '@/components/shared/Toast'
+import { AcademicFlowTabs } from '@/components/academic/AcademicFlowTabs'
 import {
   listSubjects,
   softDeleteSubject,
@@ -108,15 +109,17 @@ export default function AcademicSubjectsPage() {
     <div className="space-y-6">
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
-      <header>
-        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-          <BookMarked className="h-7 w-7 text-primary" aria-hidden="true" />
-          Chương trình môn học
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Mã môn, tín chỉ, số tiết và chuẩn đầu ra — không đổi định danh học viên
-          (MaSV).
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+            <BookMarked className="h-7 w-7 text-primary" aria-hidden="true" />
+            Chương trình môn học
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Bước 1 quy trình đào tạo — sau đó tạo lớp hành chính và học phần.
+          </p>
+        </div>
+        <AcademicFlowTabs />
       </header>
 
       {!orgId ? (

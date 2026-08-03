@@ -357,7 +357,7 @@ export async function createOrganization(formData: FormData): Promise<ActionResu
       parent_id: parsed.data.parentId,
     }
 
-    // Campus bắt buộc có slug → cổng /coso/[slug]
+    // Campus bắt buộc có slug → cổng /{slug}/login
     if (parsed.data.type === 'campus') {
       const rawSlug =
         parsed.data.slug && parsed.data.slug.length > 0

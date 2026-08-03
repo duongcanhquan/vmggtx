@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
+import { campusLoginPath } from '@/lib/utils/orgSlug'
 
 type Props = { params: { slug: string } }
 
-/** URL cũ — mỗi cơ sở giờ chỉ có 1 cổng login duy nhất (tab Gia đình) */
-export default function CampusStudentLoginRedirect({ params }: Props) {
-  redirect(`/coso/${params.slug}/login?tab=family`)
+export default function LegacyStudentLoginRedirect({ params }: Props) {
+  redirect(campusLoginPath(params.slug, 'student'))
 }

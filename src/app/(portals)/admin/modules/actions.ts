@@ -55,6 +55,7 @@ const USAGE_SPECS: Partial<
   finance_invoices: { table: 'invoices', label: 'hóa đơn' },
   assets: { table: 'assets', label: 'tài sản' },
   ai_kb: { table: 'lesson_materials', label: 'đoạn tri thức AI' },
+  exams: { table: 'assessments', label: 'cột điểm / kỳ thi' },
   settings_org: { table: 'org_settings', label: 'cơ sở đã cấu hình' },
   organizations: { table: 'organizations', label: 'đơn vị' },
   permissions: { table: 'menu_permissions', label: 'ghi đè phân quyền' },

@@ -3,14 +3,15 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { syncCampaignEvaluationTokens } from '@/lib/actions/evaluations'
 import { campaignSchema, requiredId, zodFail } from '@/lib/validation/schemas'
 
 // ============================================================
 // QUẢN LÝ ĐỢT KHẢO SÁT GIÁO VIÊN (/academic/campaigns)
-// - getCampaigns / createCampaign: danh sách + tạo đợt trong subtree.
-// - getCampaignDetail: các lớp thuộc phạm vi đợt + thống kê token đã
-//   phát/đã dùng - phục vụ trang phân phối link cho học sinh.
-// (Việc SINH MÃ dùng lại generateEvaluationTokens ở lib/actions.)
+// - getCampaigns / createCampaign: tạo đợt = mở đánh giá kỳ
+//   (tự phát mã cho mọi lớp có GV + HV ghi danh).
+// - closeCampaign: đóng đợt (HS không nộp thêm).
+// - getCampaignDetail: tiến độ theo lớp.
 // ============================================================
 
 async function assertCampusAdmin(orgId: string): Promise<string | null> {
@@ -20,6 +21,16 @@ async function assertCampusAdmin(orgId: string): Promise<string | null> {
   } = await supabase.auth.getUser()
   if (!user) return 'Bạn chưa đăng nhập.'
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (profile?.role === 'super_admin') {
+    return 'Super Admin không vận hành đánh giá tại cơ sở. Dùng tài khoản Quản lý cơ sở / Giáo vụ.'
+  }
+
   const { data: authorized, error } = await supabase.rpc('is_authorized', {
     p_user_id: user.id,
     p_target_org_id: orgId,
@@ -27,7 +38,7 @@ async function assertCampusAdmin(orgId: string): Promise<string | null> {
   })
   if (error) return `Lỗi kiểm tra phân quyền: ${error.message}`
   if (authorized !== true) {
-    return 'TỪ CHỐI: Chỉ Campus Admin được quản lý đợt khảo sát của cơ sở này.'
+    return 'TỪ CHỐI: Chỉ Quản lý cơ sở / Giáo vụ được quản lý đợt khảo sát của cơ sở này.'
   }
   return null
 }
@@ -86,7 +97,9 @@ export async function getCampaigns(orgId: string): Promise<CampaignsResult> {
   }
 }
 
-export type CreateCampaignResult = { error: string } | { error?: undefined; id: string }
+export type CreateCampaignResult =
+  | { error: string }
+  | { error?: undefined; id: string; createdTokenCount: number; classCount: number }
 
 export async function createCampaign(rawValues: unknown): Promise<CreateCampaignResult> {
   const parsed = campaignSchema.safeParse(rawValues)
@@ -98,6 +111,24 @@ export async function createCampaign(rawValues: unknown): Promise<CreateCampaign
     if (authError) return { error: authError }
 
     const supabase = createClient()
+
+    // Mỗi org chỉ nên có 1 đợt đang mở giao ngày (1 lần / kỳ).
+    const { data: activeOverlaps } = await supabase
+      .from('evaluation_campaigns')
+      .select('id, name')
+      .eq('org_id', values.orgId)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+      .lte('start_date', values.endDate)
+      .gte('end_date', values.startDate)
+      .limit(1)
+    const activeOverlap = activeOverlaps?.[0]
+    if (activeOverlap) {
+      return {
+        error: `Đang có đợt "${activeOverlap.name}" còn mở trong khoảng ngày này. Đóng đợt cũ trước khi mở kỳ mới (mỗi học sinh đánh giá 1 lần / kỳ).`,
+      }
+    }
+
     const { data, error } = await supabase
       .from('evaluation_campaigns')
       .insert({
@@ -111,11 +142,67 @@ export async function createCampaign(rawValues: unknown): Promise<CreateCampaign
       .single()
     if (error) return { error: `Không thể tạo đợt khảo sát: ${error.message}` }
 
+    // Tự phát mã cho mọi lớp đang học → HS vào cổng là đánh giá được.
+    const sync = await syncCampaignEvaluationTokens(data.id)
+    if (sync.error !== undefined) {
+      revalidatePath('/academic/campaigns')
+      return {
+        id: data.id,
+        createdTokenCount: 0,
+        classCount: 0,
+        // Vẫn tạo đợt; admin có thể bấm "Đồng bộ mã" lại.
+      }
+    }
+
     revalidatePath('/academic/campaigns')
-    return { id: data.id }
+    revalidatePath('/academic/evaluations')
+    revalidatePath('/portal')
+    return {
+      id: data.id,
+      createdTokenCount: sync.createdCount,
+      classCount: sync.classCount,
+    }
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Lỗi không xác định khi tạo đợt.',
+    }
+  }
+}
+
+export type CloseCampaignResult = { error: string } | { error?: undefined }
+
+export async function closeCampaign(campaignId: string): Promise<CloseCampaignResult> {
+  const parsed = requiredId('Thiếu ID đợt khảo sát.').safeParse(campaignId)
+  if (!parsed.success) return zodFail(parsed.error)
+
+  try {
+    const supabase = createClient()
+    const { data: campaign } = await supabase
+      .from('evaluation_campaigns')
+      .select('id, org_id, status')
+      .eq('id', parsed.data)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!campaign) return { error: 'Đợt khảo sát không tồn tại.' }
+
+    const authError = await assertCampusAdmin(campaign.org_id)
+    if (authError) return { error: authError }
+    if (campaign.status === 'closed') return {}
+
+    const { error } = await supabase
+      .from('evaluation_campaigns')
+      .update({ status: 'closed' })
+      .eq('id', parsed.data)
+    if (error) return { error: `Không đóng được đợt khảo sát: ${error.message}` }
+
+    revalidatePath('/academic/campaigns')
+    revalidatePath(`/academic/campaigns/${parsed.data}`)
+    revalidatePath('/academic/evaluations')
+    revalidatePath('/portal')
+    return {}
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Lỗi không xác định khi đóng đợt.',
     }
   }
 }
@@ -218,19 +305,26 @@ export async function getCampaignDetail(campaignId: string): Promise<CampaignDet
         status: campaign.status as 'active' | 'closed',
         orgId: campaign.org_id,
       },
-      classes: classes.map((cls) => {
-        const stat = tokenStats.get(cls.id) ?? { issued: 0, used: 0 }
-        return {
-          classId: cls.id,
-          className: cls.name,
-          teacherName: cls.teacher_id
-            ? (nameById.get(cls.teacher_id) ?? 'Chưa rõ')
-            : 'Chưa gán GV',
-          enrolledCount: enrolledByClass.get(cls.id) ?? 0,
-          issuedCount: stat.issued,
-          usedCount: stat.used,
-        }
-      }),
+      classes: classes
+        .map((cls) => {
+          const stat = tokenStats.get(cls.id) ?? { issued: 0, used: 0 }
+          return {
+            classId: cls.id,
+            className: cls.name,
+            teacherName: cls.teacher_id
+              ? (nameById.get(cls.teacher_id) ?? 'Chưa rõ')
+              : 'Chưa gán GV',
+            enrolledCount: enrolledByClass.get(cls.id) ?? 0,
+            issuedCount: stat.issued,
+            usedCount: stat.used,
+          }
+        })
+        // Ưu tiên lớp có HV / đã phát phiếu; lớp trống xếp cuối
+        .sort((a, b) => {
+          const score = (row: CampaignClassRow) =>
+            (row.issuedCount > 0 ? 2 : 0) + (row.enrolledCount > 0 ? 1 : 0)
+          return score(b) - score(a) || a.className.localeCompare(b.className, 'vi')
+        }),
     }
   } catch (error) {
     return {

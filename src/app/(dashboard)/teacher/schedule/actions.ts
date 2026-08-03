@@ -112,7 +112,7 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return { data: buildMockWeek(weekStartISO), demo: true }
+      return { data: [], demo: false }
     }
 
     let data: Record<string, unknown>[] | null = null
@@ -148,7 +148,7 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
     }
 
     if (error || !data) {
-      return { data: buildMockWeek(weekStartISO), demo: true }
+      return { data: [], demo: false }
     }
 
     const rows: TeachingSession[] = data.map((row) => {
@@ -171,7 +171,7 @@ export async function getMyWeekSessions(weekStartISO: string): Promise<{
     })
     return { data: rows, demo: false }
   } catch {
-    return { data: buildMockWeek(weekStartISO), demo: true }
+    return { data: [], demo: false }
   }
 }
 

@@ -153,24 +153,34 @@ function Particles() {
 }
 
 function SecretAdminBook() {
-  const [near, setNear] = useState(false)
+  const [revealed, setRevealed] = useState(false)
+
   useEffect(() => {
-    function onMove(e: MouseEvent) {
-      setNear(e.clientX <= 100 && e.clientY >= window.innerHeight - 100)
-    }
-    window.addEventListener('mousemove', onMove, { passive: true })
-    return () => window.removeEventListener('mousemove', onMove)
-  }, [])
+    if (!revealed) return
+    const timer = window.setTimeout(() => setRevealed(false), 8000)
+    return () => window.clearTimeout(timer)
+  }, [revealed])
+
   return (
-    <Link
-      href="/login/admin"
-      aria-label="Cổng quản trị hệ thống"
-      className={`lp-secret-book fixed bottom-4 left-4 z-50 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${
-        near ? 'is-near' : ''
-      }`}
-    >
-      <BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.6} />
-    </Link>
+    <>
+      {/* Vùng chạm góc trái dưới — bấm lần 1 lộ icon nhỏ */}
+      <button
+        type="button"
+        aria-label="Mở lối vào quản trị"
+        onClick={() => setRevealed(true)}
+        className="fixed bottom-0 left-0 z-50 h-14 w-14 cursor-default bg-transparent"
+      />
+      <Link
+        href="/login/admin"
+        aria-label="Cổng quản trị hệ thống"
+        tabIndex={revealed ? 0 : -1}
+        className={`lp-secret-book fixed bottom-4 left-4 z-50 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${
+          revealed ? 'is-near' : ''
+        }`}
+      >
+        <BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.6} />
+      </Link>
+    </>
   )
 }
 

@@ -43,7 +43,7 @@ export const LICENSE_PLANS: LicensePlan[] = [
   {
     key: 'advanced',
     label: 'Gói Nâng cao',
-    description: 'Thêm Tài chính - Học phí, Lương & Hợp đồng, CRM tuyển sinh, Giáo vụ & Khảo thí.',
+    description: 'Thêm Tài chính, CRM, Giáo vụ (TKB), Khảo thí riêng, LMS.',
     moduleKeys: [
       ...CORE_MODULE_KEYS,
       'teacher_schedule',
@@ -52,8 +52,16 @@ export const LICENSE_PLANS: LicensePlan[] = [
       'evaluations',
       'finance_invoices',
       'payroll_contracts',
+      'hr_personnel',
+      'hr_leave',
       'crm',
       'staff_ops',
+      'exams',
+      'facilities',
+      'lms',
+      'work_tasks',
+      'reports',
+      'assets',
     ],
   },
   {

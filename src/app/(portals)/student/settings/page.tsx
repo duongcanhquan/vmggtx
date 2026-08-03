@@ -75,7 +75,7 @@ export default function StudentSettingsPage() {
     setSigningOut(true)
     const supabase = createClient()
     await supabase.auth.signOut()
-    // Quay về đúng cổng đã đăng nhập (cơ sở -> /coso/[slug]/login?tab=family)
+    // Quay về đúng cổng đã đăng nhập (/{slug}/login?tab=family)
     router.replace(readLoginPortal() ?? '/student/login')
     router.refresh()
   }

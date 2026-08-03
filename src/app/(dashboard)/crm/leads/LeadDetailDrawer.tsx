@@ -20,6 +20,7 @@ import {
   addLeadActivity,
   claimLead,
   getLeadActivities,
+  getLeadById,
   getLeadPaymentInfo,
   softDeleteLead,
   updateLead,
@@ -134,7 +135,7 @@ function toLocalInput(iso: string | null): string {
 }
 
 export function LeadDetailDrawer({
-  lead,
+  lead: leadProp,
   subjects,
   sources,
   priorities,
@@ -155,6 +156,8 @@ export function LeadDetailDrawer({
   const [tab, setTab] = useState<
     'profile' | 'care' | 'edit' | 'payment' | 'ai'
   >('profile')
+  const [detail, setDetail] = useState<LeadCard>(leadProp)
+  const lead = detail
   const [activities, setActivities] = useState<LeadActivityRow[]>([])
   const [loadingActs, setLoadingActs] = useState(true)
   const [payment, setPayment] = useState<LeadPaymentInfo | null>(null)
@@ -163,10 +166,23 @@ export function LeadDetailDrawer({
   const readonly = lead.status === 'enrolled'
 
   useEffect(() => {
+    setDetail(leadProp)
+    let cancelled = false
+    ;(async () => {
+      const res = await getLeadById(leadProp.id)
+      if (cancelled || !res.data) return
+      setDetail(res.data)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [leadProp])
+
+  useEffect(() => {
     let cancelled = false
     ;(async () => {
       setLoadingActs(true)
-      const res = await getLeadActivities(lead.id)
+      const res = await getLeadActivities(leadProp.id)
       if (cancelled) return
       setActivities(res.data)
       setLoadingActs(false)
@@ -176,14 +192,14 @@ export function LeadDetailDrawer({
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chi reload khi doi lead
-  }, [lead.id])
+  }, [leadProp.id])
 
   useEffect(() => {
     if (tab !== 'payment') return
     let cancelled = false
     ;(async () => {
       setLoadingPay(true)
-      const res = await getLeadPaymentInfo(lead.id)
+      const res = await getLeadPaymentInfo(leadProp.id)
       if (cancelled) return
       setPayment(res.data)
       setLoadingPay(false)
@@ -193,7 +209,7 @@ export function LeadDetailDrawer({
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, lead.id])
+  }, [tab, leadProp.id])
 
   async function loadActs() {
     setLoadingActs(true)

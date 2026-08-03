@@ -29,7 +29,7 @@ import {
   type ModuleFeature,
   type ModuleGroupKey,
 } from '@/lib/licensing/moduleCatalog'
-import { MENU_SECTIONS, type MenuKey } from '@/lib/auth/menuRegistry'
+import { type MenuKey } from '@/lib/auth/menuRegistry'
 import {
   CUSTOM_PLAN_KEY,
   LICENSE_PLANS,
@@ -63,10 +63,6 @@ type ModData = Exclude<ModuleCenterData, { error: string }>
 
 const inputClass =
   'mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100'
-
-const SELLABLE_SECTIONS = MENU_SECTIONS.filter((section) =>
-  SELLABLE_MODULE_KEYS.includes(section.key)
-)
 
 function flagMatch(
   flag: ModuleFlagRow,
@@ -179,7 +175,7 @@ function GroupTabs({
 
 /**
  * NHÓM TÍNH NĂNG CON của 1 module — mỗi tính năng 1 dòng riêng
- * (tên + mô tả + công tắc) thay vì dàn phẳng, để dễ theo dõi và xử lý.
+ * (tên + mô tả đầy đủ + công tắc).
  */
 function FeatureGroup({
   features,
@@ -196,23 +192,30 @@ function FeatureGroup({
   return (
     <div className="mt-3 rounded-xl border border-dashed border-border bg-slate-50/60 px-3.5 py-2.5">
       <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-        Nhóm tính năng con · {features.length}
+        Tính năng con · bật/tắt riêng · {features.length}
       </p>
       <div className="mt-1 divide-y divide-slate-100">
         {features.map((feature) => {
           const off = isOff(feature.key)
           return (
-            <div key={feature.key} className="flex items-center justify-between gap-3 py-2">
+            <div key={feature.key} className="flex items-start justify-between gap-3 py-2.5">
               <div className="min-w-0">
-                <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-foreground">
                   {feature.label}
                   {off && (
                     <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-rose-600">
                       Tắt
                     </span>
                   )}
+                  {feature.routePrefix && (
+                    <span className="font-mono text-[10px] text-slate-400">
+                      {feature.routePrefix}
+                    </span>
+                  )}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">{feature.description}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {feature.description}
+                </p>
               </div>
               <Switch
                 on={!off}
@@ -224,6 +227,126 @@ function FeatureGroup({
           )
         })}
       </div>
+    </div>
+  )
+}
+
+/** Thẻ module gọn: cấp quyền là chính; chi tiết/công tắc nằm trong accordion. */
+function ModuleGrantCard({
+  mod,
+  granted,
+  offGlobal,
+  offOrg,
+  usageLabel,
+  licBusy,
+  flagBusy,
+  onAttach,
+  onDetach,
+  onToggleOrg,
+  featureProps,
+}: {
+  mod: (typeof MODULE_CATALOG)[number]
+  granted: boolean
+  offGlobal: boolean
+  offOrg: boolean
+  usageLabel?: string
+  licBusy: boolean
+  flagBusy: boolean
+  onAttach: () => void
+  onDetach: () => void
+  onToggleOrg: () => void
+  featureProps: {
+    isOff: (featureKey: string) => boolean
+    busyOf: (featureKey: string) => boolean
+    onToggle: (featureKey: string) => void
+  }
+}) {
+  const [open, setOpen] = useState(false)
+  const usable = granted && !offGlobal && !offOrg
+  return (
+    <div
+      className={`rounded-xl border px-3.5 py-2.5 ${
+        usable ? 'border-border bg-white' : 'border-border/80 bg-slate-50/80'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="text-sm font-semibold text-foreground">{mod.label}</p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                granted ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+              }`}
+            >
+              {granted ? 'Trong gói' : 'Ngoài gói'}
+            </span>
+            {offGlobal && (
+              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-700">
+                HQ tắt
+              </span>
+            )}
+            {granted && offOrg && !offGlobal && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
+                Tạm tắt
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+            {mod.summary}
+            {usageLabel ? ` · ${usageLabel}` : ''}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {granted ? (
+            <button
+              type="button"
+              disabled={licBusy}
+              onClick={onDetach}
+              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-60"
+            >
+              {licBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Gỡ'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={licBusy}
+              onClick={onAttach}
+              className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-60"
+            >
+              {licBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Cấp'}
+            </button>
+          )}
+          {granted && (
+            <Switch
+              on={!offOrg}
+              busy={flagBusy}
+              onToggle={onToggleOrg}
+              label={`Vận hành ${mod.label}`}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="text-[11px] font-semibold text-indigo-600 hover:underline"
+          >
+            {open ? 'Ẩn' : 'Chi tiết'}
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="mt-2 space-y-2 border-t border-border/70 pt-2">
+          <p className="text-xs leading-relaxed text-slate-600">{mod.howItWorks}</p>
+          {usable && (
+            <FeatureGroup
+              features={mod.features}
+              isOff={featureProps.isOff}
+              busyOf={featureProps.busyOf}
+              onToggle={featureProps.onToggle}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -277,21 +400,26 @@ function PlanPicker({
       <p className="mt-3 text-sm font-medium text-slate-700">
         Module đã bật ({selected.size}) - tick để tùy chỉnh:
       </p>
-      <div className="mt-2 grid max-h-52 gap-1 overflow-y-auto rounded-xl border border-slate-200 p-2 sm:grid-cols-2">
-        {SELLABLE_SECTIONS.map((section) => (
+      <div className="mt-2 grid max-h-64 gap-1 overflow-y-auto rounded-xl border border-slate-200 p-2 sm:grid-cols-1">
+        {MODULE_CATALOG.filter((m) => SELLABLE_MODULE_KEYS.includes(m.key)).map((mod) => (
           <label
-            key={section.key}
-            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-indigo-50"
+            key={mod.key}
+            className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm text-slate-700 hover:bg-indigo-50"
           >
             <input
               type="checkbox"
               name="moduleKeys"
-              value={section.key}
-              checked={selected.has(section.key)}
-              onChange={() => toggleModule(section.key)}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400"
+              value={mod.key}
+              checked={selected.has(mod.key)}
+              onChange={() => toggleModule(mod.key)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400"
             />
-            {section.label}
+            <span className="min-w-0">
+              <span className="block font-semibold text-slate-900">{mod.label}</span>
+              <span className="mt-0.5 block text-xs leading-snug text-slate-500">
+                {mod.summary}
+              </span>
+            </span>
           </label>
         ))}
       </div>
@@ -343,7 +471,7 @@ export default function ModuleCenterPage() {
   /** 'global' = công tắc toàn hệ thống; còn lại = id Đơn vị đang chọn */
   const [selectedOrg, setSelectedOrg] = useState<string>('global')
   /** Tab nhóm module đang xem ('all' = tất cả) */
-  const [activeGroup, setActiveGroup] = useState<ModuleGroupKey | 'all'>('all')
+  const [activeGroup, setActiveGroup] = useState<ModuleGroupKey | 'all'>('students')
 
   // Modal sửa gói
   const [editRow, setEditRow] = useState<CampusLicenseRow | null>(null)
@@ -627,11 +755,11 @@ export default function ModuleCenterPage() {
         <div>
           <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight text-foreground">
             <Blocks className="h-6 w-6 text-indigo-600" aria-hidden="true" />
-            Module &amp; Gói dịch vụ
+            Gói dịch vụ
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Chọn một Đơn vị để xem gói dịch vụ và ghép/gỡ/bật/tắt module cho Đơn vị đó —
-            hoặc chọn &quot;Toàn hệ thống&quot; để điều khiển chung.
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+            Chọn Đơn vị → chọn gói / cấp module. Tab nhóm giúp duyệt nhanh; bấm{' '}
+            <strong>Chi tiết</strong> khi cần mô tả và tính năng con.
           </p>
         </div>
         <button
@@ -772,11 +900,14 @@ export default function ModuleCenterPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-foreground">{mod.label}</p>
-                          <p className="truncate text-xs text-muted-foreground">
+                          <p className="text-xs leading-relaxed text-muted-foreground">
                             {mod.summary}
                             {usage
                               ? ` · ${usage.count.toLocaleString('vi-VN')} ${usage.label}`
                               : ''}
+                          </p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                            {mod.howItWorks}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -823,12 +954,12 @@ export default function ModuleCenterPage() {
                       {licenseBadge(selectedCampus)}
                       {selectedCampus.slug && (
                         <a
-                          href={`/coso/${selectedCampus.slug}/login`}
+                          href={`/${selectedCampus.slug}/login`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-violet-700 hover:underline"
                         >
-                          /coso/{selectedCampus.slug}/login
+                          /{selectedCampus.slug}/login
                           <ExternalLink className="h-3 w-3" aria-hidden="true" />
                         </a>
                       )}
@@ -911,8 +1042,12 @@ export default function ModuleCenterPage() {
               <div className="rounded-2xl border border-border bg-surface p-5">
                 <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
                   <Blocks className="h-4 w-4" aria-hidden="true" />
-                  Module của Đơn vị này
+                  Module trong gói
                 </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  <strong>Cấp</strong> = mở menu · <strong>Công tắc</strong> = tạm tắt ·{' '}
+                  <strong>Chi tiết</strong> = mô tả / tính năng con.
+                </p>
                 <div className="mt-3">
                   <GroupTabs
                     active={activeGroup}
@@ -937,94 +1072,39 @@ export default function ModuleCenterPage() {
                     const granted = inPackage(selectedCampus, mod.key)
                     const offGlobal = isDisabled(null, mod.key, null)
                     const offOrg = isDisabled(selectedCampus.id, mod.key, null)
-                    const licBusy = busyFlag === `lic:${selectedCampus.id}:${mod.key}`
                     const usage = modData.usage[mod.key]
                     return (
-                      <div
+                      <ModuleGrantCard
                         key={mod.key}
-                        className={`rounded-xl border px-4 py-3 ${
-                          granted && !offGlobal ? 'border-border' : 'border-border bg-slate-50/60'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground">{mod.label}</p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {mod.summary}
-                              {usage
-                                ? ` · ${usage.count.toLocaleString('vi-VN')} ${usage.label}`
-                                : ''}
-                            </p>
-                            {offGlobal && (
-                              <p className="mt-0.5 text-xs font-medium text-rose-600">
-                                Đang TẮT toàn hệ thống — bật lại ở mục &quot;Toàn hệ thống&quot;.
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            {granted ? (
-                              <button
-                                type="button"
-                                disabled={licBusy}
-                                onClick={() =>
-                                  void toggleLicenseModule(selectedCampus, mod.key, false)
-                                }
-                                title={`Gỡ "${mod.label}" khỏi gói của ${selectedCampus.name}`}
-                                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-wait disabled:opacity-60"
-                              >
-                                {licBusy ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                                ) : (
-                                  <PackageMinus className="h-3 w-3" aria-hidden="true" />
-                                )}
-                                Gỡ khỏi gói
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={licBusy}
-                                onClick={() =>
-                                  void toggleLicenseModule(selectedCampus, mod.key, true)
-                                }
-                                title={`Ghép "${mod.label}" vào gói của ${selectedCampus.name}`}
-                                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-wait disabled:opacity-60"
-                              >
-                                {licBusy ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                                ) : (
-                                  <PackagePlus className="h-3 w-3" aria-hidden="true" />
-                                )}
-                                Ghép vào gói
-                              </button>
-                            )}
-                            {granted && (
-                              <Switch
-                                on={!offOrg}
-                                busy={busyFlag === `${selectedCampus.id}:${mod.key}:`}
-                                onToggle={() =>
-                                  void toggleFlag(selectedCampus.id, mod.key, null)
-                                }
-                                label={`Bật/tắt ${mod.label} cho ${selectedCampus.name}`}
-                              />
-                            )}
-                          </div>
-                        </div>
-
-                        {granted && !offOrg && !offGlobal && (
-                          <FeatureGroup
-                            features={mod.features}
-                            isOff={(featureKey) =>
-                              isDisabled(selectedCampus.id, mod.key, featureKey)
-                            }
-                            busyOf={(featureKey) =>
-                              busyFlag === `${selectedCampus.id}:${mod.key}:${featureKey}`
-                            }
-                            onToggle={(featureKey) =>
-                              void toggleFlag(selectedCampus.id, mod.key, featureKey)
-                            }
-                          />
-                        )}
-                      </div>
+                        mod={mod}
+                        granted={granted}
+                        offGlobal={offGlobal}
+                        offOrg={offOrg}
+                        usageLabel={
+                          usage
+                            ? `${usage.count.toLocaleString('vi-VN')} ${usage.label}`
+                            : undefined
+                        }
+                        licBusy={busyFlag === `lic:${selectedCampus.id}:${mod.key}`}
+                        flagBusy={busyFlag === `${selectedCampus.id}:${mod.key}:`}
+                        onAttach={() =>
+                          void toggleLicenseModule(selectedCampus, mod.key, true)
+                        }
+                        onDetach={() =>
+                          void toggleLicenseModule(selectedCampus, mod.key, false)
+                        }
+                        onToggleOrg={() =>
+                          void toggleFlag(selectedCampus.id, mod.key, null)
+                        }
+                        featureProps={{
+                          isOff: (featureKey) =>
+                            isDisabled(selectedCampus.id, mod.key, featureKey),
+                          busyOf: (featureKey) =>
+                            busyFlag === `${selectedCampus.id}:${mod.key}:${featureKey}`,
+                          onToggle: (featureKey) =>
+                            void toggleFlag(selectedCampus.id, mod.key, featureKey),
+                        }}
+                      />
                     )
                   })}
                 </div>
@@ -1259,7 +1339,7 @@ export default function ModuleCenterPage() {
         </div>
       )}
 
-      {/* Sau khi tạo Đơn vị: hiện link cổng /coso/{slug} để gửi admin */}
+      {/* Sau khi tạo Đơn vị: hiện link cổng /{slug}/login để gửi admin */}
       {createdPortal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
@@ -1307,7 +1387,7 @@ export default function ModuleCenterPage() {
             </div>
             <p className="mt-2 text-xs text-slate-500">
               Super Admin đăng nhập tại <span className="font-mono">/login/admin</span>.
-              Đơn vị nhận link <span className="font-mono">/coso/…/login</span> (tab Nhà
+              Đơn vị nhận link <span className="font-mono">/…/login</span> (tab Nhà
               trường | Gia đình).
             </p>
             <div className="mt-5 flex justify-end gap-2">

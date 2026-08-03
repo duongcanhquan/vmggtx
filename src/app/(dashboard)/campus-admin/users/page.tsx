@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
+import { OrgStaffTabs } from '@/components/campus-admin/OrgStaffTabs'
 import { createUserSchema } from '@/lib/validation/schemas'
 import { MENU_SECTIONS, type MenuKey } from '@/lib/auth/menuRegistry'
 import {
@@ -215,28 +216,38 @@ export default function CampusAdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      {/* ===== Header ===== */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            Quản lý Nhân sự
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Chỉ tài khoản nhân viên / giáo viên. Học viên quản lý tại{' '}
-            <Link href="/students" className="font-semibold text-primary underline-offset-2 hover:underline">
-              Học sinh
-            </Link>
-            .
-          </p>
+      {/* ===== Header: Tổ chức nhân sự ===== */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+              Tổ chức nhân sự
+            </h1>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Quản lý cơ sở là cấp cao nhất trong cơ sở: setup tài khoản và phân quyền truy cập
+              từng phần cho thành viên. Học viên quản lý tại{' '}
+              <Link
+                href="/students"
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Học sinh
+              </Link>
+              .
+            </p>
+          </div>
+          <OrgStaffTabs />
         </div>
-        <button
-          type="button"
-          onClick={() => setFormOpen(true)}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <UserPlus className="h-4 w-4" aria-hidden="true" />
-          Thêm nhân sự mới
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-heading text-lg font-bold text-foreground">Tài khoản & Nhân viên</h2>
+          <button
+            type="button"
+            onClick={() => setFormOpen(true)}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <UserPlus className="h-4 w-4" aria-hidden="true" />
+            Thêm nhân sự mới
+          </button>
+        </div>
       </div>
 
       {isDemo && (
@@ -659,6 +670,9 @@ function EditUserModal({
   const [role, setRole] = useState(user.role)
   const [orgId, setOrgId] = useState(user.org_id ?? '')
   const [jobTitleId, setJobTitleId] = useState(user.job_title_id ?? '')
+  const [canViewFinancials, setCanViewFinancials] = useState(
+    user.role === 'campus_admin' || user.can_view_financials
+  )
   const [titles, setTitles] = useState<
     { id: string; name: string; suggested_role: string | null }[]
   >([])
@@ -696,6 +710,10 @@ function EditUserModal({
     formData.set('orgId', orgId)
     formData.set('phone', phone)
     formData.set('jobTitleId', jobTitleId)
+    formData.set(
+      'canViewFinancials',
+      role === 'campus_admin' || canViewFinancials ? 'true' : 'false'
+    )
     const result = await updateUserAccount(formData)
     setSaving(false)
     if (result.error) {
@@ -782,7 +800,11 @@ function EditUserModal({
               <select
                 id="edit-role"
                 value={role}
-                onChange={(e) => setRole(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setRole(next)
+                  if (next === 'campus_admin') setCanViewFinancials(true)
+                }}
                 className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {ASSIGNABLE_ROLE_OPTIONS.map((r) => (
@@ -843,10 +865,32 @@ function EditUserModal({
                 ))}
               </select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Tạo/sửa mẫu tại menu «Chức danh & mẫu quyền». Có thể chỉnh lệch thêm bằng «Gán
+                Tạo/sửa mẫu tại tab «Chức danh». Có thể chỉnh lệch thêm bằng «Gán
                 quyền kiêm nhiệm».
               </p>
             </div>
+          )}
+
+          {role !== 'student' && (
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-border bg-background px-3 py-3">
+              <input
+                type="checkbox"
+                checked={role === 'campus_admin' || canViewFinancials}
+                disabled={role === 'campus_admin'}
+                onChange={(e) => setCanViewFinancials(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              />
+              <span>
+                <span className="block text-sm font-medium text-foreground">
+                  Xem lương / đơn giá
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {role === 'campus_admin'
+                    ? 'Quản lý cơ sở luôn được xem dữ liệu tài chính trong phạm vi của mình.'
+                    : 'Bật cho kế toán hoặc nhân sự cần thao tác hợp đồng/lương.'}
+                </span>
+              </span>
+            </label>
           )}
 
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
@@ -986,9 +1030,9 @@ function GrantsModal({
         </div>
 
         <p className="mb-4 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900">
-          Tick hạng mục = nhân sự được <strong>mở menu, vào trang và thao tác dữ liệu</strong>{' '}
-          phần đó (cộng thêm vào quyền vai trò + chức danh). Các mục quản trị cơ sở (tài khoản,
-          cài đặt, phân quyền) vẫn yêu cầu vai trò Quản lý cơ sở.
+          Tick hạng mục = mở menu và thao tác phần đó (cộng thêm quyền vai trò kỹ thuật + chức
+          danh). Quản lý cơ sở là cấp cao nhất trong cơ sở — chỉ họ setup tài khoản, cài đặt và
+          phân quyền truy cập cho thành viên.
         </p>
 
         {loading ? (

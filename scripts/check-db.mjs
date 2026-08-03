@@ -322,6 +322,61 @@ console.log(
   '[INFO] 068_masv_student_code_sync.sql = data backfill (chạy SQL Editor). Không thêm bảng mới.'
 )
 
+console.log('\n-- Migration 069 (Performance CRM + dashboard aggregates) --')
+await checkFunction(
+  'crm_lead_activity_stats',
+  { p_lead_ids: [] },
+  '069_perf_crm_and_aggregates.sql'
+)
+await checkFunction(
+  'sum_org_payments',
+  { p_org_ids: [] },
+  '069_perf_crm_and_aggregates.sql'
+)
+
+console.log('\n-- Migration 070 (Phòng học meta) --')
+await checkColumn('facilities', 'capacity', '070_facility_room_meta.sql')
+await checkColumn('facilities', 'code', '070_facility_room_meta.sql')
+await checkColumn('facilities', 'location', '070_facility_room_meta.sql')
+await checkColumn('facilities', 'room_kind', '070_facility_room_meta.sql')
+
+console.log('\n-- Migration 071 (campus_admin xem tai chinh) --')
+await checkFunction('get_my_can_view_financials', {}, '071_campus_admin_view_financials.sql')
+
+console.log('\n-- Migration 072 (Ho so NS + giay to) --')
+await checkTable('staff_documents', '072_hr_personnel_dossier.sql')
+await checkColumn('teacher_contracts', 'probation_end_date', '072_hr_personnel_dossier.sql')
+
+console.log('\n-- Migration 073 (facilities type vehicle) --')
+console.log(
+  '[INFO] 073: facilities.type cho phep vehicle — chay 073_facility_vehicle_type.sql neu dat xe bao constraint.'
+)
+
+console.log('\n-- Migration 074 (thanh toan atomic + facility pending) --')
+await checkFunction(
+  'record_payment_atomic',
+  {
+    p_invoice_id: '00000000-0000-0000-0000-000000000000',
+    p_amount: 1,
+    p_payment_method: 'cash',
+    p_recorded_by: '00000000-0000-0000-0000-000000000000',
+  },
+  '074_payment_atomic_facility_pending.sql'
+)
+console.log(
+  '[INFO] 074: facility_bookings.status cho phep pending; exclusion chi confirmed.'
+)
+
+
+console.log('\n-- Migration 075 (module Khao thi: publish + pathways) --')
+await checkColumn('class_results', 'is_published', '075_exam_module_publish_pathways.sql')
+await checkColumn('assessments', 'is_official_exam', '075_exam_module_publish_pathways.sql')
+await checkTable('exam_paper_releases', '075_exam_module_publish_pathways.sql')
+await checkTable('learning_pathways', '075_exam_module_publish_pathways.sql')
+await checkTable('learning_pathway_milestones', '075_exam_module_publish_pathways.sql')
+await checkTable('student_pathway_enrollments', '075_exam_module_publish_pathways.sql')
+await checkTable('student_pathway_progress', '075_exam_module_publish_pathways.sql')
+
 console.log('\n-- Migration 999_final_rls_patch (BẢO MẬT) --')
 await checkFunction('is_org_related', { p_target_org_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')
 await checkFunction('teaches_student', { p_student_id: '00000000-0000-0000-0000-000000000000' }, '999_final_rls_patch')

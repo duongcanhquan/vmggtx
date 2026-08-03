@@ -122,8 +122,16 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
   other: 'Khác',
 }
 
-const LEAD_SELECT =
+/** Cột nhẹ cho danh sách / kanban / funnel — không kéo text dài hồ sơ */
+const LEAD_LIST_SELECT =
+  'id, org_id, full_name, phone, email, status, source, priority, notes, parent_name, next_follow_up_at, appointment_at, lost_reason, counselor_id, interested_subject_id, converted_student_id, created_at, updated_at, date_of_birth, gender, cccd, current_school, parent_phone, parent_email, deposit_amount, subjects(name), profiles!leads_counselor_id_fkey(full_name)'
+
+/** Đủ cột cho drawer chi tiết / form sửa */
+const LEAD_DETAIL_SELECT =
   'id, org_id, full_name, phone, email, status, source, priority, notes, date_of_birth, gender, cccd, address, current_school, education_level, career_interest, interests, preferred_schedule, call_summary, strengths, weaknesses, needs, potential_rating, deposit_amount, payment_notes, parent_name, parent_phone, parent_relation, parent_email, parent2_name, parent2_phone, parent2_relation, next_follow_up_at, appointment_at, lost_reason, counselor_id, interested_subject_id, converted_student_id, created_at, updated_at, subjects(name), profiles!leads_counselor_id_fkey(full_name)'
+
+/** @deprecated dùng LEAD_DETAIL_SELECT */
+const LEAD_SELECT = LEAD_DETAIL_SELECT
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '')
@@ -278,6 +286,67 @@ function emptyFunnel(): LeadFunnelStats {
   }
 }
 
+/** Tính funnel từ danh sách lead đã tải (dùng nội bộ + getLeadFunnelStats) */
+function buildFunnelFromLeads(leads: LeadCard[]): LeadFunnelStats {
+  const stats = emptyFunnel()
+  stats.total = leads.length
+  const counselorMap = new Map<string, LeadFunnelStats['byCounselor'][number]>()
+  const now = Date.now()
+  const weekAhead = now + 7 * 24 * 60 * 60 * 1000
+
+  for (const lead of leads) {
+    stats.byStatus[lead.status] = (stats.byStatus[lead.status] || 0) + 1
+
+    if (lead.source) {
+      const src = stats.bySource.find((s) => s.source === lead.source)
+      if (src) src.count += 1
+    } else {
+      const unk = stats.bySource.find((s) => s.source === 'unknown')
+      if (unk) unk.count += 1
+    }
+
+    if (lead.is_overdue) stats.overdueFollowUps += 1
+    if (
+      lead.appointment_at &&
+      new Date(lead.appointment_at).getTime() >= now &&
+      new Date(lead.appointment_at).getTime() <= weekAhead
+    ) {
+      stats.upcomingAppointments += 1
+    }
+
+    const key = lead.counselor_id ?? '__none__'
+    let row = counselorMap.get(key)
+    if (!row) {
+      row = {
+        counselorId: lead.counselor_id,
+        counselorName: lead.counselor_name ?? 'Chua phan cong',
+        total: 0,
+        enrolled: 0,
+        lost: 0,
+        inProgress: 0,
+        conversionRate: 0,
+      }
+      counselorMap.set(key, row)
+    }
+    row.total += 1
+    if (lead.status === 'enrolled') row.enrolled += 1
+    else if (lead.status === 'lost') row.lost += 1
+    else row.inProgress += 1
+  }
+
+  const closed = stats.byStatus.enrolled + stats.byStatus.lost
+  stats.conversionRate =
+    closed > 0 ? Math.round((stats.byStatus.enrolled / closed) * 1000) / 10 : 0
+  stats.byCounselor = [...counselorMap.values()]
+    .map((r) => ({
+      ...r,
+      conversionRate: r.total > 0 ? Math.round((r.enrolled / r.total) * 100) : 0,
+    }))
+    .sort((a, b) => b.enrolled - a.enrolled || b.total - a.total)
+
+  return stats
+}
+
 function mapLeadRow(
   row: Record<string, unknown>,
   activityMeta?: { count: number; lastAt: string | null }
@@ -399,11 +468,11 @@ export async function getLeads(
 
     const { data, error } = await supabase
       .from('leads')
-      .select(LEAD_SELECT)
+      .select(LEAD_LIST_SELECT)
       .in('org_id', orgIds)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(500)
+      .limit(300)
 
     if (error) {
       // Cot moi (052) chua chay → fallback select cot cu
@@ -416,7 +485,7 @@ export async function getLeads(
           .in('org_id', orgIds)
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
-          .limit(500)
+          .limit(300)
         if (legacy.error) {
           return { data: [], demo: false, error: legacy.error.message }
         }
@@ -466,24 +535,24 @@ export async function getLeads(
     const leadIds = (data || []).map((r) => r.id)
     const activityMeta = new Map<string, { count: number; lastAt: string | null }>()
     if (leadIds.length > 0) {
-      let actsQuery = await supabase
-        .from('lead_activities')
-        .select('lead_id, created_at')
-        .in('lead_id', leadIds)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-      if (actsQuery.error && /deleted_at|42703/i.test(actsQuery.error.message)) {
-        actsQuery = await supabase
-          .from('lead_activities')
-          .select('lead_id, created_at')
-          .in('lead_id', leadIds)
-          .order('created_at', { ascending: false })
+      // RPC 069: aggregate 1 round-trip — fallback bỏ meta nếu chưa chạy migration
+      const { data: stats, error: statsError } = await supabase.rpc(
+        'crm_lead_activity_stats',
+        { p_lead_ids: leadIds }
+      )
+      if (!statsError && stats) {
+        for (const row of stats as {
+          lead_id: string
+          activity_count: number | string
+          last_activity_at: string | null
+        }[]) {
+          activityMeta.set(row.lead_id, {
+            count: Number(row.activity_count) || 0,
+            lastAt: row.last_activity_at,
+          })
+        }
       }
-      for (const a of actsQuery.data || []) {
-        const cur = activityMeta.get(a.lead_id)
-        if (!cur) activityMeta.set(a.lead_id, { count: 1, lastAt: a.created_at })
-        else cur.count += 1
-      }
+      // Không fallback select toàn bộ activities (rất chậm trên DB lớn)
     }
 
     return {
@@ -497,6 +566,55 @@ export async function getLeads(
       data: [],
       demo: false,
       error: e instanceof Error ? e.message : 'Loi tai danh sach lead.',
+    }
+  }
+}
+
+/** Chi tiết 1 lead (drawer) — đủ cột hồ sơ */
+export async function getLeadById(
+  leadId: string
+): Promise<{ data: LeadCard | null; error?: string }> {
+  const idParsed = requiredId('Thieu lead id.').safeParse(leadId)
+  if (!idParsed.success) return { data: null, error: 'Thieu lead id.' }
+
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { data: null, error: 'Ban chua dang nhap.' }
+
+    const { data, error } = await supabase
+      .from('leads')
+      .select(LEAD_DETAIL_SELECT)
+      .eq('id', idParsed.data)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error) return { data: null, error: error.message }
+    if (!data) return { data: null, error: 'Khong tim thay lead.' }
+
+    const { data: stats } = await supabase.rpc('crm_lead_activity_stats', {
+      p_lead_ids: [idParsed.data],
+    })
+    const metaRow = (
+      stats as
+        | { lead_id: string; activity_count: number; last_activity_at: string | null }[]
+        | null
+    )?.[0]
+
+    return {
+      data: mapLeadRow(data as Record<string, unknown>, metaRow
+        ? {
+            count: Number(metaRow.activity_count) || 0,
+            lastAt: metaRow.last_activity_at,
+          }
+        : undefined),
+    }
+  } catch (e) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : 'Loi tai chi tiet lead.',
     }
   }
 }
@@ -544,20 +662,23 @@ export async function getCrmOptions(orgId: string): Promise<{
         .select('id, name')
         .eq('is_active', true)
         .is('deleted_at', null)
-        .order('name'),
+        .order('name')
+        .limit(200),
       supabase
         .from('classes')
         .select('id, name')
         .in('org_id', scopeOrgIds)
         .is('deleted_at', null)
-        .order('name'),
+        .order('name')
+        .limit(200),
       supabase
         .from('profiles')
         .select('id, full_name')
         .in('org_id', scopeOrgIds)
         .in('role', ['admission_staff', 'academic_staff', 'campus_admin'])
         .is('deleted_at', null)
-        .order('full_name'),
+        .order('full_name')
+        .limit(100),
     ])
 
     return {
@@ -587,66 +708,11 @@ export async function getCrmOptions(orgId: string): Promise<{
 export async function getLeadFunnelStats(
   orgId: string
 ): Promise<{ data: LeadFunnelStats; error?: string }> {
+  // Giữ API cũ cho chỗ khác — nhưng KHÔNG dùng chung với getLeads trên cùng page
+  // (sẽ double-fetch). Ưu tiên: page chỉ gọi getLeads rồi tự build funnel.
   const { data: leads, error } = await getLeads(orgId)
   if (error && leads.length === 0) return { data: emptyFunnel(), error }
-
-  const stats = emptyFunnel()
-  stats.total = leads.length
-  const counselorMap = new Map<string, LeadFunnelStats['byCounselor'][number]>()
-  const now = Date.now()
-  const weekAhead = now + 7 * 24 * 60 * 60 * 1000
-
-  for (const lead of leads) {
-    stats.byStatus[lead.status] = (stats.byStatus[lead.status] || 0) + 1
-
-    if (lead.source) {
-      const src = stats.bySource.find((s) => s.source === lead.source)
-      if (src) src.count += 1
-    } else {
-      const unk = stats.bySource.find((s) => s.source === 'unknown')
-      if (unk) unk.count += 1
-    }
-
-    if (lead.is_overdue) stats.overdueFollowUps += 1
-    if (
-      lead.appointment_at &&
-      new Date(lead.appointment_at).getTime() >= now &&
-      new Date(lead.appointment_at).getTime() <= weekAhead
-    ) {
-      stats.upcomingAppointments += 1
-    }
-
-    const key = lead.counselor_id ?? '__none__'
-    let row = counselorMap.get(key)
-    if (!row) {
-      row = {
-        counselorId: lead.counselor_id,
-        counselorName: lead.counselor_name ?? 'Chua phan cong',
-        total: 0,
-        enrolled: 0,
-        lost: 0,
-        inProgress: 0,
-        conversionRate: 0,
-      }
-      counselorMap.set(key, row)
-    }
-    row.total += 1
-    if (lead.status === 'enrolled') row.enrolled += 1
-    else if (lead.status === 'lost') row.lost += 1
-    else row.inProgress += 1
-  }
-
-  const closed = stats.byStatus.enrolled + stats.byStatus.lost
-  stats.conversionRate =
-    closed > 0 ? Math.round((stats.byStatus.enrolled / closed) * 1000) / 10 : 0
-  stats.byCounselor = [...counselorMap.values()]
-    .map((r) => ({
-      ...r,
-      conversionRate: r.total > 0 ? Math.round((r.enrolled / r.total) * 100) : 0,
-    }))
-    .sort((a, b) => b.enrolled - a.enrolled || b.total - a.total)
-
-  return { data: stats, error }
+  return { data: buildFunnelFromLeads(leads), error }
 }
 
 export async function getLeadActivities(
@@ -1387,6 +1453,11 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
     if (!targetClass) {
       return { error: 'Lop hoc khong ton tai hoac khong thuoc pham vi cua ban.' }
     }
+    if (targetClass.org_id !== lead.org_id) {
+      return {
+        error: 'Lop hoc khong thuoc cung co so voi lead — khong nhap hoc cheo don vi.',
+      }
+    }
     if (targetClass.status === 'closed' || targetClass.status === 'cancelled') {
       return { error: 'Lop da dong/huy — khong the nhap hoc.' }
     }
@@ -1489,7 +1560,7 @@ export async function convertLeadToStudent(formData: FormData): Promise<ActionRe
     }
 
     const { error: enrollError } = await admin.from('enrollments').insert({
-      org_id: targetClass.org_id,
+      org_id: lead.org_id,
       class_id: targetClass.id,
       student_id: studentId,
       status: 'active',

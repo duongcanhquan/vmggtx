@@ -33,7 +33,6 @@ import {
   convertLeadToStudent,
   createLead,
   getCrmOptions,
-  getLeadFunnelStats,
   getLeads,
   updateLeadStatus,
   type LeadCard,
@@ -42,6 +41,7 @@ import {
   type Option,
   SOURCE_LABELS,
 } from './actions'
+import { buildFunnelFromLeads } from './funnelStats'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { LeadDetailDrawer } from './LeadDetailDrawer'
 
@@ -828,26 +828,30 @@ export default function CrmLeadsPage() {
       return
     }
     setLoading(true)
-    const [leadResult, options, funnelResult] = await Promise.all([
-      getLeads(currentOrgId),
-      getCrmOptions(currentOrgId),
-      getLeadFunnelStats(currentOrgId),
-    ])
-    setLeads(leadResult.data)
-    setLoadError(leadResult.error || options.error || funnelResult.error || null)
-    setSubjects(options.subjects)
-    setClasses(options.classes)
-    setCounselors(options.counselors)
-    setSources(options.sources)
-    setPriorities(options.priorities)
-    setActivityTypes(options.activityTypes)
-    setFunnel(funnelResult.data)
-    setLoading(false)
-
-    // Keep detail drawer in sync
-    setDetailLead((prev) =>
-      prev ? leadResult.data.find((l) => l.id === prev.id) || null : null
-    )
+    try {
+      const [leadResult, options] = await Promise.all([
+        getLeads(currentOrgId),
+        getCrmOptions(currentOrgId),
+      ])
+      setLeads(leadResult.data)
+      setFunnel(buildFunnelFromLeads(leadResult.data))
+      setLoadError(leadResult.error || options.error || null)
+      setSubjects(options.subjects)
+      setClasses(options.classes)
+      setCounselors(options.counselors)
+      setSources(options.sources)
+      setPriorities(options.priorities)
+      setActivityTypes(options.activityTypes)
+      setDetailLead((prev) =>
+        prev ? leadResult.data.find((l) => l.id === prev.id) || null : null
+      )
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Không tải được dữ liệu CRM.')
+      setLeads([])
+      setFunnel(null)
+    } finally {
+      setLoading(false)
+    }
   }, [currentOrgId])
 
   useEffect(() => {

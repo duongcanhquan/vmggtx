@@ -78,7 +78,11 @@ export default function CampaignsPage() {
       setToast({ type: 'error', message: result.error })
       return
     }
-    setToast({ type: 'success', message: 'Đã tạo đợt khảo sát.' })
+    const tokenHint =
+      result.createdTokenCount > 0
+        ? ` Đã phát ${result.createdTokenCount} phiếu cho ${result.classCount} lớp.`
+        : ' Có thể đồng bộ lại mã trên trang chi tiết nếu chưa có phiếu.'
+    setToast({ type: 'success', message: `Đã mở đợt khảo sát.${tokenHint}` })
     setShowForm(false)
     reset()
     router.push(`/academic/campaigns/${result.id}`)
@@ -86,10 +90,10 @@ export default function CampaignsPage() {
 
   return (
     <RoleGuard
-      allowedRoles={['super_admin', 'campus_admin']}
+      allowedRoles={['campus_admin', 'academic_staff']}
       fallback={
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          Chỉ Campus Admin / Super Admin được quản lý đợt khảo sát.
+          Chỉ Quản lý cơ sở / Giáo vụ được quản lý đợt khảo sát.
         </p>
       }
     >
@@ -100,6 +104,10 @@ export default function CampaignsPage() {
               <Vote className="h-7 w-7 text-primary" aria-hidden="true" />
               Đợt khảo sát Giáo viên
             </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Mở đợt = bật đánh giá trong kỳ. Hệ thống tự phát phiếu cho học sinh các lớp đang học
+              (mỗi lớp 1 lần / kỳ).
+            </p>
           </div>
           <button
             type="button"
@@ -107,7 +115,7 @@ export default function CampaignsPage() {
             className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Tạo đợt khảo sát
+            Mở đợt khảo sát
           </button>
         </div>
 
@@ -171,7 +179,7 @@ export default function CampaignsPage() {
           >
             <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-5 shadow-xl">
               <div className="flex items-center justify-between">
-                <h2 className="font-heading text-lg font-bold">Tạo đợt khảo sát</h2>
+                <h2 className="font-heading text-lg font-bold">Mở đợt khảo sát (1 kỳ)</h2>
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
@@ -190,7 +198,7 @@ export default function CampaignsPage() {
                   <input
                     id="name"
                     {...register('name')}
-                    placeholder="VD: Khảo sát cuối kỳ 1"
+                    placeholder="VD: Đánh giá GV — Học kỳ 1/2026"
                     className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   {errors.name && (
@@ -237,7 +245,7 @@ export default function CampaignsPage() {
                   ) : (
                     <Plus className="h-4 w-4" aria-hidden="true" />
                   )}
-                  Tạo đợt khảo sát
+                  Mở đợt & phát phiếu cho học sinh
                 </button>
               </form>
             </div>

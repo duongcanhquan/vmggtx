@@ -77,6 +77,16 @@ export default function UnitProfilePage() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (loading || !profile) return
+    if (typeof window === 'undefined') return
+    if (window.location.hash !== '#admins') return
+    const t = window.setTimeout(() => {
+      document.getElementById('admins')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+    return () => window.clearTimeout(t)
+  }, [loading, profile])
+
   if (loading) return <FunLoader label="Đang tải hồ sơ Đơn vị…" />
   if (loadError) {
     return (
@@ -135,7 +145,7 @@ export default function UnitProfilePage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 font-mono text-xs font-semibold text-violet-700 transition hover:bg-violet-100"
               >
-                /coso/{org.slug}/login
+                /{org.slug}/login
                 <ExternalLink className="h-3 w-3" aria-hidden="true" />
               </a>
             )}
@@ -145,23 +155,30 @@ export default function UnitProfilePage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <a
+            href="#admins"
+            className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+          >
+            <UserCog className="h-4 w-4" aria-hidden="true" />
+            Admin Đơn vị
+          </a>
           <button
             type="button"
             onClick={() => {
               setCurrentOrgId(org.id)
               router.push('/campus-admin/users')
             }}
-            className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
-            <UserCog className="h-4 w-4" aria-hidden="true" />
-            Quản lý Admin & nhân sự
+            <Users className="h-4 w-4" aria-hidden="true" />
+            Toàn bộ nhân sự
           </button>
           <Link
             href="/admin/modules"
             className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <Blocks className="h-4 w-4" aria-hidden="true" />
-            Trung tâm Module
+            Gói dịch vụ
           </Link>
         </div>
       </div>
@@ -401,12 +418,17 @@ function UnitAdminsSection({ orgId, orgName }: { orgId: string; orgName: string 
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5">
+    <div id="admins" className="scroll-mt-24 rounded-2xl border border-border bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-          <UserCog className="h-4 w-4" aria-hidden="true" />
-          Admin Đơn vị ({admins.length}) &amp; Người liên hệ
-        </h2>
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+            <UserCog className="h-4 w-4" aria-hidden="true" />
+            Admin Đơn vị ({admins.length})
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Tạo · sửa · đặt lại mật khẩu · xóa tài khoản quản lý của Đơn vị này.
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}

@@ -243,7 +243,7 @@ export default function AdminOrganizationsPage() {
               title={`Mở cổng ${campusPortalPath(counts.slug)}`}
               className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-violet-700 transition hover:bg-violet-100"
             >
-              /coso/{counts.slug}/login
+              /{counts.slug}/login
               <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </a>
           )}
@@ -268,30 +268,49 @@ export default function AdminOrganizationsPage() {
             <span className="flex shrink-0 items-center gap-1">
               {(node.type === 'campus' ||
                 (node.parent_id !== null && rootIdSet.has(node.parent_id))) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/admin/organizations/${node.id}`)}
+                    title={`Hồ sơ Đơn vị: ${node.name}`}
+                    aria-label={`Hồ sơ Đơn vị ${node.name}`}
+                    className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-slate-500 transition-colors hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Hồ sơ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(`/admin/organizations/${node.id}#admins`)
+                    }
+                    title={`Tạo / sửa / xóa Admin của ${node.name}`}
+                    aria-label={`Quản lý Admin của ${node.name}`}
+                    className="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-50 px-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <UserCog className="h-3.5 w-3.5" aria-hidden="true" />
+                    Admin
+                  </button>
+                </>
+              )}
+              {/* Nhân sự chi tiết (campus_admin): chỉ khi không phải super xem cấp 1 */}
+              {!(
+                node.type === 'campus' ||
+                (node.parent_id !== null && rootIdSet.has(node.parent_id))
+              ) && (
                 <button
                   type="button"
-                  onClick={() => router.push(`/admin/organizations/${node.id}`)}
-                  title={`Hồ sơ Đơn vị: ${node.name} — nhân sự, học viên, module đang hoạt động`}
-                  aria-label={`Hồ sơ Đơn vị ${node.name}`}
-                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => {
+                    setCurrentOrgId(node.id)
+                    router.push('/campus-admin/users')
+                  }}
+                  title={`Nhân sự của ${node.name}`}
+                  aria-label={`Nhân sự ${node.name}`}
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-emerald-100 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                  <UserCog className="h-4 w-4" aria-hidden="true" />
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  // Chọn đơn vị này làm ngữ cảnh rồi mở trang tài khoản:
-                  // Super Admin quản lý Admin của cơ sở ngay tại đây.
-                  setCurrentOrgId(node.id)
-                  router.push('/campus-admin/users')
-                }}
-                title={`Quản lý Admin & nhân sự của ${node.name}`}
-                aria-label={`Quản lý Admin của ${node.name}`}
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-emerald-100 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <UserCog className="h-4 w-4" aria-hidden="true" />
-              </button>
               {/* Thêm nhánh con: chỉ Admin Đơn vị — Super Admin không tổ chức bên trong */}
               {!isSuperAdmin && (
                 <button
@@ -379,7 +398,7 @@ export default function AdminOrganizationsPage() {
       {canManage && !loading && (
         <p className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
           {isSuperAdmin
-            ? 'Bạn quản lý ở CẤP ĐƠN VỊ (Trường): tạo/sửa/xóa Đơn vị, gán Admin và gói module. Các Cơ sở/Trung tâm bên trong chỉ hiển thị để xem — Admin của Đơn vị đó tự tổ chức.'
+            ? 'Bạn quản lý ở CẤP ĐƠN VỊ (Trường): tạo/sửa/xóa Đơn vị. Nút Admin mở hồ sơ để tạo·sửa·xóa tài khoản Admin của Đơn vị. Gói module cấu hình tại Gói dịch vụ. Các Cơ sở/Trung tâm bên trong chỉ xem.'
             : 'Bên trong Đơn vị bạn được tạo tối đa 3 cấp: Đơn vị → Cơ sở → Trung tâm. Học viên, giảng viên đều thuộc Đơn vị — cơ sở chỉ là nơi học/làm việc.'}
         </p>
       )}
@@ -471,7 +490,7 @@ export default function AdminOrganizationsPage() {
                 <span className="mt-1 block text-xs font-normal text-slate-500">
                   Cổng đăng nhập:{' '}
                   <span className="font-mono text-indigo-600">
-                    /coso/{createSlug || '…'}/login
+                    /{createSlug || '…'}/login
                   </span>
                 </span>
               </label>
@@ -608,7 +627,7 @@ export default function AdminOrganizationsPage() {
                     rel="noopener noreferrer"
                     className="font-mono font-semibold text-indigo-600 hover:underline"
                   >
-                    /coso/{editSlug || '…'}/login
+                    /{editSlug || '…'}/login
                   </a>
                 </span>
               </label>

@@ -28,8 +28,8 @@ const SUPER_NAV: PortalNavGroup[] = [
     items: [
       { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
       { label: 'Quản lý Đơn vị', href: '/admin/organizations', icon: Building2 },
-      { label: 'Module & Gói dịch vụ', href: '/admin/modules', icon: Blocks },
-      { label: 'Cài đặt toàn cục', href: '/admin/settings', icon: Settings },
+      { label: 'Gói dịch vụ', href: '/admin/modules', icon: Blocks },
+      { label: 'Cài đặt chung', href: '/admin/settings', icon: Settings },
     ],
   },
 ]
@@ -39,7 +39,7 @@ const ADMIN_NAV: PortalNavGroup[] = [
     items: [
       { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
       { label: 'Cơ sở & Trung tâm', href: '/admin/organizations', icon: Building2 },
-      { label: 'Quản lý Nhân sự', href: '/campus-admin/users', icon: Users },
+      { label: 'Tổ chức nhân sự', href: '/campus-admin/users', icon: Users },
       { label: 'Cổng dịch vụ', href: '/admin/requests', icon: TicketCheck },
       { label: 'Cài đặt Hệ thống', href: '/settings', icon: Settings },
       { label: 'Báo cáo Doanh thu', href: '/admin/revenue', icon: BarChart3 },

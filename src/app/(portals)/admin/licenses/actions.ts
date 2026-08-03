@@ -35,7 +35,7 @@ export interface CampusLicenseRow {
   id: string
   name: string
   parentName: string | null
-  /** Slug cổng /coso/{slug} — null nếu chưa chạy 045 */
+  /** Slug cổng /{slug}/login — null nếu chưa chạy 045 */
   slug: string | null
   studentCount: number
   license: LicenseRow | null
@@ -275,7 +275,7 @@ export type ProvisionCampusResult =
   | { error: string }
   | {
       error?: undefined
-      /** VD: /coso/cau-giay/login — gửi cho admin cơ sở đăng nhập */
+      /** VD: /viet-my/login — gửi cho admin cơ sở đăng nhập */
       portalPath: string
       slug: string | null
       campusName: string
@@ -337,7 +337,7 @@ export async function provisionCampus(
       }
     }
 
-    // BƯỚC 1: tạo cơ sở (+ slug cổng /coso/[slug] nếu đã có cột 045)
+    // BƯỚC 1: tạo cơ sở (+ slug cổng /{slug}/login nếu đã có cột 045)
     const baseSlug = slugifyOrgName(parsed.data.campusName)
     let campusSlug = baseSlug
     let slugColumnReady = true
@@ -455,9 +455,8 @@ export async function provisionCampus(
     invalidateOrgScopeCache()
     revalidatePath('/admin/modules')
     revalidatePath('/admin/organizations')
-    revalidatePath('/coso')
     return {
-      portalPath: savedSlug ? `/coso/${savedSlug}/login` : '/login',
+      portalPath: savedSlug ? `/${savedSlug}/login` : '/login',
       slug: savedSlug,
       campusName: parsed.data.campusName,
       adminEmail: parsed.data.adminEmail,

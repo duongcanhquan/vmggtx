@@ -29,6 +29,8 @@ export type GlobalSettingsResult = {
   /** Số org con đã tự ghi đè config riêng (có record org_settings) */
   overrideCount: number
   demo: boolean
+  /** Lý do đang dùng fallback demo (auth/DB) — hiện banner trên UI */
+  loadError?: string | null
 }
 
 const FALLBACK_VALUES: GlobalSettingsValues = {
@@ -69,6 +71,7 @@ export async function getGlobalSettings(): Promise<GlobalSettingsResult> {
         hasApiKey: false,
         overrideCount: 0,
         demo: true,
+        loadError: auth.error,
       }
     }
 
@@ -90,6 +93,7 @@ export async function getGlobalSettings(): Promise<GlobalSettingsResult> {
         hasApiKey: false,
         overrideCount: 0,
         demo: true,
+        loadError: 'Chưa có tổ chức HQ (org gốc). Tạo đơn vị gốc rồi tải lại.',
       }
     }
 
@@ -127,8 +131,9 @@ export async function getGlobalSettings(): Promise<GlobalSettingsResult> {
         typeof config.openai_api_key === 'string' && config.openai_api_key.length > 0,
       overrideCount: overridesResult.count ?? 0,
       demo: false,
+      loadError: null,
     }
-  } catch {
+  } catch (e) {
     return {
       rootOrgId: null,
       rootOrgName: 'Tổng công ty (HQ)',
@@ -136,6 +141,7 @@ export async function getGlobalSettings(): Promise<GlobalSettingsResult> {
       hasApiKey: false,
       overrideCount: 0,
       demo: true,
+      loadError: e instanceof Error ? e.message : 'Không tải được cài đặt HQ.',
     }
   }
 }

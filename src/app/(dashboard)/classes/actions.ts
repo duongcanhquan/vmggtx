@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { createClassSchema, zodFail } from '@/lib/validation/schemas'
 
 export type ClassRow = {
@@ -22,25 +23,6 @@ export type ClassRow = {
 
 export type ActionResult = { error: string } | { error?: undefined }
 
-/**
- * Lấy danh sách org_id trong subtree (org + toàn bộ con/cháu) qua RPC.
- * "Dữ liệu của ai người nấy quản": cấp trên thấy cấp dưới, ngang hàng không thấy nhau.
- */
-async function getOrgSubtreeIds(
-  supabase: ReturnType<typeof createClient>,
-  orgId: string
-): Promise<{ ids: string[]; error?: string }> {
-  const { data, error } = await supabase.rpc('get_descendant_org_ids', {
-    p_org_id: orgId,
-  })
-  if (error) {
-    return { ids: [], error: `Lỗi truy vấn cây tổ chức: ${error.message}` }
-  }
-  const ids = (data ?? []) as string[]
-  // Phòng hờ: luôn bao gồm chính org đang chọn
-  return { ids: ids.includes(orgId) ? ids : [orgId, ...ids] }
-}
-
 /** Fetch danh sách lớp của org đang chọn + mọi org con/cháu (Supabase SSR client). */
 export async function getClasses(
   orgId: string | null
@@ -51,17 +33,18 @@ export async function getClasses(
 
   try {
     const supabase = createClient()
-    const subtree = await getOrgSubtreeIds(supabase, orgId)
-    if (subtree.error) return { data: [], error: subtree.error }
+    const ids = await getDescendantOrgIds(supabase, orgId)
+    const scope = ids.includes(orgId) ? ids : [orgId, ...ids]
 
     const { data, error } = await supabase
       .from('classes')
       .select(
         'id, name, teacher_id, subject_id, org_id, start_date, end_date, created_at, profiles!classes_teacher_id_fkey(full_name), subjects(name), organizations(name)'
       )
-      .in('org_id', subtree.ids)
+      .in('org_id', scope)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
+      .limit(300)
 
     if (error) {
       return { data: [], error: `Lỗi tải danh sách lớp: ${error.message}` }
@@ -135,16 +118,17 @@ export async function getTeachersInOrg(
   if (!orgId) return { data: [] }
   try {
     const supabase = createClient()
-    const subtree = await getOrgSubtreeIds(supabase, orgId)
-    if (subtree.error) return { data: [], error: subtree.error }
+    const ids = await getDescendantOrgIds(supabase, orgId)
+    const scope = ids.includes(orgId) ? ids : [orgId, ...ids]
 
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name')
       .eq('role', 'teacher')
-      .in('org_id', subtree.ids)
+      .in('org_id', scope)
       .is('deleted_at', null)
       .order('full_name')
+      .limit(200)
 
     if (error) return { data: [], error: error.message }
     return { data: data ?? [] }
@@ -193,9 +177,8 @@ export async function createClass(formData: FormData): Promise<ActionResult> {
       return { error: 'TỪ CHỐI: Bạn không có quyền tạo lớp trên cơ sở này.' }
     }
 
-    const subtree = await getOrgSubtreeIds(supabase, orgId)
-    if (subtree.error) return { error: subtree.error }
-    const allowedOrgIds = new Set(subtree.ids)
+    const ids = await getDescendantOrgIds(supabase, orgId)
+    const allowedOrgIds = new Set(ids.includes(orgId) ? ids : [orgId, ...ids])
 
     // ===== CHECK 1: Giáo viên phải thuộc org đang chọn hoặc org con/cháu =====
     if (teacherId) {

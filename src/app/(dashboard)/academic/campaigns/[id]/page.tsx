@@ -12,6 +12,8 @@ import {
   KeyRound,
   Link2,
   Loader2,
+  Lock,
+  RefreshCw,
   Users,
   Vote,
 } from 'lucide-react'
@@ -19,9 +21,11 @@ import { RoleGuard } from '@/components/shared/RoleGuard'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import {
   generateEvaluationTokens,
+  syncCampaignEvaluationTokens,
   type IssuedToken,
 } from '@/lib/actions/evaluations'
 import {
+  closeCampaign,
   getCampaignDetail,
   type CampaignClassRow,
   type CampaignRow,
@@ -29,10 +33,7 @@ import {
 import { FunLoader } from '@/components/shared/FunLoader'
 
 // ============================================================
-// PHÂN PHỐI MÃ ĐÁNH GIÁ (/academic/campaigns/[id])
-// Admin bấm "Sinh mã đánh giá cho Lớp X" -> danh sách học sinh kèm
-// link public domain.com/evaluations/TOKEN -> "Copy link gửi Zalo".
-// Link này cũng tự hiện trên Dashboard Cổng học sinh (/portal).
+// PHÂN PHỐI / ĐỒNG BỘ PHIẾU ĐÁNH GIÁ (/academic/campaigns/[id])
 // ============================================================
 
 function formatVnDate(iso: string): string {
@@ -50,6 +51,8 @@ export default function CampaignDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [generatingFor, setGeneratingFor] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [closing, setClosing] = useState(false)
   const [activeClass, setActiveClass] = useState<CampaignClassRow | null>(null)
   const [tokens, setTokens] = useState<IssuedToken[]>([])
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
@@ -109,6 +112,37 @@ export default function CampaignDetailPage() {
     loadData()
   }
 
+  async function handleSyncAll() {
+    setSyncing(true)
+    const result = await syncCampaignEvaluationTokens(campaignId)
+    setSyncing(false)
+    if (result.error !== undefined) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({
+      type: 'success',
+      message:
+        result.createdCount > 0
+          ? `Đã đồng bộ: +${result.createdCount} phiếu · ${result.classCount} lớp · tổng ${result.totalIssued} phiếu.`
+          : `Đã đủ phiếu (${result.totalIssued}) cho ${result.classCount} lớp có học sinh.`,
+    })
+    loadData()
+  }
+
+  async function handleClose() {
+    if (!window.confirm('Đóng đợt này? Học sinh sẽ không nộp thêm phiếu đánh giá.')) return
+    setClosing(true)
+    const result = await closeCampaign(campaignId)
+    setClosing(false)
+    if (result.error !== undefined) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({ type: 'success', message: 'Đã đóng đợt khảo sát.' })
+    loadData()
+  }
+
   function copyAllLinks() {
     const lines = tokens
       .filter((t) => !t.isUsed)
@@ -117,41 +151,79 @@ export default function CampaignDetailPage() {
     copyToClipboard(lines, '__all__')
   }
 
+  const issuedTotal = classes.reduce((sum, cls) => sum + cls.issuedCount, 0)
+  const usedTotal = classes.reduce((sum, cls) => sum + cls.usedCount, 0)
+  const enrolledTotal = classes.reduce((sum, cls) => sum + cls.enrolledCount, 0)
+
   return (
     <RoleGuard
-      allowedRoles={['super_admin', 'campus_admin']}
+      allowedRoles={['campus_admin', 'academic_staff']}
       fallback={
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          Chỉ Campus Admin / Super Admin được phân phối mã khảo sát.
+          Chỉ Quản lý cơ sở / Giáo vụ được phân phối mã khảo sát.
         </p>
       }
     >
       <div className="space-y-6">
-        <div>
-          <Link
-            href="/academic/campaigns"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Tất cả đợt khảo sát
-          </Link>
-          <h1 className="mt-2 flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            <Vote className="h-7 w-7 text-primary" aria-hidden="true" />
-            {campaign ? campaign.name : 'Đợt khảo sát'}
-          </h1>
-          {campaign && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {formatVnDate(campaign.startDate)} – {formatVnDate(campaign.endDate)} ·{' '}
-              <span
-                className={
-                  campaign.status === 'active'
-                    ? 'font-semibold text-emerald-600'
-                    : 'font-semibold text-slate-500'
-                }
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <Link
+              href="/academic/campaigns"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Tất cả đợt khảo sát
+            </Link>
+            <h1 className="mt-2 flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+              <Vote className="h-7 w-7 text-primary" aria-hidden="true" />
+              {campaign ? campaign.name : 'Đợt khảo sát'}
+            </h1>
+            {campaign && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {formatVnDate(campaign.startDate)} – {formatVnDate(campaign.endDate)} ·{' '}
+                <span
+                  className={
+                    campaign.status === 'active'
+                      ? 'font-semibold text-emerald-600'
+                      : 'font-semibold text-slate-500'
+                  }
+                >
+                  {campaign.status === 'active' ? 'Đang mở' : 'Đã đóng'}
+                </span>
+                {' · '}
+                {usedTotal}/{issuedTotal} phiếu đã nộp · {enrolledTotal} HV ghi danh
+              </p>
+            )}
+          </div>
+          {campaign && campaign.status === 'active' && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleSyncAll}
+                disabled={syncing || closing}
+                className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 text-sm font-semibold text-primary hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {campaign.status === 'active' ? 'Đang mở' : 'Đã đóng'}
-              </span>
-            </p>
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                )}
+                Đồng bộ phiếu (HV mới)
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={closing || syncing}
+                className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-foreground hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {closing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Lock className="h-4 w-4" aria-hidden="true" />
+                )}
+                Đóng đợt
+              </button>
+            </div>
           )}
         </div>
 
@@ -166,7 +238,6 @@ export default function CampaignDetailPage() {
         ) : (
           campaign && (
             <div className="grid gap-4 lg:grid-cols-[1fr_440px]">
-              {/* ===== Danh sách lớp trong phạm vi đợt ===== */}
               <div className="space-y-3">
                 {classes.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
@@ -193,7 +264,7 @@ export default function CampaignDetailPage() {
                           GV: {cls.teacherName} · {cls.enrolledCount} HS ghi danh ·{' '}
                           {cls.issuedCount > 0
                             ? `${cls.usedCount}/${cls.issuedCount} đã đánh giá`
-                            : 'chưa phát mã'}
+                            : 'chưa có phiếu'}
                         </p>
                       </div>
                       <button
@@ -207,20 +278,20 @@ export default function CampaignDetailPage() {
                         ) : (
                           <KeyRound className="h-4 w-4" aria-hidden="true" />
                         )}
-                        Sinh mã đánh giá cho Lớp {cls.className}
+                        {cls.issuedCount > 0 ? 'Xem / bổ sung mã' : 'Sinh mã lớp'}
                       </button>
                     </div>
                   ))
                 )}
               </div>
 
-              {/* ===== Panel token + copy link Zalo ===== */}
               <div>
                 {!activeClass ? (
                   <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
                     <Users className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                     <p className="text-sm text-muted-foreground">
-                      Chọn một lớp để sinh mã đánh giá.
+                      Học sinh thấy phiếu trên Cổng học sinh khi đợt đang mở. Chọn lớp nếu cần
+                      copy link Zalo.
                     </p>
                   </div>
                 ) : (
@@ -243,7 +314,7 @@ export default function CampaignDetailPage() {
                       </button>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Mỗi mã dùng 1 lần — gửi đúng học sinh qua Zalo.
+                      Mỗi học sinh / lớp / kỳ = 1 phiếu ẩn danh.
                     </p>
 
                     <ul className="mt-3 max-h-[480px] space-y-2 overflow-y-auto pr-1">

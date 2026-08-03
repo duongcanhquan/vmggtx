@@ -8,7 +8,10 @@ import {
 } from '@/lib/auth/roles'
 import { menuKeyForPath } from '@/lib/auth/menuRegistry'
 import { FEATURE_ROUTES } from '@/lib/licensing/moduleCatalog'
+import { normalizeLoginPortal } from '@/lib/auth/loginPortal'
 import { verifyParentSessionCookie } from '@/lib/auth/parentSessionEdge'
+import { isReservedOrgSlug } from '@/lib/utils/reservedSlugs'
+import { isSuperAdminAllowedPath } from '@/lib/auth/portalIsolation'
 
 // ============================================================
 // CACHE TRẠNG THÁI TRUY CẬP (license + menu + module flags)
@@ -138,6 +141,11 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     allowedRoles: ['super_admin'],
   },
   {
+    // Phân bổ API AI theo đơn vị
+    prefix: '/admin/ai',
+    allowedRoles: ['super_admin'],
+  },
+  {
     prefix: '/dashboard/admin',
     allowedRoles: ['super_admin'],
   },
@@ -205,6 +213,16 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
     allowedRoles: ['super_admin', 'campus_admin', 'academic_staff', 'accountant'],
   },
   {
+    // Đặt phòng / thiết bị / xe (033 + 073)
+    prefix: '/facilities',
+    allowedRoles: [
+      'super_admin',
+      'campus_admin',
+      'academic_staff',
+      'teacher',
+    ],
+  },
+  {
     prefix: '/dashboard/hr',
     allowedRoles: ['super_admin', 'campus_admin'],
   },
@@ -222,6 +240,11 @@ const ROUTE_RULES: { prefix: string; allowedRoles: Role[] }[] = [
       'accountant',
       'teacher',
     ],
+  },
+  {
+    // Hồ sơ NS nhạy cảm — admin + Trưởng phòng NS (role tĩnh hoặc grant menu)
+    prefix: '/hr/personnel',
+    allowedRoles: ['super_admin', 'campus_admin', 'accountant', 'academic_staff'],
   },
   {
     // Lương & Hợp đồng (gộp tab với /finance/payroll) - kế toán được xem
@@ -371,13 +394,13 @@ const PUBLIC_EXACT = new Set([
   '/parent/login',
   '/license-expired',
 ])
-/** /coso/[slug] landing + login 3 cổng theo cơ sở (path-based tenant) */
+/** Marketing + legacy /coso/* (redirect sang /{slug}/login) */
 const PUBLIC_PREFIXES = ['/evaluations', '/hdsd', '/coso', '/gioi-thieu']
 
 /**
- * TÁCH CỔNG ĐĂNG NHẬP (mỗi cổng sẵn sàng chạy tên miền riêng):
- * khu vực học viên → /student/login; còn lại → /login (quản lý).
- * (Phụ huynh dùng cookie HMAC riêng, các trang parent tự xử lý.)
+ * TÁCH CỔNG ĐĂNG NHẬP:
+ * khu vực học viên → /student/login (hoặc cookie login_portal);
+ * còn lại → /login (landing) hoặc /{slug}/login theo cookie.
  */
 const STUDENT_AREA_PREFIXES = [
   '/student',
@@ -396,35 +419,53 @@ function isParentArea(pathname: string): boolean {
   return matchesPrefix(pathname, '/parent') || pathname === '/dashboard'
 }
 
-/** Trích slug từ /coso/{slug}/... — null nếu không phải cổng cơ sở */
+const SLUG_RE = '([a-z0-9][a-z0-9-]{0,46}[a-z0-9]|[a-z0-9])'
+
+/** Trích slug từ /{slug}/... hoặc legacy /coso/{slug}/... */
 function campusSlugFromPath(pathname: string): string | null {
-  const m = pathname.match(/^\/coso\/([a-z0-9][a-z0-9-]{0,46}[a-z0-9]|[a-z0-9])(?:\/|$)/)
-  return m?.[1] ?? null
+  const legacy = pathname.match(new RegExp(`^/coso/${SLUG_RE}(?:/|$)`))
+  if (legacy?.[1] && !isReservedOrgSlug(legacy[1])) return legacy[1]
+
+  const modern = pathname.match(
+    new RegExp(`^/${SLUG_RE}(?:/(?:login|student/login|parent/login))/?$`)
+  )
+  if (modern?.[1] && !isReservedOrgSlug(modern[1])) return modern[1]
+  return null
+}
+
+function campusLoginUrl(
+  slug: string,
+  kind: 'management' | 'student' | 'parent' = 'management'
+): string {
+  if (kind === 'parent') return `/${slug}/login?tab=family&who=parent`
+  if (kind === 'student') return `/${slug}/login?tab=family`
+  return `/${slug}/login`
 }
 
 function loginPathFor(pathname: string, request?: NextRequest): string {
   const slug = campusSlugFromPath(pathname)
   if (slug) {
-    // 1 cổng login duy nhất/cơ sở — tab Gia đình cho khu vực HV/PH
-    if (matchesPrefix(pathname, `/coso/${slug}/parent`)) {
-      return `/coso/${slug}/login?tab=family&who=parent`
+    if (
+      matchesPrefix(pathname, `/${slug}/parent`) ||
+      matchesPrefix(pathname, `/coso/${slug}/parent`)
+    ) {
+      return campusLoginUrl(slug, 'parent')
     }
-    if (matchesPrefix(pathname, `/coso/${slug}/student`)) {
-      return `/coso/${slug}/login?tab=family`
+    if (
+      matchesPrefix(pathname, `/${slug}/student`) ||
+      matchesPrefix(pathname, `/coso/${slug}/student`)
+    ) {
+      return campusLoginUrl(slug, 'student')
     }
-    return `/coso/${slug}/login`
+    return campusLoginUrl(slug)
   }
 
-  // NGƯỜI DÙNG CƠ SỞ: đã đăng nhập qua /coso/[slug]/login thì cookie
-  // login_portal ghi nhớ cổng đó -> hết phiên quay về ĐÚNG cổng cơ sở,
-  // không đá về /login chung của hệ thống. Chỉ nhận path nội bộ /coso/…
+  // Cookie login_portal: quay về ĐÚNG cổng cơ sở (/{slug}/login), không về landing
   const saved = request?.cookies.get('login_portal')?.value
   if (saved) {
     try {
-      const portal = decodeURIComponent(saved)
-      if (portal.startsWith('/coso/') && !portal.includes('//') && portal.length < 200) {
-        return portal
-      }
+      const portal = normalizeLoginPortal(decodeURIComponent(saved))
+      if (portal) return portal
     } catch {
       /* cookie hỏng - dùng logic mặc định */
     }
@@ -437,11 +478,21 @@ function loginPathFor(pathname: string, request?: NextRequest): string {
 }
 
 function isCampusLoginPath(pathname: string): boolean {
-  return (
-    /^\/coso\/[^/]+\/login\/?$/.test(pathname) ||
-    /^\/coso\/[^/]+\/student\/login\/?$/.test(pathname) ||
-    /^\/coso\/[^/]+\/parent\/login\/?$/.test(pathname)
+  if (
+    /^\/coso\/[^/]+\/(?:login|student\/login|parent\/login)\/?$/.test(pathname)
+  ) {
+    return true
+  }
+  const m = pathname.match(
+    new RegExp(`^/${SLUG_RE}/(?:login|student/login|parent/login)/?$`)
   )
+  return Boolean(m?.[1] && !isReservedOrgSlug(m[1]))
+}
+
+/** /{slug} công khai (redirect nội bộ sang login) — không bắt session */
+function isCampusRootPath(pathname: string): boolean {
+  const m = pathname.match(new RegExp(`^/${SLUG_RE}/?$`))
+  return Boolean(m?.[1] && !isReservedOrgSlug(m[1]))
 }
 
 /**
@@ -454,6 +505,7 @@ function matchesPrefix(pathname: string, prefix: string): boolean {
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true
+  if (isCampusLoginPath(pathname) || isCampusRootPath(pathname)) return true
   return PUBLIC_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
 }
 
@@ -486,21 +538,32 @@ function redirectTo(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Legacy /coso/{slug}/… → /{slug}/… (giữ query)
+  if (pathname === '/coso' || pathname === '/coso/') {
+    return redirectTo(request, '/login')
+  }
+  if (matchesPrefix(pathname, '/coso')) {
+    const rest = pathname.slice('/coso'.length) || '/'
+    return redirectTo(request, `${rest}${request.nextUrl.search}`)
+  }
+
   // ============================================================
-  // [TÊN MIỀN KHÁCH HÀNG] khachhang.abzxyz.com -> /coso/khachhang
+  // [TÊN MIỀN KHÁCH HÀNG] khachhang.abzxyz.com -> /{slug}/login
   // Bật bằng env NEXT_PUBLIC_ROOT_DOMAIN=abzxyz.com (chưa đặt = tắt).
-  // Chỉ rewrite TRANG GỐC '/' của subdomain về landing của Đơn vị đó;
-  // các đường dẫn khác (login, dashboard…) hoạt động bình thường trên
-  // chính subdomain vì cookie phiên gắn theo host.
   // ============================================================
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN
   if (rootDomain && pathname === '/') {
     const host = (request.headers.get('host') ?? '').split(':')[0]
     if (host.endsWith(`.${rootDomain}`)) {
       const sub = host.slice(0, -(rootDomain.length + 1))
-      if (sub && sub !== 'www' && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(sub)) {
+      if (
+        sub &&
+        sub !== 'www' &&
+        !isReservedOrgSlug(sub) &&
+        /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(sub)
+      ) {
         const url = request.nextUrl.clone()
-        url.pathname = `/coso/${sub}/login`
+        url.pathname = `/${sub}/login`
         return NextResponse.rewrite(url)
       }
     }
@@ -539,27 +602,12 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // ---- Trích xuất role (JWT claims → cookie hint → fallback profiles) ----
-  // TỐI ƯU TỐC ĐỘ: nếu JWT chưa gắn custom claims (hook chưa bật), tránh
-  // query DB trên MỖI lần chuyển trang bằng cookie `role_hint` (TTL 10 phút,
-  // gắn theo user id). Cookie chỉ dùng cho ĐIỀU HƯỚNG — mọi thao tác dữ liệu
-  // vẫn bị RLS + kiểm tra role server-side chặn (cùng mức tin cậy với việc
-  // decode JWT không verify chữ ký phía trên).
-  const ROLE_HINT_COOKIE = 'role_hint'
-
+  // ---- Trích xuất role (JWT claims → profiles). KHÔNG tin cookie role_hint
+  // (có thể giả mạo) — D37. Hook JWT bật thì không tốn query.
   async function resolveRole(): Promise<Role | null> {
     if (!session) return null
     let role: Role | null = readClaimsFromAccessToken(session.access_token).role
     if (role) return role
-
-    // Cache hint: "userId:role"
-    const hint = request.cookies.get(ROLE_HINT_COOKIE)?.value
-    if (hint) {
-      const [hintUserId, hintRole] = hint.split(':')
-      if (hintUserId === session.user.id && isRole(hintRole)) {
-        return hintRole
-      }
-    }
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -567,17 +615,7 @@ export async function middleware(request: NextRequest) {
       .eq('id', session.user.id)
       .is('deleted_at', null)
       .maybeSingle()
-    role = isRole(profile?.role) ? profile.role : null
-
-    if (role) {
-      response.cookies.set(ROLE_HINT_COOKIE, `${session.user.id}:${role}`, {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 600,
-      })
-    }
-    return role
+    return isRole(profile?.role) ? profile.role : null
   }
 
   // ===== 1. Public paths =====
@@ -676,6 +714,10 @@ export async function middleware(request: NextRequest) {
     if (!role) {
       return redirectTo(request, '/unauthorized')
     }
+    // D36: Super Admin chỉ /admin/* — không vào cổng vận hành trường
+    if (role === 'super_admin' && !isSuperAdminAllowedPath(pathname)) {
+      return redirectTo(request, '/admin/organizations', response)
+    }
     if (!rule.allowedRoles.includes(role)) {
       // KIÊM NHIỆM (049): role tĩnh không cho phép, nhưng nếu user được
       // GÁN RIÊNG hạng mục menu của trang này thì vẫn cho vào.
@@ -713,8 +755,20 @@ export async function middleware(request: NextRequest) {
     return redirectTo(request, loginPathFor(pathname, request), response)
   }
 
+  // Có Supabase session → không vào cổng phụ huynh (PH chỉ cookie HMAC)
+  if (isParentArea(pathname)) {
+    const parentRole = await resolveRole()
+    if (parentRole) {
+      return redirectTo(request, getHomePathForRole(parentRole), response)
+    }
+    return redirectTo(request, loginPathFor(pathname, request), response)
+  }
+
   // Đối tác doanh nghiệp chỉ được ở trong không gian /b2b
   const role = await resolveRole()
+  if (role === 'super_admin' && !isSuperAdminAllowedPath(pathname)) {
+    return redirectTo(request, '/admin/organizations', response)
+  }
   if (role === 'enterprise_partner') {
     return redirectTo(request, '/b2b', response)
   }

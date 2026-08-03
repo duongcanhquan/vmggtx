@@ -135,6 +135,7 @@ export async function getInvoices(
       .in('org_id', orgIds.includes(orgId) ? orgIds : [orgId, ...orgIds])
       .is('deleted_at', null)
       .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(400)
 
     if (error) {
       console.error('[QA-FIX C] getInvoices error:', error.message)
@@ -414,54 +415,69 @@ export async function recordPayment(
       }
     }
 
-    // Tổng đã thu TRƯỚC đợt này (chặn thu vượt số còn lại)
-    const { data: existingPayments } = await supabase
-      .from('payments')
-      .select('amount_paid')
-      .eq('invoice_id', invoiceId)
-      .is('deleted_at', null)
-
-    const paidBefore = (existingPayments ?? []).reduce(
-      (sum, p) => sum + Number(p.amount_paid),
-      0
-    )
-    const invoiceAmount = Number(invoice.amount)
-    const remainingBefore = invoiceAmount - paidBefore
-
-    if (amount > remainingBefore) {
-      return {
-        error: `Số tiền thu (${amount.toLocaleString('vi-VN')}đ) vượt quá số còn lại của hóa đơn (${remainingBefore.toLocaleString('vi-VN')}đ).`,
+    // Atomic thu tiền (074) — chống race double-pay
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      'record_payment_atomic',
+      {
+        p_invoice_id: invoiceId,
+        p_amount: amount,
+        p_payment_method: paymentMethod,
+        p_recorded_by: user.id,
       }
+    )
+
+    if (rpcError) {
+      if (/record_payment_atomic|function .* does not exist/i.test(rpcError.message)) {
+        // Fallback khi chưa chạy 074 (vẫn có race — nhắc chạy migration)
+        const { data: existingPayments } = await supabase
+          .from('payments')
+          .select('amount_paid')
+          .eq('invoice_id', invoiceId)
+          .is('deleted_at', null)
+        const paidBefore = (existingPayments ?? []).reduce(
+          (sum, p) => sum + Number(p.amount_paid),
+          0
+        )
+        const invoiceAmount = Number(invoice.amount)
+        const remainingBefore = invoiceAmount - paidBefore
+        if (amount > remainingBefore) {
+          return {
+            error: `Số tiền thu vượt quá số còn lại (${remainingBefore.toLocaleString('vi-VN')}đ). Chạy migration 074 để chống thu trùng.`,
+          }
+        }
+        const { error: paymentError } = await supabase.from('payments').insert({
+          org_id: invoice.org_id,
+          invoice_id: invoiceId,
+          amount_paid: amount,
+          payment_method: paymentMethod,
+          recorded_by: user.id,
+        })
+        if (paymentError) return { error: `Lỗi lưu phiếu thu: ${paymentError.message}` }
+        const paidTotal = paidBefore + amount
+        const newStatus: InvoiceStatus =
+          paidTotal >= invoiceAmount ? 'paid' : 'partial'
+        await supabase.from('invoices').update({ status: newStatus }).eq('id', invoiceId)
+        revalidatePath('/finance/invoices')
+        return { newStatus, remaining: invoiceAmount - paidTotal }
+      }
+      return { error: `Lỗi thu tiền: ${rpcError.message}` }
     }
 
-    // ===== 1. INSERT phiếu thu =====
-    const { error: paymentError } = await supabase.from('payments').insert({
-      org_id: invoice.org_id,
-      invoice_id: invoiceId,
-      amount_paid: amount,
-      payment_method: paymentMethod,
-      recorded_by: user.id,
-    })
-
-    if (paymentError) {
-      return { error: `Lỗi lưu phiếu thu: ${paymentError.message}` }
-    }
-
-    // ===== 2. Tính lại tổng và cập nhật trạng thái =====
-    const paidTotal = paidBefore + amount
-    const newStatus: InvoiceStatus = paidTotal >= invoiceAmount ? 'paid' : 'partial'
-
-    const { error: updateError } = await supabase
-      .from('invoices')
-      .update({ status: newStatus })
-      .eq('id', invoiceId)
-
-    if (updateError) {
-      return { error: `Đã lưu phiếu thu nhưng lỗi cập nhật hóa đơn: ${updateError.message}` }
+    const payload = rpcData as {
+      error?: string
+      new_status?: InvoiceStatus
+      remaining?: number
+    } | null
+    if (payload?.error) return { error: payload.error }
+    if (!payload?.new_status) {
+      return { error: 'Không nhận được kết quả thu tiền từ database.' }
     }
 
     revalidatePath('/finance/invoices')
-    return { newStatus, remaining: invoiceAmount - paidTotal }
+    return {
+      newStatus: payload.new_status,
+      remaining: Number(payload.remaining ?? 0),
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Lỗi không xác định'
     return { error: `Không thể kết nối database: ${message}` }

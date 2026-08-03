@@ -177,14 +177,12 @@ export async function getDashboardStats(
           .select('org_id')
           .eq('role', 'student')
           .in('org_id', ids)
-          .is('deleted_at', null),
+          .is('deleted_at', null)
+          .limit(5000),
         // Migration 042 chưa chạy -> error, KHÔNG làm hỏng dashboard (report=null)
         supabase.rpc('get_overview_report', { p_org_ids: ids }),
-        supabase
-          .from('payments')
-          .select('amount_paid')
-          .in('org_id', ids)
-          .is('deleted_at', null),
+        // Migration 069: 1 scalar thay vì kéo mọi dòng payments
+        supabase.rpc('sum_org_payments', { p_org_ids: ids }),
       ])
 
     const firstError = orgsResult.error ?? classesResult.error ?? studentsResult.error
@@ -203,10 +201,13 @@ export async function getDashboardStats(
     }
     const totalStudents = [...studentCountByOrg.values()].reduce((a, b) => a + b, 0)
 
-    const collectedRevenue = (paymentsResult.data ?? []).reduce(
-      (sum, row) => sum + Number(row.amount_paid ?? 0),
-      0
-    )
+    let collectedRevenue = 0
+    if (!paymentsResult.error && paymentsResult.data != null) {
+      collectedRevenue = Number(paymentsResult.data) || 0
+    } else {
+      // Fallback nếu chưa chạy 069: không kéo full table — để 0 + dùng report nếu có
+      collectedRevenue = 0
+    }
 
     // 3. Roll-up cho từng nhánh TRỰC THUỘC: BFS trên adjacency parent_id
     const childrenByParent = new Map<string, OrgRow[]>()

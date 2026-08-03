@@ -53,6 +53,7 @@ export type StaffRow = {
   created_at: string
   job_title_id: string | null
   job_title_name: string | null
+  can_view_financials: boolean
 }
 
 export type UsersActionResult = { error: string } | { error?: undefined }
@@ -76,6 +77,7 @@ const MOCK_USERS: StaffRow[] = [
     created_at: '2026-05-12T08:00:00Z',
     job_title_id: null,
     job_title_name: null,
+    can_view_financials: false,
   },
   {
     id: 'mock-u2',
@@ -88,6 +90,7 @@ const MOCK_USERS: StaffRow[] = [
     created_at: '2026-06-02T08:00:00Z',
     job_title_id: null,
     job_title_name: null,
+    can_view_financials: false,
   },
   {
     id: 'mock-u3',
@@ -100,6 +103,7 @@ const MOCK_USERS: StaffRow[] = [
     created_at: '2026-06-20T08:00:00Z',
     job_title_id: null,
     job_title_name: null,
+    can_view_financials: false,
   },
   {
     id: 'mock-u4',
@@ -112,6 +116,7 @@ const MOCK_USERS: StaffRow[] = [
     created_at: '2026-07-01T08:00:00Z',
     job_title_id: null,
     job_title_name: null,
+    can_view_financials: true,
   },
 ]
 
@@ -192,7 +197,7 @@ export async function getUsersInScope(filters: {
     let query = supabase
       .from('profiles')
       .select(
-        'id, full_name, email, phone, role, org_id, created_at, job_title_id, organizations(name), job_titles(name)'
+        'id, full_name, email, phone, role, org_id, created_at, job_title_id, can_view_financials, organizations(name), job_titles(name)'
       )
       .is('deleted_at', null)
       .neq('role', 'student')
@@ -253,6 +258,9 @@ export async function getUsersInScope(filters: {
               created_at: row.created_at,
               job_title_id: null,
               job_title_name: null,
+              can_view_financials:
+                row.role === 'campus_admin' ||
+                (row as { can_view_financials?: boolean }).can_view_financials === true,
             }
           })
           return { data: rows, demo: false }
@@ -263,7 +271,10 @@ export async function getUsersInScope(filters: {
           (!filters.role || u.role === filters.role) &&
           (!filters.orgId || u.org_id === filters.orgId)
       )
-      return { data: rows, demo: true }
+      return {
+        data: process.env.NODE_ENV === 'production' ? [] : rows,
+        demo: process.env.NODE_ENV !== 'production',
+      }
     }
 
     const rows: StaffRow[] = data.map((row) => {
@@ -283,11 +294,17 @@ export async function getUsersInScope(filters: {
         job_title_name: Array.isArray(title)
           ? title[0]?.name ?? null
           : title?.name ?? null,
+        can_view_financials:
+          row.role === 'campus_admin' ||
+          (row as { can_view_financials?: boolean }).can_view_financials === true,
       }
     })
     return { data: rows, demo: false }
   } catch {
-    return { data: MOCK_USERS, demo: true }
+    return {
+      data: process.env.NODE_ENV === 'production' ? [] : MOCK_USERS,
+      demo: process.env.NODE_ENV !== 'production',
+    }
   }
 }
 
@@ -390,6 +407,8 @@ export async function createUserAccount(
       phone: phone || null,
       role,
       org_id: orgId,
+      // Quản lý cơ sở luôn xem lương/đơn giá trong phạm vi của mình
+      can_view_financials: role === 'campus_admin' || role === 'accountant',
     })
 
     if (profileError) {
@@ -518,9 +537,11 @@ export async function updateUserAccount(
     orgId: String(formData.get('orgId') ?? ''),
     phone: String(formData.get('phone') ?? ''),
     jobTitleId: String(formData.get('jobTitleId') ?? ''),
+    canViewFinancials: formData.get('canViewFinancials') === 'true',
   })
   if (!parsed.success) return zodFail(parsed.error)
-  const { userId, fullName, role, orgId, phone, jobTitleId } = parsed.data
+  const { userId, fullName, role, orgId, phone, jobTitleId, canViewFinancials } =
+    parsed.data
 
   try {
     const gate = await requireManageableTarget(userId)
@@ -591,6 +612,7 @@ export async function updateUserAccount(
         org_id: orgId,
         phone: phone || null,
         job_title_id: resolvedTitleId,
+        can_view_financials: role === 'campus_admin' ? true : canViewFinancials,
       })
       .eq('id', userId)
     if (error) {

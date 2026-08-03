@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { resolvePublishedClassIds } from '@/lib/grades/publishedClasses'
 
 // ============================================================
 // Cổng thông tin Học sinh - actions.
@@ -121,6 +122,7 @@ export async function getMySchedule(): Promise<{
 export async function getMyGrades(): Promise<{
   data: PortalClassGrades[]
   demo: boolean
+  loadError?: string | null
 }> {
   try {
     const supabase = createClient()
@@ -128,7 +130,7 @@ export async function getMyGrades(): Promise<{
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) return { data: [], demo: false }
+    if (!user) return { data: [], demo: false, loadError: 'Bạn chưa đăng nhập.' }
 
     // review_status (migration 031) có thể chưa tồn tại -> fallback êm
     let grades:
@@ -154,14 +156,16 @@ export async function getMyGrades(): Promise<{
         )
         .eq('student_id', user.id)
         .is('deleted_at', null)
-      if (basicQuery.error) return { data: [], demo: false }
+      if (basicQuery.error) {
+        return { data: [], demo: false, loadError: basicQuery.error.message }
+      }
       grades = basicQuery.data
     } else {
       grades = fullQuery.data
     }
 
     if (!grades || grades.length === 0) {
-      return { data: [], demo: false }
+      return { data: [], demo: false, loadError: null }
     }
 
     // Đơn thi lại của học sinh (migration 036) - thiếu bảng thì bỏ qua êm
@@ -226,13 +230,28 @@ export async function getMyGrades(): Promise<{
       })
     }
 
+    // 075: chỉ hiện lớp đã công bố (thiếu cột = legacy fail-open)
+    const classIds = [...byClass.keys()]
+    if (classIds.length > 0) {
+      const pub = await resolvePublishedClassIds(supabase, classIds)
+      if (pub.mode === 'filter') {
+        for (const id of classIds) {
+          if (!pub.published.has(id)) byClass.delete(id)
+        }
+      }
+    }
+
     const result = Array.from(byClass.values()).map((group) => ({
       ...group,
       average: weightedAverage(group.items),
     }))
-    return { data: result, demo: false }
-  } catch {
-    return { data: [], demo: false }
+    return { data: result, demo: false, loadError: null }
+  } catch (e) {
+    return {
+      data: [],
+      demo: false,
+      loadError: e instanceof Error ? e.message : 'Không tải được bảng điểm.',
+    }
   }
 }
 

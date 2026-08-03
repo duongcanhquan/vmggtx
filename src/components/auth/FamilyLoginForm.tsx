@@ -101,9 +101,13 @@ export function FamilyLoginForm({
       }
     }
 
-    if (role && role !== 'student' && role !== 'super_admin') {
+    if (role && role !== 'student') {
       await supabase.auth.signOut()
-      setError('Tài khoản này thuộc khối Nhà trường — chuyển sang tab "Nhà trường".')
+      setError(
+        role === 'super_admin'
+          ? 'Super Admin đăng nhập tại /login/admin — không dùng cổng Gia đình.'
+          : 'Tài khoản này thuộc khối Nhà trường — chuyển sang tab "Nhà trường".'
+      )
       return
     }
 

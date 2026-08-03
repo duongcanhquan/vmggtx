@@ -29,7 +29,7 @@ import { MODULE_CATALOG } from '@/lib/licensing/moduleCatalog'
 export const dynamic = 'force-dynamic'
 
 const CAMPUS_LINKS = [
-  { href: '/campus-admin/users', label: 'Nhân sự', icon: Users },
+  { href: '/campus-admin/users', label: 'Tổ chức nhân sự', icon: Users },
   { href: '/settings', label: 'Cài đặt cơ sở', icon: Settings },
   { href: '/academic/campaigns', label: 'Đợt khảo sát', icon: Vote },
   { href: '/finance/invoices', label: 'Học phí', icon: Wallet },
@@ -335,12 +335,12 @@ export default async function AdminPortalPage() {
                   <p className="font-medium text-slate-900">{unit.name}</p>
                   {unit.slug && (
                     <a
-                      href={`/coso/${unit.slug}/login`}
+                      href={`/${unit.slug}/login`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs font-semibold text-violet-700 hover:underline"
                     >
-                      /coso/{unit.slug}/login
+                      /{unit.slug}/login
                       <ExternalLink className="h-3 w-3" aria-hidden="true" />
                     </a>
                   )}

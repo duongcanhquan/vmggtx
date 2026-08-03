@@ -221,14 +221,18 @@ export default function StudentGradesPage() {
   const [classGrades, setClassGrades] = useState<PortalClassGrades[]>([])
   const [isDemo, setIsDemo] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [reviewItem, setReviewItem] = useState<PortalGradeItem | null>(null)
   const [reExamItem, setReExamItem] = useState<PortalGradeItem | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
 
   const load = () => {
+    setLoading(true)
+    setLoadError(null)
     getMyGrades().then((result) => {
       setClassGrades(result.data)
       setIsDemo(result.demo)
+      setLoadError(result.loadError ?? null)
       setLoading(false)
     })
   }
@@ -251,10 +255,19 @@ export default function StudentGradesPage() {
 
       {loading ? (
         <FunLoader label="Đang tải bảng điểm…" />
+      ) : loadError ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        >
+          Không tải được bảng điểm: {loadError}
+        </div>
       ) : classGrades.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-12 text-center">
           <Medal className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">Bạn chưa có điểm nào.</p>
+          <p className="text-sm text-muted-foreground">
+            Chưa có điểm đã công bố. Điểm chỉ hiện sau khi khảo thí công bố kết quả.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

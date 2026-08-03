@@ -203,7 +203,9 @@ export default async function StudentPortalHomePage() {
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />
             Bạn có {pendingEvaluations.length} khảo sát đang chờ
           </h2>
-          <p className="mt-0.5 text-xs text-amber-800/80">Đánh giá hoàn toàn ẩn danh.</p>
+          <p className="mt-0.5 text-xs text-amber-800/80">
+            Đánh giá giảng viên lớp bạn học — ẩn danh, mỗi lớp 1 lần trong kỳ.
+          </p>
           <ul className="mt-3 space-y-2">
             {pendingEvaluations.map((evaluation) => (
               <li key={evaluation.token}>

@@ -41,48 +41,6 @@ export type StaffClassRow = {
 
 export type StaffActionResult = { error: string } | { error?: undefined }
 
-// ---------- MOCK cho chế độ demo ----------
-const MOCK_CONTEXT: StaffContext = {
-  userId: null,
-  orgId: 'org-cn-caugiay',
-  orgName: 'Chi nhánh Cầu Giấy',
-  fullName: 'Trần Thị Hồng Nhung (Giáo vụ)',
-  demo: true,
-}
-
-const MOCK_CLASSES: StaffClassRow[] = [
-  {
-    id: 'mock-c1',
-    name: 'Toán 12A - Ôn thi THPT',
-    teacher_id: 'mock-t1',
-    teacher_name: 'Phạm Quang Huy',
-    start_date: '2026-07-01',
-    end_date: '2026-12-20',
-    session_count: 24,
-    max_students: 35,
-  },
-  {
-    id: 'mock-c2',
-    name: 'Tiếng Anh B1 - Tối T3/T5',
-    teacher_id: 'mock-t2',
-    teacher_name: 'Lê Minh Anh',
-    start_date: '2026-08-01',
-    end_date: '2026-11-30',
-    session_count: 16,
-    max_students: 20,
-  },
-  {
-    id: 'mock-c3',
-    name: 'Vật lý 11 - Cơ bản',
-    teacher_id: null,
-    teacher_name: 'Chưa gán',
-    start_date: '2026-09-01',
-    end_date: null,
-    session_count: 0,
-    max_students: null,
-  },
-]
-
 /**
  * Ngữ cảnh của Staff đang đăng nhập: org_id + tên chi nhánh.
  * Đây chính là giá trị bị KHÓA CỨNG trên form tạo lớp.

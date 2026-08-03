@@ -1,8 +1,9 @@
 import { z } from 'zod'
+import { isReservedOrgSlug } from '@/lib/utils/reservedSlugs'
 
 /**
  * Sinh slug URL từ tên cơ sở (bỏ dấu tiếng Việt, chỉ a-z0-9-).
- * Dùng cho cổng /coso/[slug].
+ * Dùng cho cổng /{slug}/login.
  */
 export function slugifyOrgName(name: string): string {
   const map: Record<string, string> = {
@@ -97,25 +98,28 @@ export const orgSlugSchema = z
     /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
     'Slug chỉ gồm a-z, 0-9, gạch ngang; không bắt/kết thúc bằng gạch.'
   )
+  .refine((value) => !isReservedOrgSlug(value), {
+    message: 'Slug này đã được hệ thống dùng. Chọn mã khác.',
+  })
 
 /**
  * Cổng công khai của cơ sở = trang login trực tiếp.
- * (Không còn trang giới thiệu /coso/{slug} riêng.)
+ * (Không còn trang giới thiệu /{slug} riêng — vào là login.)
  */
 export function campusPortalPath(slug: string): string {
   return campusLoginPath(slug)
 }
 
 /**
- * MỖI CƠ SỞ CHỈ CÓ 1 CỔNG LOGIN: /coso/[slug]/login — chia 2 tab
+ * MỖI CƠ SỞ CHỈ CÓ 1 CỔNG LOGIN: /{slug}/login — chia 2 tab
  * (Nhà trường | Gia đình · Học viên/Phụ huynh).
- * Tương lai có thể tách 2 cổng; hiện giữ chung 1 URL + tab.
+ * URL ngắn: tenmien/viet-my/login (không còn tiền tố /coso).
  */
 export function campusLoginPath(
   slug: string,
   portal: 'management' | 'student' | 'parent' = 'management'
 ): string {
-  if (portal === 'student') return `/coso/${slug}/login?tab=family`
-  if (portal === 'parent') return `/coso/${slug}/login?tab=family&who=parent`
-  return `/coso/${slug}/login`
+  if (portal === 'student') return `/${slug}/login?tab=family`
+  if (portal === 'parent') return `/${slug}/login?tab=family&who=parent`
+  return `/${slug}/login`
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CalendarPlus,
+  Car,
   ChevronLeft,
   ChevronRight,
   DoorOpen,
@@ -16,6 +17,7 @@ import { FunLoader } from '@/components/shared/FunLoader'
 import {
   bookFacility,
   cancelFacilityBooking,
+  approveFacilityBooking,
   createFacility,
   getFacilityBoard,
   toggleFacility,
@@ -25,10 +27,7 @@ import {
 } from '@/app/(portals)/staff/facilities/actions'
 
 // ============================================================
-// LỊCH ĐẶT PHÒNG & THIẾT BỊ - dùng chung Staff/Teacher Portal.
-// Calendar view theo tuần: mỗi ngày liệt kê các lượt đặt.
-// "Đặt trước" -> server validate chống trùng giờ (RPC + constraint).
-// Staff có thêm phần quản lý danh mục tài sản.
+// LỊCH ĐẶT PHÒNG / THIẾT BỊ / XE - dùng chung Dashboard + Staff/GV.
 // ============================================================
 
 const DAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật']
@@ -37,6 +36,7 @@ const TYPE_META: Record<FacilityType, { label: string; icon: typeof DoorOpen; ch
   room: { label: 'Phòng', icon: DoorOpen, chip: 'bg-indigo-50 text-indigo-700' },
   projector: { label: 'Máy chiếu', icon: Projector, chip: 'bg-amber-50 text-amber-700' },
   lab_equipment: { label: 'Thiết bị lab', icon: FlaskConical, chip: 'bg-emerald-50 text-emerald-700' },
+  vehicle: { label: 'Xe', icon: Car, chip: 'bg-sky-50 text-sky-800' },
 }
 
 function getMondayISO(date: Date): string {
@@ -64,14 +64,22 @@ function timeRange(startISO: string, endISO: string): string {
 // ---------- Modal đặt trước ----------
 function BookingModal({
   facilities,
+  preferredType,
   onClose,
   onDone,
 }: {
   facilities: Facility[]
+  preferredType?: FacilityType | 'all'
   onClose: () => void
   onDone: (message: string) => void
 }) {
-  const bookable = facilities.filter((f) => f.isActive)
+  const bookable = facilities.filter(
+    (f) =>
+      f.isActive &&
+      (preferredType === undefined ||
+        preferredType === 'all' ||
+        f.type === preferredType)
+  )
   const [facilityId, setFacilityId] = useState(bookable[0]?.id ?? '')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
@@ -88,7 +96,7 @@ function BookingModal({
       setError(result.error)
       return
     }
-    onDone('Đã đặt thành công — lượt đặt hiển thị trên lịch tuần.')
+    onDone('Đã gửi yêu cầu đặt. Giáo vụ xác nhận ngay nếu bạn là quản lý; GV chờ duyệt.')
     onClose()
   }
 
@@ -97,7 +105,7 @@ function BookingModal({
       <button type="button" aria-label="Đóng" onClick={onClose} className="absolute inset-0 bg-black/50" />
       <div className="relative w-full max-w-md rounded-2xl bg-surface p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="font-heading text-lg font-bold">Đặt phòng / thiết bị</h2>
+          <h2 className="font-heading text-lg font-bold">Đặt phòng / thiết bị / xe</h2>
           <button
             type="button"
             aria-label="Đóng"
@@ -181,19 +189,30 @@ function BookingModal({
 }
 
 // ---------- Bảng chính ----------
-export function FacilityBoard() {
+export function FacilityBoard({
+  title = 'Đặt phòng & Thiết bị',
+  subtitle = 'Lịch tuần trạng thái phòng / thiết bị / xe. Đặt trước — hệ thống chống trùng giờ tự động.',
+  defaultTypeFilter = 'all',
+  manageTypeDefault = 'room',
+}: {
+  title?: string
+  subtitle?: string
+  defaultTypeFilter?: FacilityType | 'all'
+  manageTypeDefault?: FacilityType
+} = {}) {
   const [weekStart, setWeekStart] = useState(() => getMondayISO(new Date()))
   const [board, setBoard] = useState<FacilityBoardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [typeFilter, setTypeFilter] = useState<FacilityType | 'all'>('all')
+  const [typeFilter, setTypeFilter] = useState<FacilityType | 'all'>(defaultTypeFilter)
   const [showBooking, setShowBooking] = useState(false)
   const [toast, setToast] = useState<ToastData | null>(null)
 
   // Quản lý tài sản (staff)
   const [newName, setNewName] = useState('')
-  const [newType, setNewType] = useState<FacilityType>('room')
+  const [newType, setNewType] = useState<FacilityType>(manageTypeDefault)
   const [creating, setCreating] = useState(false)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -231,6 +250,19 @@ export function FacilityBoard() {
     void load()
   }
 
+  const handleApprove = async (bookingId: string) => {
+    if (approvingId) return
+    setApprovingId(bookingId)
+    const result = await approveFacilityBooking(bookingId)
+    setApprovingId(null)
+    if (result.error !== undefined) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setToast({ type: 'success', message: 'Đã duyệt lượt đặt.' })
+    void load()
+  }
+
   const handleCreateFacility = async () => {
     setCreating(true)
     const result = await createFacility(newName, newType)
@@ -261,11 +293,9 @@ export function FacilityBoard() {
         <div>
           <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight">
             <Projector className="h-6 w-6 text-primary" aria-hidden="true" />
-            Đặt phòng &amp; Thiết bị
+            {title}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Lịch tuần trạng thái phòng máy / thiết bị. Đặt trước — hệ thống chống trùng giờ tự động.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <button
           type="button"
@@ -309,6 +339,7 @@ export function FacilityBoard() {
               { value: 'room', label: 'Phòng' },
               { value: 'projector', label: 'Máy chiếu' },
               { value: 'lab_equipment', label: 'Thiết bị lab' },
+              { value: 'vehicle', label: 'Xe' },
             ] as const
           ).map((option) => (
             <button
@@ -356,7 +387,8 @@ export function FacilityBoard() {
                 ) : (
                   <ul className="mt-3 space-y-2">
                     {dayBookings.map((booking) => {
-                      const meta = TYPE_META[booking.facilityType]
+                      const meta =
+                        TYPE_META[booking.facilityType] ?? TYPE_META.room
                       const Icon = meta.icon
                       return (
                         <li
@@ -382,6 +414,11 @@ export function FacilityBoard() {
                           <p className="mt-1 text-xs font-semibold text-foreground">
                             {timeRange(booking.startTime, booking.endTime)}
                           </p>
+                          {booking.status === 'pending' && (
+                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                              Chờ duyệt
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground">
                             {booking.reservedByName}
                             {booking.isMine && ' (bạn)'}
@@ -389,6 +426,18 @@ export function FacilityBoard() {
                           {booking.purpose && (
                             <p className="mt-0.5 text-xs text-muted-foreground">{booking.purpose}</p>
                           )}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {board.canManage && booking.status === 'pending' && (
+                              <button
+                                type="button"
+                                disabled={approvingId === booking.id}
+                                onClick={() => void handleApprove(booking.id)}
+                                className="text-xs font-semibold text-emerald-700 hover:underline disabled:opacity-50"
+                              >
+                                {approvingId === booking.id ? 'Đang duyệt…' : 'Duyệt'}
+                              </button>
+                            )}
+                          </div>
                         </li>
                       )
                     })}
@@ -406,7 +455,7 @@ export function FacilityBoard() {
               </h2>
               <div className="mt-3 flex flex-wrap gap-2">
                 {board.facilities.map((facility) => {
-                  const meta = TYPE_META[facility.type]
+                  const meta = TYPE_META[facility.type] ?? TYPE_META.room
                   const Icon = meta.icon
                   return (
                     <button
@@ -442,6 +491,7 @@ export function FacilityBoard() {
                   <option value="room">Phòng</option>
                   <option value="projector">Máy chiếu</option>
                   <option value="lab_equipment">Thiết bị lab</option>
+                  <option value="vehicle">Xe công vụ</option>
                 </select>
                 <button
                   type="button"
@@ -461,6 +511,7 @@ export function FacilityBoard() {
       {showBooking && board && (
         <BookingModal
           facilities={board.facilities}
+          preferredType={typeFilter}
           onClose={() => setShowBooking(false)}
           onDone={(message) => {
             setToast({ type: 'success', message })

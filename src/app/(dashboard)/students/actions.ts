@@ -132,12 +132,6 @@ ${JSON.stringify(rows.map((r) => ({ fullName: r.fullName, address: r.address }))
 
 type ExistingStudent = { email: string | null; phone: string | null; orgName: string }
 
-// Dữ liệu mẫu để demo khi DB chưa sẵn sàng
-const MOCK_EXISTING: ExistingStudent[] = [
-  { email: 'an.nguyen@example.com', phone: '0901234567', orgName: 'Chi nhánh Cầu Giấy' },
-  { email: 'binh.tran@example.com', phone: '0912345678', orgName: 'Chi nhánh Quận 1' },
-]
-
 async function findExistingStudents(
   emails: string[],
   phones: string[]
@@ -160,7 +154,7 @@ async function findExistingStudents(
       .is('deleted_at', null)
 
     if (error) {
-      return { existing: MOCK_EXISTING, usedDb: false }
+      return { existing: [], usedDb: false }
     }
     return {
       existing: (data ?? []).map((row) => {
@@ -175,7 +169,7 @@ async function findExistingStudents(
       usedDb: true,
     }
   } catch {
-    return { existing: MOCK_EXISTING, usedDb: false }
+    return { existing: [], usedDb: false }
   }
 }
 
@@ -327,6 +321,7 @@ export async function getStudents(
       .in('org_id', scope)
       .is('deleted_at', null)
       .order('full_name')
+      .limit(1500)
 
     // DB chưa chạy migration 028/035 (thiếu cột) -> truy vấn lại không có cột
     if (error && /student_code|MaSV|does not exist/i.test(error.message)) {
@@ -337,6 +332,7 @@ export async function getStudents(
         .in('org_id', scope)
         .is('deleted_at', null)
         .order('full_name')
+        .limit(1500)
       data = retry.data as typeof data
       error = retry.error
     }

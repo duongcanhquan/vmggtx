@@ -229,9 +229,20 @@ export async function enrollStudentToClass(
         .from('classes')
         .select('org_id')
         .eq('id', classId)
+        .is('deleted_at', null)
         .maybeSingle()
+      if (!cls?.org_id) {
+        return { error: 'Lớp học không tồn tại.' }
+      }
+      // Chặn ghi danh chéo cơ sở: lớp phải cùng org với học viên
+      if (cls.org_id !== authz.orgId) {
+        return {
+          error:
+            'Lớp học không thuộc cùng đơn vị với học viên — không ghi danh chéo cơ sở.',
+        }
+      }
       const { error } = await supabase.from('enrollments').insert({
-        org_id: cls?.org_id ?? authz.orgId,
+        org_id: cls.org_id,
         class_id: classId,
         student_id: studentId,
         status: 'active',

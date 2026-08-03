@@ -29,13 +29,16 @@ M?i quy?t ??nh 1-3 d?ng. Th?m m?i v?o CU?I danh s?ch v?i m? D ti?p theo.
   k? th?a xu?ng nh?nh con; module cap ???c GIAO v?o get_my_menu_keys.
 - **D13** Commit tr?n Windows PowerShell: build s?ch tr??c, message qua file .git-commit-msg.txt
   (kh?ng d?u), kh?ng d?ng && / heredoc.
-- **D14** Ph?n t?ch c?ng theo domain path:
-  - G?c (`/login`) = landing marketing; Super Admin qua `/login/admin` (icon s?ch ?n).
-  - KH?NG c? hub danh s?ch c? s? c?ng khai (`/coso` redirect ? `/login`).
-  - M?i tr??ng nh?n link tr?c ti?p `/coso/{slug}/login` (tab Nh? tr??ng | Gia ??nh).
+- **D14** Phân tách cổng theo domain path:
+  - Gốc (`/login`) = landing marketing; Super Admin qua `/login/admin`
+    (bấm góc trái dưới → hiện icon sách → vào cổng).
+  - KHÔNG có hub danh sách cơ sở công khai (`/coso` redirect về `/login`).
+  - Mỗi trường nhận link trực tiếp `/{slug}/login` (tab Nhà trường | Gia đình).
+    URL cũ `/coso/{slug}/…` redirect 307 sang URL mới.
+  - Đăng xuất / hết phiên: cookie `login_portal` → quay về ĐÚNG `/{slug}/login`
+    (không về landing). Cookie `/coso/…` cũ được chuẩn hóa.
   - HV: MaSV/email+pass; PH: email+pass qua `parent_accounts` + cookie HMAC.
-  - T??ng lai c? th? t?ch 2 tab th?nh 2 c?ng URL ri?ng ? ch?a l?m.
-  - Subdomain `*.domain` rewrite th?ng v?o `/coso/{slug}/login` n?u b?t.
+  - Subdomain `*.domain` rewrite thẳng vào `/{slug}/login` nếu bật.
 - **D15** Logo th??ng hi?u theo `organizations.logo_url` / `logo_key` (migration 051):
   upload t?i `/settings` (campus_admin+), l?u R2 (D06) ho?c data URL ?200KB n?u ch?a R2;
   ph?c v? c?ng khai qua `/api/org-logo/[orgId]`; hi?n th? th?ng nh?t c?ng `/coso` + AuthShell
@@ -79,3 +82,28 @@ M?i quy?t ??nh 1-3 d?ng. Th?m m?i v?o CU?I danh s?ch v?i m? D ti?p theo.
 - **D27b** Rubric LMS (065): 1 rubric/assignment; draft trong lms_submission_grades; final dong bo lms_submissions.score/feedback. Autosave localStorage + debounce server.
 
 - **D28** HR nhan su: /campus-admin/users loai student; phep nam theo org; ngay cong hybrid; luong VP theo ngay cong / GV theo tiet+diem danh; tach teacher_requests. Spec 2026-08-02-hr-personnel-leave.
+
+- **D29** Danh gia giao vien = tong hop khao sat an danh tu hoc sinh (migration 022). Mo dot (= ky) tu dong phat phieu cho moi lop co GV + HV ghi danh; moi HV/lop/dot = 1 lan; bao cao loc theo dot + ty le hoan thanh. Dong dot = khong nop them.
+
+- **D30** To chuc nhan su (UX): 1 menu «To chuc nhan su» gom tab Tai khoan & Nhan vien + Chuc danh (route cu giu). campus_admin = setup/phan quyen cao nhat trong co so. Chuc danh = mau menu theo ten co so; role ky thuat (cong/RLS) giu; nganh/mon GV tai Ho so Giang vien (D23).
+
+- **D31** can_view_financials: campus_admin + super_admin LUON xem luong/don gia (071 + server unmask). Role khac (vd ke toan) bat tay tai To chuc nhan su.
+- **D32** Ho so NS chuyen nghiep (072): /hr/personnel (CCCD/DOB/dia chi + R2); HD probation_end_date; cron hr-reminders; menu hr_personnel. Truong phong NS = chuc danh (khong role moi). Admin khoa hr_sensitive_locked.
+
+- **D33** Quy trinh Dao tao UX: mon → lop hanh chinh (cohort) → hoc phan (section). Them HV cohort bat buoc search/filter/multi-select; addStudents sync enrollments tat ca section cua group; ghep HV vao 1 hoc phan (enrollStudentsToSection). Menu + AcademicFlowTabs; /classes new = doc lap / ghep.
+
+- **D34** Hanh chinh & CSVC: menu rieng (dat phong/TB, dat xe, danh muc, so tai san). Tai dung facilities + facility_bookings (033); ADD type vehicle (073). Dashboard /facilities + /facilities/vehicles; danh muc van /academic/rooms. Portal staff/teacher facilities giu nguyen.
+
+- **D35** Menu van hanh: hien du route da phat trien tren DashboardShell (khong chi hub /staff/classes); mac dinh mo het nhom.
+
+- **D36** Tach cong: Super Admin chi /login/admin + /admin/* (middleware isSuperAdminAllowedPath). Login slug/HV/PH tu choi super; sai co so staff signOut. enroll/cohort assertStudentsInScope. Parent area khong nhan Supabase session staff.
+
+- **D37** Hardening: thanh toan atomic (074); CSVC pending→duyet; bo role_hint; chan enroll/CRM cheo org; khong tra MOCK o production khi DB loi; TKB chan trung lich hoc vien.
+
+- **D38** Super Admin phan bo API AI theo don vi (/admin/ai, org_ai_settings). Trung tam Module: hien howItWorks + nhan Trong goi/Ngoai goi + huong dan cap quyen 2 buoc (license vs cong tac).
+
+- **D39** Khao thi la module rieng (MenuKey exams): tach khoi van hanh giao vu/TKB. Cong bo diem (class_results.is_published), phat de, lo trinh HV (075). License advanced/full gom exams; backfill tu staff_ops.
+
+- **D40** Super Admin UX: Goi dich vu gon; Cai dat chung gom API theo don vi; Admin Don vi CRUD hien ro tren cay + ho so (#admins).
+
+- **D41** Cong bo diem: sau 075, HV/PH chi thay diem khi class_results.is_published=true (thieu dong = chua cong bo). Thieu cot = legacy fail-open. Load path bao loi thay vi UI trong gia.

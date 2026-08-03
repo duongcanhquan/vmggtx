@@ -17,11 +17,18 @@ export interface ModuleFeature {
 }
 
 /** Nhóm module — dùng làm TAB ở Trung tâm Module cho dễ theo dõi */
-export type ModuleGroupKey = 'students' | 'academic' | 'teachers' | 'finance' | 'system'
+export type ModuleGroupKey =
+  | 'students'
+  | 'academic'
+  | 'exams'
+  | 'teachers'
+  | 'finance'
+  | 'system'
 
 export const MODULE_GROUPS: { key: ModuleGroupKey; label: string; description: string }[] = [
   { key: 'students', label: 'Học viên & Tuyển sinh', description: 'Hồ sơ, CRM lead, thông báo tới gia đình.' },
-  { key: 'academic', label: 'Đào tạo & Khảo thí', description: 'Lớp học, điểm danh, kỳ thi, cảnh báo học vụ.' },
+  { key: 'academic', label: 'Đào tạo & Học vụ', description: 'Lớp học, điểm danh, TKB, cảnh báo học vụ.' },
+  { key: 'exams', label: 'Khảo thí', description: 'Đề thi, lịch thi, điểm, công bố, lộ trình học tập.' },
   { key: 'teachers', label: 'Giáo viên & Nhân sự', description: 'Lịch dạy, đơn từ, đánh giá, tài khoản nhân viên.' },
   { key: 'finance', label: 'Tài chính & Tài sản', description: 'Học phí, lương, hợp đồng, tài sản khấu hao.' },
   { key: 'system', label: 'Hệ thống & AI', description: 'Kho tri thức AI, cài đặt, tổ chức, phân quyền.' },
@@ -111,15 +118,127 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   },
   {
     key: 'staff_ops',
-    label: 'Giáo vụ & Khảo thí',
+    label: 'Vận hành Giáo vụ',
     group: 'academic',
-    summary: 'Kỳ thi, coi thi, duyệt điểm, bảng điểm, phòng học/cơ sở vật chất.',
+    summary: 'Xếp lịch / TKB, điều phối dạy thay–bù, lớp vận hành phía giáo vụ.',
     howItWorks:
-      'Giáo vụ tạo kỳ thi, phân giám thị, quản lý đề. Điểm nhập xong chuyển duyệt, khóa sổ theo hạn. Học viên xin phúc khảo/thi lại — giáo vụ duyệt và xếp lịch thi lại tự động.',
+      'Giáo vụ xếp buổi tại /academic/schedule, theo dõi TKB tuần, điều phối dạy thay/bù và vận hành lớp tại /staff/classes. Không gồm khảo thí (module riêng).',
     features: [
-      { key: 'exams', label: 'Kỳ thi & coi thi', description: 'Lịch thi, phân giám thị, ngân hàng đề, mã đề.' },
-      { key: 'reexam', label: 'Phúc khảo / thi lại', description: 'Học viên đăng ký, giáo vụ duyệt và tạo kỳ thi lại.' },
-      { key: 'facilities', label: 'Phòng & cơ sở vật chất', description: 'Đặt phòng, chống trùng lịch ở tầng database.' },
+      {
+        key: 'schedule',
+        label: 'Xếp lịch / TKB',
+        description: 'Kéo-thả buổi học, ngày nghỉ, auto xếp.',
+        routePrefix: '/academic/schedule',
+      },
+      {
+        key: 'coordination',
+        label: 'Điều phối dạy thay / bù',
+        description: 'Gán GV thay, buổi bù gắn buổi gốc.',
+        routePrefix: '/staff/schedule-management',
+      },
+    ],
+  },
+  {
+    key: 'exams',
+    label: 'Khảo thí',
+    group: 'exams',
+    summary:
+      'Nhận/làm đề, sắp xếp thi, nhập & kiểm soát điểm cao nhất, công bố điểm, xuất TT thi, báo cáo, lộ trình học tập HV.',
+    howItWorks:
+      'Luồng: Ngân hàng đề → Tổ chức kỳ thi / mã đề → Lịch thi & giám thị → GV/KT nhập điểm → Khảo thí duyệt & CÔNG BỐ → HV/PH mới thấy điểm. Xuất danh sách phòng thi, báo cáo đậu-rớt. Lộ trình học tập gắn mốc điểm/đầu ra theo chương trình.',
+    features: [
+      {
+        key: 'bank',
+        label: 'Ngân hàng đề & phát đề',
+        description: 'Lưu đề, gắn mã đề, phát đề theo lịch thi.',
+        routePrefix: '/staff/exam-bank',
+      },
+      {
+        key: 'schedule',
+        label: 'Sắp xếp thi & giám thị',
+        description: 'Phòng thi, khung giờ, GT1/GT2, chống trùng.',
+        routePrefix: '/staff/exam-schedule',
+      },
+      {
+        key: 'grading',
+        label: 'Nhập & kiểm soát điểm',
+        description: 'Tạo cột điểm, nhập điểm, hạn chấm, chốt sổ.',
+        routePrefix: '/staff/exam-grades',
+      },
+      {
+        key: 'publish',
+        label: 'Công bố điểm',
+        description: 'Chỉ sau khi KT công bố, HV/PH mới xem được điểm.',
+        routePrefix: '/staff/exam-grades',
+      },
+      {
+        key: 'export',
+        label: 'Xuất thông tin thi cử',
+        description: 'Danh sách phòng thi, SBD, giấy báo thi (in/CSV).',
+        routePrefix: '/staff/exam-export',
+      },
+      {
+        key: 'reports',
+        label: 'Báo cáo thi cử',
+        description: 'Phân bố điểm, tỷ lệ đậu-rớt theo lớp.',
+        routePrefix: '/reports/exams',
+      },
+      {
+        key: 'reexam',
+        label: 'Phúc khảo / thi lại',
+        description: 'HV đăng ký, KT duyệt và tạo kỳ thi lại.',
+        routePrefix: '/staff/assessments',
+      },
+      {
+        key: 'pathways',
+        label: 'Lộ trình học tập HV',
+        description: 'Chương trình mốc → tiến độ từng học viên.',
+        routePrefix: '/staff/learning-pathways',
+      },
+    ],
+  },
+  {
+    key: 'lms',
+    label: 'LMS Online',
+    group: 'academic',
+    summary: 'Bài giảng, bài tập, nộp bài, chấm điểm / rubric theo lớp.',
+    howItWorks:
+      'Giáo vụ/GV tạo bài trên /academic/lms hoặc /teacher/lms. Học viên học trên cổng; file lớn lưu R2. Rubric chấm draft→final đồng bộ điểm. Quiz LMS bổ sung cho nhận/làm đề trực tuyến.',
+    features: [
+      {
+        key: 'rubric',
+        label: 'Rubric chấm điểm',
+        description: 'Tiêu chí chấm, draft và điểm cuối.',
+        routePrefix: '/teacher/lms',
+      },
+    ],
+  },
+  {
+    key: 'facilities',
+    label: 'Hành chính & CSVC',
+    group: 'academic',
+    summary: 'Danh mục phòng/TB/xe, đặt lịch chống trùng, sổ tài sản liên quan vận hành.',
+    howItWorks:
+      'Quản lý danh mục tại /academic/rooms; đặt phòng/TB tại /facilities; đặt xe tại /facilities/vehicles. Chống trùng giờ tầng DB.',
+    features: [
+      {
+        key: 'booking',
+        label: 'Đặt phòng & thiết bị',
+        description: 'Lịch tuần + chống trùng giờ.',
+        routePrefix: '/facilities',
+      },
+      {
+        key: 'vehicles',
+        label: 'Đặt xe công vụ',
+        description: 'Đăng ký xe theo khung giờ.',
+        routePrefix: '/facilities/vehicles',
+      },
+      {
+        key: 'catalog',
+        label: 'Danh mục CSVC',
+        description: 'Phòng, thiết bị, xe — sức chứa/mã/vị trí.',
+        routePrefix: '/academic/rooms',
+      },
     ],
   },
   {
@@ -150,7 +269,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
     features: [
       { key: 'campus', label: 'Ops Cockpit', description: 'HV, lớp, chuyên cần, công nợ.' },
       { key: 'academic', label: 'Early warning', description: 'Xu hướng cảnh báo học vụ.' },
-      { key: 'exams', label: 'Khảo thí', description: 'Phân bố điểm / đậu-rớt.' },
+      { key: 'exams', label: 'Khảo thí (legacy link)', description: 'Chuyển sang module Khảo thí riêng.' },
     ],
   },
   {
@@ -200,12 +319,65 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   },
   {
     key: 'staff_users',
-    label: 'Tài khoản & Nhân viên',
+    label: 'Tổ chức nhân sự',
     group: 'teachers',
-    summary: 'Tạo và quản lý tài khoản nhân sự: giáo vụ, kế toán, giáo viên...',
+    summary:
+      'Quản lý cơ sở (campus_admin) setup cao nhất: tài khoản nhân sự, chức danh (mẫu menu), phân quyền truy cập từng phần.',
     howItWorks:
-      'Quản lý cơ sở tạo tài khoản, gán vai trò và cơ sở làm việc. Vai trò quyết định menu và quyền thao tác (kết hợp ma trận phân quyền).',
-    features: [],
+      'Vai trò kỹ thuật (cổng/RLS) giữ nguyên. Chức danh theo tên cơ sở (VD Phó giám đốc, Thư ký) = mẫu menu; gán tại Tài khoản & Nhân viên. Ngành/môn dạy GV gán tại Hồ sơ Giảng viên, không gắn chức danh.',
+    features: [
+      {
+        key: 'accounts',
+        label: 'Tài khoản & Nhân viên',
+        description: 'Tạo tài khoản, gán role kỹ thuật, chức danh và quyền kiêm nhiệm.',
+        routePrefix: '/campus-admin/users',
+      },
+      {
+        key: 'job_titles',
+        label: 'Chức danh',
+        description: 'Mẫu menu phân quyền theo cơ sở — không thay role kỹ thuật.',
+        routePrefix: '/campus-admin/job-titles',
+      },
+    ],
+  },
+  {
+    key: 'hr_personnel',
+    label: 'Hồ sơ & giấy tờ NS',
+    group: 'teachers',
+    summary:
+      'Hồ sơ nhân sự đầy đủ (CCCD, ngày sinh, địa chỉ) + upload giấy tờ. Nhạy cảm — Trưởng phòng NS / Quản lý cơ sở.',
+    howItWorks:
+      'Không tạo role mới: gán chức danh «Trưởng phòng nhân sự» (mẫu menu hr_personnel). Admin có thể khóa quyền nhạy cảm để chỉ Quản lý cơ sở vào được.',
+    features: [
+      {
+        key: 'dossier',
+        label: 'Hồ sơ & giấy tờ',
+        description: 'CCCD, địa chỉ, DOB, email + file đính kèm R2.',
+        routePrefix: '/hr/personnel',
+      },
+    ],
+  },
+  {
+    key: 'hr_leave',
+    label: 'Ngày công & Phép',
+    group: 'teachers',
+    summary: 'Xin/duyệt phép năm, bảng công tháng, liên kết tính lương văn phòng.',
+    howItWorks:
+      'Nhân sự xin phép tại /hr/my-leave; quản lý duyệt tại /hr/attendance. Ngày công hybrid phục vụ lương VP.',
+    features: [
+      {
+        key: 'my_leave',
+        label: 'Xin nghỉ phép',
+        description: 'Nhân viên gửi đơn, theo dõi trạng thái.',
+        routePrefix: '/hr/my-leave',
+      },
+      {
+        key: 'timesheet',
+        label: 'Ngày công',
+        description: 'Bảng công tháng + duyệt phép.',
+        routePrefix: '/hr/attendance',
+      },
+    ],
   },
   {
     key: 'payroll_contracts',

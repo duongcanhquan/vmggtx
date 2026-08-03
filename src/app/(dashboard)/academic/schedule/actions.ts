@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isAuthorizedRpc } from '@/lib/auth/isAuthorizedRpc'
+import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { scheduleSessionSchema, zodFail } from '@/lib/validation/schemas'
 import { z } from 'zod'
 import {
@@ -37,6 +38,11 @@ export type ScheduleFacilityOption = {
   id: string
   name: string
   type: string
+  code?: string | null
+  capacity?: number | null
+  location?: string | null
+  roomKind?: string | null
+  orgName?: string | null
 }
 
 export type UpcomingSessionRow = {
@@ -53,12 +59,12 @@ async function getOrgSubtreeIds(
   supabase: ReturnType<typeof createClient>,
   orgId: string
 ): Promise<string[]> {
-  const { data, error } = await supabase.rpc('get_descendant_org_ids', {
-    p_org_id: orgId,
-  })
-  if (error) return [orgId]
-  const ids = (data ?? []) as string[]
-  return ids.includes(orgId) ? ids : [orgId, ...ids]
+  try {
+    const ids = await getDescendantOrgIds(supabase, orgId)
+    return ids.includes(orgId) ? ids : [orgId, ...ids]
+  } catch {
+    return [orgId]
+  }
 }
 
 async function requireScheduleAccess(orgId: string): Promise<
@@ -266,6 +272,69 @@ async function assertClassInSubtree(
   return { org_id: cls.org_id }
 }
 
+/** Chặn xếp lịch khi HV đã ghi danh lớp khác bị chồng giờ. */
+async function assertNoStudentScheduleClash(
+  supabase: ReturnType<typeof createClient>,
+  args: {
+    classId: string
+    startISO: string
+    endISO: string
+    excludeSessionId?: string
+  }
+): Promise<{ error?: string }> {
+  const { data: roster, error: rosterErr } = await supabase
+    .from('enrollments')
+    .select('student_id')
+    .eq('class_id', args.classId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+  if (rosterErr) return { error: rosterErr.message }
+  const studentIds = [...new Set((roster ?? []).map((r) => r.student_id as string))]
+  if (studentIds.length === 0) return {}
+
+  const { data: otherEnrolls, error: otherErr } = await supabase
+    .from('enrollments')
+    .select('student_id, class_id')
+    .in('student_id', studentIds)
+    .neq('class_id', args.classId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+  if (otherErr) return { error: otherErr.message }
+  const otherClassIds = [
+    ...new Set((otherEnrolls ?? []).map((r) => r.class_id as string)),
+  ]
+  if (otherClassIds.length === 0) return {}
+
+  let clashQuery = supabase
+    .from('class_sessions')
+    .select('id, class_id, start_time, end_time, classes(name)')
+    .in('class_id', otherClassIds)
+    .is('deleted_at', null)
+    .neq('status', 'cancelled')
+    .lt('start_time', args.endISO)
+    .gt('end_time', args.startISO)
+  if (args.excludeSessionId) {
+    clashQuery = clashQuery.neq('id', args.excludeSessionId)
+  }
+  const { data: clashSessions, error: clashErr } = await clashQuery.limit(5)
+  if (clashErr) return { error: clashErr.message }
+  if (!clashSessions || clashSessions.length === 0) return {}
+
+  const clashClassIds = new Set(clashSessions.map((s) => s.class_id as string))
+  const hitStudents = (otherEnrolls ?? []).filter((e) =>
+    clashClassIds.has(e.class_id as string)
+  )
+  const hitCount = new Set(hitStudents.map((e) => e.student_id)).size
+  const first = clashSessions[0]
+  const clsNameRaw = first.classes as { name: string } | { name: string }[] | null
+  const clsName = Array.isArray(clsNameRaw)
+    ? clsNameRaw[0]?.name
+    : clsNameRaw?.name
+  return {
+    error: `TRÙNG LỊCH HV: ${hitCount} học viên đã có buổi khác (${clsName ?? 'lớp khác'}) cùng khung giờ.`,
+  }
+}
+
 async function insertOneSession(
   supabase: ReturnType<typeof createClient>,
   args: {
@@ -292,6 +361,13 @@ async function insertOneSession(
       }
     }
   }
+
+  const studentClash = await assertNoStudentScheduleClash(supabase, {
+    classId: args.classId,
+    startISO: args.startISO,
+    endISO: args.endISO,
+  })
+  if (studentClash.error) return studentClash
 
   const payload: Record<string, unknown> = {
     org_id: args.orgId,
@@ -330,24 +406,54 @@ export async function getScheduleFacilities(
 
     const { data, error } = await scope.supabase
       .from('facilities')
-      .select('id, name, type, org_id')
+      .select(
+        'id, name, type, code, capacity, location, room_kind, organizations(name)'
+      )
       .in('org_id', scope.orgIds)
       .eq('is_active', true)
       .is('deleted_at', null)
+      .order('type')
       .order('name')
 
     if (error) {
       if (/facilities|does not exist/i.test(error.message)) {
         return { data: [] }
       }
+      // 070 chưa chạy
+      if (/capacity|code|location|room_kind|42703/i.test(error.message)) {
+        const legacy = await scope.supabase
+          .from('facilities')
+          .select('id, name, type')
+          .in('org_id', scope.orgIds)
+          .eq('is_active', true)
+          .is('deleted_at', null)
+          .order('name')
+        if (legacy.error) return { data: [], error: legacy.error.message }
+        return {
+          data: (legacy.data ?? []).map((r) => ({
+            id: r.id as string,
+            name: r.name as string,
+            type: String(r.type ?? 'room'),
+          })),
+        }
+      }
       return { data: [], error: error.message }
     }
     return {
-      data: (data ?? []).map((r) => ({
-        id: r.id as string,
-        name: r.name as string,
-        type: String(r.type ?? 'room'),
-      })),
+      data: (data ?? []).map((r) => {
+        const org = r.organizations as { name?: string } | { name?: string }[] | null
+        const orgName = Array.isArray(org) ? org[0]?.name : org?.name
+        return {
+          id: r.id as string,
+          name: r.name as string,
+          type: String(r.type ?? 'room'),
+          code: (r.code as string | null) ?? null,
+          capacity: r.capacity != null ? Number(r.capacity) : null,
+          location: (r.location as string | null) ?? null,
+          roomKind: (r.room_kind as string | null) ?? null,
+          orgName: orgName ?? null,
+        }
+      }),
     }
   } catch (e) {
     return {
@@ -831,7 +937,7 @@ export async function moveSession(
 
     const { data: session, error: loadErr } = await scope.supabase
       .from('class_sessions')
-      .select('id, org_id, teacher_id, substitute_teacher_id, room')
+      .select('id, org_id, class_id, teacher_id, substitute_teacher_id, room')
       .eq('id', input.sessionId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -892,6 +998,14 @@ export async function moveSession(
         }
       }
     }
+
+    const studentClash = await assertNoStudentScheduleClash(scope.supabase, {
+      classId: session.class_id as string,
+      startISO,
+      endISO,
+      excludeSessionId: input.sessionId,
+    })
+    if (studentClash.error) return studentClash
 
     const { error } = await scope.supabase
       .from('class_sessions')
