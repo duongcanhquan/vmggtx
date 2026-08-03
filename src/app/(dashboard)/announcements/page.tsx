@@ -24,6 +24,8 @@ import {
   type Audience,
   type TargetScope,
 } from './actions'
+import { AiDraftButton } from '@/components/ai/AiDraftButton'
+import { parseAnnouncementDraft } from '@/lib/ai/draftAssist'
 
 const AUDIENCE_META: Record<Audience, { label: string; icon: typeof Users }> = {
   all: { label: 'Tất cả', icon: Users },
@@ -182,6 +184,22 @@ export default function AnnouncementsPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,440px)_1fr]">
         <section className="h-fit rounded-2xl border border-border bg-surface p-5 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-foreground">Soạn thông báo</p>
+            <AiDraftButton
+              orgId={currentOrgId}
+              draftMode="announcement"
+              label="AI soạn"
+              contextHint={`Nhóm nhận: ${AUDIENCE_META[audience].label}. Phạm vi: ${SCOPE_META[targetScope]}. ${title ? `Gợi ý tiêu đề: ${title}` : ''} ${body ? `Gợi ý nội dung: ${body.slice(0, 200)}` : ''}`}
+              onDraft={(text) => {
+                const parsed = parseAnnouncementDraft(text)
+                setTitle(parsed.title)
+                setBody(parsed.body)
+                setToast({ type: 'success', message: 'Đã điền tiêu đề & nội dung từ AI — hãy kiểm tra trước khi gửi.' })
+              }}
+              onError={(message) => setToast({ type: 'error', message })}
+            />
+          </div>
           <label className="block text-sm font-medium">
             Tiêu đề
             <input

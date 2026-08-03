@@ -27,6 +27,7 @@ import {
   type WarningStatus,
   type WarningType,
 } from './actions'
+import { AiDraftButton } from '@/components/ai/AiDraftButton'
 
 const TYPE_META: Record<WarningType, { label: string; badgeClass: string }> = {
   attendance: {
@@ -443,6 +444,19 @@ export default function AcademicWarningsPage() {
                       Ghi chú: {w.handler_notes}
                     </p>
                   )}
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">Ghi chú xử lý / nhắn PH</span>
+                    <AiDraftButton
+                      orgId={currentOrgId}
+                      draftMode="parent_warning"
+                      label="AI soạn ghi chú"
+                      contextHint={`Học viên: ${w.student_name}. Lớp: ${w.class_name}. Loại: ${TYPE_META[w.warning_type].label}. Mức: ${SEVERITY_META[w.severity].label}. Mô tả: ${w.description}`}
+                      onDraft={(text) =>
+                        setNoteDraft((prev) => ({ ...prev, [w.id]: text.slice(0, 1000) }))
+                      }
+                      onError={(message) => setToast({ type: 'error', message })}
+                    />
+                  </div>
                   <textarea
                     rows={2}
                     value={noteDraft[w.id] ?? w.handler_notes ?? ''}
@@ -450,7 +464,7 @@ export default function AcademicWarningsPage() {
                       setNoteDraft((prev) => ({ ...prev, [w.id]: e.target.value }))
                     }
                     placeholder="Ghi chú xử lý…"
-                    className="mt-2 min-h-16 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-1 min-h-16 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
                 <div className="flex flex-col gap-2 sm:w-40">

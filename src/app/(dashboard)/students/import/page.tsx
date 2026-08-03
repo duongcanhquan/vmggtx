@@ -11,6 +11,7 @@ import {
   FileSpreadsheet,
   Loader2,
   RotateCcw,
+  Sparkles,
   UploadCloud,
   XCircle,
 } from 'lucide-react'
@@ -19,7 +20,7 @@ import { SmartTable, sortableHeader } from '@/components/shared/SmartTable'
 import { SectionTabs } from '@/components/shared/SectionTabs'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { importStudentRowSchema } from '@/lib/validation/schemas'
-import { bulkImportStudents, type BulkImportRowOutcome } from '../actions'
+import { bulkImportStudents, validateImportData, type BulkImportRowOutcome } from '../actions'
 
 // ============================================================
 // MASS IMPORT Học sinh (/students/import) - ĐÀO TẠO KÉP (035)
@@ -132,6 +133,7 @@ export default function StudentImportPage() {
     rows: BulkImportRowOutcome[]
   } | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
+  const [aiNormalizing, setAiNormalizing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const errorRowCount = useMemo(
@@ -246,6 +248,51 @@ export default function StudentImportPage() {
     setImportResult(null)
     setHeaderError(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  /** AI chuẩn hóa họ tên/địa chỉ + cảnh báo trùng toàn hệ thống (validateImportData). */
+  async function handleAiNormalize() {
+    if (rows.length === 0) return
+    setAiNormalizing(true)
+    const payload = rows.map((row) => ({
+      maSV: row.maSV,
+      fullName: row.fullName,
+      email: row.email,
+      phone: row.phone,
+      address: row.address,
+    }))
+    const result = await validateImportData(payload)
+    setAiNormalizing(false)
+    if (result.error !== undefined) {
+      setToast({ type: 'error', message: result.error })
+      return
+    }
+    setRows((prev) =>
+      prev.map((row, i) => {
+        const v = result.rows[i]
+        if (!v) return row
+        const extraErrors: string[] = []
+        if (v.status === 'invalid') extraErrors.push(v.message)
+        if (v.status === 'duplicate') extraErrors.push(v.message)
+        return {
+          ...row,
+          fullName: v.normalized.fullName || row.fullName,
+          address: v.normalized.address || row.address,
+          errors:
+            v.status === 'invalid'
+              ? [...new Set([...row.errors.filter((e) => !e.startsWith('Nghi ngờ')), ...extraErrors])]
+              : v.status === 'duplicate'
+                ? [...row.errors.filter((e) => !e.startsWith('Nghi ngờ')), v.message]
+                : row.errors.filter((e) => !e.startsWith('Nghi ngờ') && !e.startsWith('Sai định dạng')),
+        }
+      })
+    )
+    setToast({
+      type: 'success',
+      message: result.usedAI
+        ? 'AI đã chuẩn hóa họ tên/địa chỉ và dò trùng hệ thống.'
+        : 'Đã chuẩn hóa theo luật local (chưa cấu hình API AI) và dò trùng hệ thống.',
+    })
   }
 
   // ---------- Import thật (chỉ khi 100% dòng hợp lệ) ----------
@@ -516,6 +563,19 @@ export default function StudentImportPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleAiNormalize()}
+                disabled={aiNormalizing || rows.length === 0}
+                className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-4 text-sm font-semibold text-primary hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              >
+                {aiNormalizing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                )}
+                {aiNormalizing ? 'AI đang chuẩn hóa…' : 'AI chuẩn hóa'}
+              </button>
               <button
                 type="button"
                 onClick={resetAll}

@@ -9,20 +9,39 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getAIConfig, type TenantAIConfig } from '@/lib/ai/getTenantAIConfig'
 import { DEFAULT_ORG_CONFIG, orgConfigSchema } from '@/lib/validation/schemas'
 import { assertClassAccess } from '@/lib/auth/assertClassAccess'
+import { DRAFT_MODES, type DraftMode } from '@/lib/ai/draftAssist'
 
 export const maxDuration = 60
 
 // ============================================================
 // CORE AI COPILOT
 // taskType:
-//   tutor | lesson_plan | hr_query | crm_assist
+//   tutor | lesson_plan | hr_query | crm_assist | module_assist | draft_assist
 // crm_assist + mode: rag | counsel_script | summarize | draft_followup
+// module_assist + kbCategory: training | admin | exams | finance | …
+// draft_assist + draftMode: announcement | exam_paper | contact_book | …
 // ============================================================
 
 const AI_MAINTENANCE_MESSAGE = 'Trợ lý AI đang bảo trì, vui lòng quay lại sau'
 
-const TASK_TYPES = ['tutor', 'lesson_plan', 'hr_query', 'crm_assist'] as const
+const TASK_TYPES = [
+  'tutor',
+  'lesson_plan',
+  'hr_query',
+  'crm_assist',
+  'module_assist',
+  'draft_assist',
+] as const
 const CRM_MODES = ['rag', 'counsel_script', 'summarize', 'draft_followup'] as const
+const KB_CATEGORY_HINTS = [
+  'training',
+  'admissions',
+  'hr',
+  'finance',
+  'exams',
+  'admin',
+  'general',
+] as const
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1, 'Thiếu prompt.').max(4000, 'Prompt tối đa 4000 ký tự.'),
@@ -31,6 +50,10 @@ const bodySchema = z.object({
   classId: z.string().uuid().optional(),
   leadId: z.string().uuid().optional(),
   mode: z.enum(CRM_MODES).optional().default('rag'),
+  kbCategory: z.enum(KB_CATEGORY_HINTS).optional(),
+  module: z.string().max(40).optional(),
+  draftMode: z.enum(DRAFT_MODES).optional(),
+  contextHint: z.string().max(2500).optional(),
 })
 
 type MatchedMaterial = { content: string; metadata?: Record<string, unknown> }
@@ -63,6 +86,9 @@ function buildSystemPrompt(
     crmTone?: 'friendly' | 'professional'
     crmNote?: string
     mode?: (typeof CRM_MODES)[number]
+    moduleLabel?: string
+    draftMode?: DraftMode
+    contextHint?: string
   }
 ) {
   switch (taskType) {
@@ -84,6 +110,67 @@ CHỈ trả lời dựa trên quy chế/tài liệu nội bộ dưới đây. N�
 
 QUY CHẾ / TÀI LIỆU NỘI BỘ:
 ${context}`
+    case 'module_assist': {
+      const mod = extras?.moduleLabel || 'vận hành'
+      return `Bạn là trợ lý AI hỗ trợ ${mod} của trung tâm giáo dục GDTX, trả lời bằng tiếng Việt, ngắn gọn, thực dụng.
+CHỈ dựa trên tài liệu nội bộ dưới đây. Nếu thiếu dữ liệu, nói rõ và đề xuất liên hệ đúng bộ phận — KHÔNG bịa chính sách, học phí, hay quy chế.
+Ưu tiên tài liệu có category phù hợp module đang hỏi.
+
+TÀI LIỆU NỘI BỘ (RAG):
+${context}`
+    }
+    case 'draft_assist': {
+      const hint = extras?.contextHint?.trim()
+        ? `\nNGỮ CẢNH FORM:\n${extras.contextHint.trim()}\n`
+        : ''
+      const rag =
+        context && !context.startsWith('(Chưa có')
+          ? `\nTÀI LIỆU THAM KHẢO (nếu liên quan):\n${context}\n`
+          : ''
+      switch (extras?.draftMode) {
+        case 'announcement':
+          return `Bạn soạn THÔNG BÁO nội bộ trung tâm giáo dục bằng tiếng Việt.
+${hint}${rag}
+Trả đúng format (không markdown thừa):
+TIÊU ĐỀ: <một dòng ≤120 ký tự>
+NỘI DUNG:
+<đoạn văn lịch sự, rõ ràng, ≤1800 ký tự>
+Không bịa lịch nghỉ/chính sách nếu ngữ cảnh không nêu.`
+        case 'exam_paper':
+          return `Bạn soạn KHUNG ĐỀ KIỂM TRA cho trung tâm giáo dục (tiếng Việt).
+${hint}${rag}
+Trả đúng format:
+TIÊU ĐỀ: <tên đề>
+MÔ TẢ: <1 câu>
+NỘI DUNG:
+<câu hỏi đánh số, kèm điểm gợi ý; tổng ~45–90 phút nếu không ghi khác>
+Không tiết lộ đáp án chi tiết trừ khi được yêu cầu.`
+        case 'parent_warning':
+          return `Bạn soạn GHI CHÚ XỬ LÝ / nhắn phụ huynh về cảnh báo học vụ (tiếng Việt).
+${hint}
+Giọng lịch sự, đồng hành, không đổ lỗi. 80–180 từ. Chỉ trả nội dung ghi chú, không tiêu đề.`
+        case 'contact_book':
+          return `Bạn soạn DẶN DÒ PHỤ HUYNH cho sổ liên lạc điện tử (tiếng Việt).
+${hint}
+Ngắn, ấm áp, có việc cụ thể cần PH hỗ trợ. 60–150 từ. Chỉ trả nội dung.`
+        case 'session_note':
+          return `Bạn soạn NHẬN XÉT BUỔI HỌC nội bộ (sổ đầu bài).
+${hint}
+Ngắn gọn, khách quan. 40–120 từ. Chỉ trả nội dung.`
+        case 'invoice_note':
+          return `Bạn soạn NỘI DUNG KHOẢN THU học phí (tiếng Việt), một dòng hoặc cụm ngắn ≤120 ký tự.
+${hint}
+Chỉ trả nội dung khoản thu, không giải thích.`
+        case 'leave_reason':
+          return `Bạn soạn LÝ DO XIN NGHỈ phép nhân sự (tiếng Việt), chuyên nghiệp, 1–3 câu.
+${hint}
+Chỉ trả lý do, không tiêu đề phụ.`
+        default:
+          return `Bạn soạn nội dung hỗ trợ vận hành trung tâm giáo dục (tiếng Việt).
+${hint}${rag}
+Ngắn gọn, thực dụng. Chỉ trả nội dung cần điền form.`
+      }
+    }
     case 'crm_assist': {
       const tone =
         extras?.crmTone === 'professional'
@@ -159,6 +246,48 @@ function prioritizeAdmissionsMaterials(materials: MatchedMaterial[]): MatchedMat
   return [...materials].sort((a, b) => score(b) - score(a))
 }
 
+/** Ưu tiên chunk đúng category KB; giữ chunk general làm phụ. */
+function prioritizeByKbCategory(
+  materials: MatchedMaterial[],
+  preferred?: string | null
+): MatchedMaterial[] {
+  if (!preferred) return materials
+  const pref = preferred.toLowerCase()
+  const aliases: Record<string, string[]> = {
+    admissions: ['admission', 'crm', 'tuyen', 'tuyển'],
+    training: ['training', 'dao tao', 'đào tạo', 'syllabus', 'lms'],
+    hr: ['hr', 'nhan su', 'nhân sự', 'quy che', 'leave'],
+    finance: ['finance', 'hoc phi', 'học phí', 'invoice', 'tuition'],
+    exams: ['exam', 'khao thi', 'khảo thí', 'thi'],
+    admin: ['admin', 'facility', 'csvc', 'hanh chinh', 'hành chính', 'asset'],
+    general: ['general', 'chung'],
+  }
+  const keys = aliases[pref] ?? [pref]
+  const score = (m: MatchedMaterial) => {
+    const cat = String(
+      m.metadata?.category || m.metadata?.subject || m.metadata?.tags || ''
+    ).toLowerCase()
+    if (cat === pref || keys.some((k) => cat.includes(k))) return 3
+    if (cat.includes('general') || cat === 'chung') return 1
+    return 0
+  }
+  return [...materials].sort((a, b) => score(b) - score(a))
+}
+
+function moduleAssistLabel(module?: string, kbCategory?: string): string {
+  const key = (module || kbCategory || 'general').toLowerCase()
+  const map: Record<string, string> = {
+    admissions: 'tuyển sinh',
+    training: 'đào tạo / học vụ',
+    admin: 'hành chính / CSVC',
+    exams: 'khảo thí',
+    hr: 'nhân sự',
+    finance: 'tài chính / học phí',
+    general: 'vận hành cơ sở',
+  }
+  return map[key] || 'vận hành'
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createClient()
   const {
@@ -176,13 +305,47 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
-  const { prompt, taskType, classId, leadId, mode } = parsed.data
+  const {
+    prompt,
+    taskType,
+    classId,
+    leadId,
+    mode,
+    kbCategory,
+    module,
+    draftMode,
+    contextHint,
+  } = parsed.data
 
   let orgId: string
   let ragClassId: string | null = null
   let leadContext = ''
   let crmTone: 'friendly' | 'professional' = 'friendly'
   let crmNote = ''
+  let preferredKb = kbCategory ?? null
+  if (taskType === 'crm_assist' && !preferredKb) preferredKb = 'admissions'
+  if (taskType === 'hr_query' && !preferredKb) preferredKb = 'hr'
+  if (taskType === 'lesson_plan' && !preferredKb) preferredKb = 'training'
+  if (taskType === 'draft_assist') {
+    if (!draftMode) {
+      return NextResponse.json(
+        { error: 'taskType=draft_assist cần draftMode.' },
+        { status: 400 }
+      )
+    }
+    if (!preferredKb) {
+      const map: Partial<Record<DraftMode, (typeof KB_CATEGORY_HINTS)[number]>> = {
+        announcement: 'admin',
+        exam_paper: 'exams',
+        parent_warning: 'training',
+        contact_book: 'training',
+        session_note: 'training',
+        invoice_note: 'finance',
+        leave_reason: 'hr',
+      }
+      preferredKb = map[draftMode] ?? 'general'
+    }
+  }
 
   if (taskType === 'tutor') {
     if (!classId) {
@@ -272,6 +435,99 @@ export async function POST(request: NextRequest) {
       if (!allowedRoles.includes(profile.role)) {
         return NextResponse.json(
           { error: 'TỪ CHỐI: Chỉ quản trị/học vụ/kế toán được hỏi AI nhân sự.' },
+          { status: 403 }
+        )
+      }
+    }
+
+    if (taskType === 'module_assist') {
+      const allowedRoles = [
+        'super_admin',
+        'campus_admin',
+        'academic_staff',
+        'admission_staff',
+        'accountant',
+        'teacher',
+      ]
+      if (!allowedRoles.includes(profile.role)) {
+        return NextResponse.json(
+          { error: 'TỪ CHỐI: Role hiện tại không được dùng trợ lý AI module.' },
+          { status: 403 }
+        )
+      }
+      // Giáo viên chỉ hỏi module đào tạo / general
+      if (profile.role === 'teacher') {
+        const mod = (module || preferredKb || 'training').toLowerCase()
+        if (!['training', 'general', 'exams'].includes(mod)) {
+          return NextResponse.json(
+            { error: 'TỪ CHỐI: Giáo viên chỉ dùng AI đào tạo / khảo thí / chung.' },
+            { status: 403 }
+          )
+        }
+      }
+      if (profile.role === 'admission_staff') {
+        const mod = (module || preferredKb || 'admissions').toLowerCase()
+        if (!['admissions', 'general', 'admin'].includes(mod)) {
+          return NextResponse.json(
+            { error: 'TỪ CHỐI: Tuyển sinh chỉ dùng AI tuyển sinh / hành chính / chung.' },
+            { status: 403 }
+          )
+        }
+      }
+      if (profile.role === 'accountant') {
+        const mod = (module || preferredKb || 'finance').toLowerCase()
+        if (!['finance', 'hr', 'general', 'admin'].includes(mod)) {
+          return NextResponse.json(
+            { error: 'TỪ CHỐI: Kế toán chỉ dùng AI tài chính / nhân sự / hành chính.' },
+            { status: 403 }
+          )
+        }
+      }
+    }
+
+    if (taskType === 'draft_assist') {
+      const allowedRoles = [
+        'super_admin',
+        'campus_admin',
+        'academic_staff',
+        'admission_staff',
+        'accountant',
+        'teacher',
+      ]
+      if (!allowedRoles.includes(profile.role)) {
+        return NextResponse.json(
+          { error: 'TỪ CHỐI: Role hiện tại không được dùng AI soạn thảo.' },
+          { status: 403 }
+        )
+      }
+      const dm = draftMode!
+      if (
+        profile.role === 'teacher' &&
+        !['contact_book', 'session_note', 'exam_paper', 'leave_reason', 'announcement'].includes(dm)
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'TỪ CHỐI: Giáo viên chỉ soạn sổ liên lạc / nhận xét buổi / khung đề / nghỉ phép / thông báo.',
+          },
+          { status: 403 }
+        )
+      }
+      if (
+        profile.role === 'admission_staff' &&
+        !['announcement', 'parent_warning', 'leave_reason', 'contact_book'].includes(dm)
+      ) {
+        return NextResponse.json(
+          { error: 'TỪ CHỐI: Tuyển sinh chỉ soạn thông báo / nhắn PH / nghỉ phép / sổ liên lạc.' },
+          { status: 403 }
+        )
+      }
+      if (
+        profile.role === 'accountant' &&
+        !['invoice_note', 'announcement', 'leave_reason'].includes(dm)
+      ) {
+        return NextResponse.json(
+          { error: 'TỪ CHỐI: Kế toán chỉ soạn khoản thu / thông báo / lý do nghỉ.' },
           { status: 403 }
         )
       }
@@ -380,12 +636,22 @@ export async function POST(request: NextRequest) {
         : process.env.OPENAI_API_KEY
 
     let context = '(Chưa có tài liệu nào trong kho tri thức của cơ sở)'
-    if (embeddingKey) {
+    // draft ngắn (invoice/leave/session/contact): bỏ RAG để nhanh; announcement/exam_paper có thể lấy KB
+    const skipRag =
+      taskType === 'draft_assist' &&
+      draftMode != null &&
+      ['invoice_note', 'leave_reason', 'session_note', 'contact_book', 'parent_warning'].includes(
+        draftMode
+      )
+
+    if (embeddingKey && !skipRag) {
       const embeddingClient = createOpenAI({ apiKey: embeddingKey })
       const embedQuery =
         taskType === 'crm_assist' && leadContext
           ? `${prompt}\n${leadContext.slice(0, 800)}`
-          : prompt
+          : taskType === 'draft_assist' && contextHint
+            ? `${prompt}\n${contextHint.slice(0, 600)}`
+            : prompt
       const { embedding } = await embed({
         model: embeddingClient.embedding('text-embedding-3-small'),
         value: embedQuery,
@@ -398,7 +664,15 @@ export async function POST(request: NextRequest) {
           query_embedding: embedding,
           p_org_id: orgId,
           filter_class_id: ragClassId,
-          match_count: taskType === 'tutor' ? 5 : taskType === 'crm_assist' ? 10 : 8,
+          match_count:
+            taskType === 'tutor'
+              ? 5
+              : taskType === 'crm_assist' ||
+                  taskType === 'module_assist' ||
+                  taskType === 'hr_query' ||
+                  taskType === 'draft_assist'
+                ? 12
+                : 8,
         }
       )
       if (rpcError) {
@@ -409,6 +683,8 @@ export async function POST(request: NextRequest) {
       let found = (materials as MatchedMaterial[] | null) ?? []
       if (taskType === 'crm_assist') {
         found = prioritizeAdmissionsMaterials(found)
+      } else if (preferredKb) {
+        found = prioritizeByKbCategory(found, preferredKb)
       }
       if (found.length > 0) {
         context = found
@@ -433,6 +709,9 @@ export async function POST(request: NextRequest) {
           'Soạn tin nhắn follow-up ngắn để chốt lịch hẹn / nhắc đăng ký.'
       }
     }
+    if (taskType === 'draft_assist' && contextHint?.trim()) {
+      finalPrompt = `${prompt.trim()}\n\nChi tiết:\n${contextHint.trim()}`
+    }
 
     const result = streamText({
       model: aiModel,
@@ -441,6 +720,9 @@ export async function POST(request: NextRequest) {
         crmTone,
         crmNote,
         mode,
+        moduleLabel: moduleAssistLabel(module, preferredKb ?? undefined),
+        draftMode: draftMode,
+        contextHint,
       }),
       prompt: finalPrompt,
       abortSignal: AbortSignal.timeout(55_000),

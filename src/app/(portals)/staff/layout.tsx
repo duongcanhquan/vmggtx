@@ -61,6 +61,7 @@ export default function StaffPortalLayout({ children }: { children: React.ReactN
       portalName="Staff Portal"
       navGroups={STAFF_NAV}
       storageKey="gdtx-sidebar-staff"
+      showAskAi
       headerRight={<MyOrgBadge />}
     >
       {children}

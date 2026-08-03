@@ -30,6 +30,8 @@ import {
   type PaymentMethod,
 } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
+import { AiDraftButton } from '@/components/ai/AiDraftButton'
 
 // ============================================================
 // Quản lý Học phí & Công nợ (/finance/invoices)
@@ -522,7 +524,17 @@ function CreateInvoiceSheet({
           </label>
 
           <label className="block text-sm font-medium">
-            Nội dung khoản thu
+            <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              Nội dung khoản thu
+              <AiDraftButton
+                orgId={orgId}
+                draftMode="invoice_note"
+                label="AI soạn"
+                contextHint={`Số tiền: ${amount || '…'} VND. Hạn: ${dueDate || 'chưa chọn'}. Học viên id: ${studentId || 'chưa chọn'}.`}
+                onDraft={(text) => setNote(text.replace(/\n/g, ' ').slice(0, 300))}
+                onError={(message) => setError(message)}
+              />
+            </span>
             <input
               type="text"
               value={note}
@@ -813,6 +825,8 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+
+      <ModuleAiInline moduleKey="finance" />
 
       {/* ===== Thẻ tổng hợp công nợ ===== */}
       {!loading && (

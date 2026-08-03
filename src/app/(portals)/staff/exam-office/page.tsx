@@ -15,6 +15,7 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import { ExamOpsTabs } from '@/components/shared/ExamOpsTabs'
+import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
 
 const STEPS = [
   {
@@ -80,6 +81,8 @@ export default function ExamOfficePage() {
       </div>
 
       <ExamOpsTabs />
+
+      <ModuleAiInline moduleKey="exams" />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {STEPS.map((item) => {

@@ -58,6 +58,7 @@ import { useMyMenuGrants } from '@/lib/hooks/useMyMenuGrants'
 import { useMyModuleFlags } from '@/lib/hooks/useMyModuleFlags'
 import type { MenuKey } from '@/lib/auth/menuRegistry'
 import type { Role } from '@/lib/auth/roles'
+import { ModuleAskAi } from '@/components/ai/ModuleAskAi'
 import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
 
 // ============================================================
@@ -728,6 +729,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <main className="w-full flex-1 p-4 sm:p-6 xl:px-8">
           {children}
         </main>
+        <ModuleAskAi />
       </div>
     </div>
   )

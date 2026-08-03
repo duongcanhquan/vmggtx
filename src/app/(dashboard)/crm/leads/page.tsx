@@ -44,6 +44,7 @@ import { SOURCE_LABELS } from './constants'
 import { buildFunnelFromLeads } from './funnelStats'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { LeadDetailDrawer } from './LeadDetailDrawer'
+import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
 
 const COLUMNS: {
   status: LeadStatus
@@ -984,6 +985,7 @@ export default function CrmLeadsPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Pipeline lead → chăm sóc → hẹn test → nhập học. Bấm dòng/thẻ để mở hồ sơ đầy đủ.
+            AI từng lead trong drawer; hỏi FAQ chung bằng khối bên dưới hoặc nút nổi góc phải.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1042,6 +1044,8 @@ export default function CrmLeadsPage() {
           </button>
         </div>
       </div>
+
+      <ModuleAiInline moduleKey="admissions" defaultOpen />
 
       {loadError && (
         <p

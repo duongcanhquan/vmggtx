@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   BookMarked,
   Clock,
@@ -20,6 +20,9 @@ import {
   type ExamBankItem,
 } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { AiDraftButton } from '@/components/ai/AiDraftButton'
+import { parseExamPaperDraft } from '@/lib/ai/draftAssist'
+import { useEffectiveOrgId } from '@/lib/ai/useEffectiveOrgId'
 
 // ============================================================
 // NGÂN HÀNG ĐỀ (Staff Portal) - kho đề thi/đề kiểm tra của cơ sở.
@@ -33,6 +36,8 @@ const dateFmt = new Intl.DateTimeFormat('vi-VN', {
 })
 
 export default function ExamBankPage() {
+  const currentOrgId = useEffectiveOrgId()
+  const formRef = useRef<HTMLFormElement>(null)
   const [items, setItems] = useState<ExamBankItem[]>([])
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
@@ -185,19 +190,50 @@ export default function ExamBankPage() {
           aria-modal="true"
         >
           <form
+            ref={formRef}
             onSubmit={handleCreate}
             className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
           >
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-2">
               <h2 className="font-heading text-lg font-bold text-slate-900">Thêm đề mới</h2>
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
-                aria-label="Đóng"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div className="flex items-center gap-2">
+                <AiDraftButton
+                  orgId={currentOrgId}
+                  draftMode="exam_paper"
+                  label="AI soạn đề"
+                  contextHint="Soạn khung đề kiểm tra trung tâm GDTX. Người dùng có thể đã chọn môn/khối trên form."
+                  onDraft={(text) => {
+                    const parsed = parseExamPaperDraft(text)
+                    const form = formRef.current
+                    if (!form) return
+                    const setVal = (name: string, value: string) => {
+                      const el = form.elements.namedItem(name)
+                      if (
+                        el &&
+                        (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
+                      ) {
+                        el.value = value
+                      }
+                    }
+                    setVal('title', parsed.title)
+                    setVal('description', parsed.description)
+                    setVal('content', parsed.content)
+                    setToast({
+                      type: 'success',
+                      message: 'Đã điền đề từ AI — kiểm tra và chỉnh trước khi lưu.',
+                    })
+                  }}
+                  onError={(message) => setToast({ type: 'error', message })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100"
+                  aria-label="Đóng"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             <label className="mt-4 block text-sm font-medium text-slate-700">

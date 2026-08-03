@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { UserMenu } from '@/components/shared/UserMenu'
 import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
+import { ModuleAskAi } from '@/components/ai/ModuleAskAi'
 
 // ============================================================
 // PortalShell — khung layout Back-Office dùng chung (Admin/Staff).
@@ -37,6 +38,8 @@ type PortalShellProps = {
   /** Tên portal hiển thị dưới logo (VD: "Admin Portal") */
   portalName: string
   navGroups: PortalNavGroup[]
+  /** Hiện nút nổi Hỏi AI theo module (Staff/Admin vận hành) */
+  showAskAi?: boolean
   /** Slot bên phải header (OrgTreeSelector, badge cơ sở…) */
   headerRight?: ReactNode
   /** Key localStorage lưu trạng thái thu gọn sidebar */
@@ -140,6 +143,7 @@ const SIDEBAR_BG =
 export function PortalShell({
   portalName,
   navGroups,
+  showAskAi = false,
   headerRight,
   storageKey,
   children,
@@ -255,6 +259,7 @@ export function PortalShell({
         <main className="w-full flex-1 p-4 sm:p-6 xl:px-8">
           {children}
         </main>
+        {showAskAi ? <ModuleAskAi /> : null}
       </div>
     </div>
   )

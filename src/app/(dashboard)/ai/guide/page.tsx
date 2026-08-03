@@ -52,16 +52,28 @@ const AI_HOOKS: {
   body: string
 }[] = [
   {
+    title: 'AI soạn trong form (D45)',
+    href: '/announcements',
+    icon: Sparkles,
+    body: 'Nút «AI soạn» điền thẳng: thông báo, ngân hàng đề, sổ liên lạc, cảnh báo PH, khoản thu, lý do nghỉ, import HV.',
+  },
+  {
+    title: 'Nút nổi Hỏi AI (mọi module)',
+    href: '/crm/leads',
+    icon: Sparkles,
+    body: 'Góc phải dưới Dashboard + Staff Portal: đổi ngữ cảnh theo trang (tuyển sinh / đào tạo / CSVC / khảo thí / NS / tài chính).',
+  },
+  {
     title: 'Kho tri thức (RAG)',
     href: '/ai/knowledge-base',
     icon: BookMarked,
-    body: 'Nạp chính sách học phí, quy chế, FAQ — lọc theo org_id. Dùng cho CRM tư vấn và trợ lý.',
+    body: 'Nạp tài liệu theo category: admissions, training, hr, finance, exams, admin, general — lọc org_id.',
   },
   {
     title: 'AI tuyển sinh (CRM)',
     href: '/crm/leads',
     icon: Inbox,
-    body: 'Tóm tắt lead, gợi ý kịch bản gọi, hỏi FAQ từ KB category=admissions.',
+    body: 'Khối hỏi nhanh trên pipeline + AI trong drawer lead (tóm tắt, kịch bản gọi, follow-up).',
   },
   {
     title: 'Gia sư / LMS',
@@ -73,7 +85,7 @@ const AI_HOOKS: {
     title: 'Trợ lý giáo viên',
     href: '/teacher/assistant',
     icon: Bot,
-    body: 'Hỗ trợ soạn thông báo lớp, gợi ý nhận xét — key theo org_ai_settings.',
+    body: 'Soạn giáo án 45 phút từ KB training — key theo org_ai_settings.',
   },
   {
     title: 'API theo đơn vị',

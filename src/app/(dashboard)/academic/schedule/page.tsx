@@ -18,6 +18,7 @@ import { useOrgStore } from '@/lib/store/useOrgStore'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { ScheduleOpsTabs } from '@/components/academic/ScheduleOpsTabs'
+import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
 import { findConflictIds } from '@/lib/schedule/conflicts'
 import {
   localDateKey,
@@ -91,6 +92,8 @@ export default function AcademicSchedulePage() {
         </div>
         <ScheduleOpsTabs />
       </div>
+
+      <ModuleAiInline moduleKey="training" />
 
       <div
         role="tablist"

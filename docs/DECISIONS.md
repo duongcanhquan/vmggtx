@@ -111,3 +111,7 @@ M?i quy?t ??nh 1-3 d?ng. Th?m m?i v?o CU?I danh s?ch v?i m? D ti?p theo.
 - **D42** Khong export value tu 'use server' (CRM SOURCE_LABELS). Menu nhom mac dinh thu gon. Thong bao targeting (076). Coso chi con redirect → /{slug}/login. CSVC dat cho staff/GV; quan ly duyet.
 
 - **D43** Menu van hanh: hub + tab thay vi nhieu leaf trung lap. Nhan su = To chuc NS / Ho so&luong + Ngay cong&phep; Khao thi / CSVC / Dao tao / Danh gia GV giong pattern do.
+
+- **D44** AI nhung module: FAB «Hoi AI» + AskAiPanel theo route (admissions/training/admin/exams/hr/finance). Copilot them taskType module_assist + kbCategory; KB categories mo rong. RAG van loc org_id; khong biat chinh sach khi thieu tai lieu.
+
+- **D45** AI soan form: taskType draft_assist + draftMode (announcement/exam_paper/contact_book/…). AiDraftButton dien thang textarea. Import HV goi validateImportData (AI chuan hoa). useEffectiveOrgId fallback profiles tren Staff portal.

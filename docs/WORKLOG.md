@@ -363,3 +363,13 @@
 ## 2026-08-03 | Audit fix gaps D42-D43
 - roleIs fail-closed; hub matchPrefixes/alsoKeys; Khao thi leaf.
 - AdminOpsTabs tren /assets; doi nhan Duyet cong / Xin nghi.
+
+## 2026-08-03 | Module Ask AI nhung van hanh (D44)
+- FAB Hoi AI (Dashboard + Staff Portal) doi context theo path.
+- AskAiPanel / ModuleAiInline tren CRM, TKB, HR, finance, exam-office, facilities.
+- Copilot: module_assist + kbCategory; KB +hr/finance/exams/admin.
+
+## 2026-08-03 | AI soan form + gatekeeper import (D45)
+- draft_assist: thong bao, ngan hang de, so LL, canh bao PH, khoan thu, ly do nghi.
+- Import HV: nut AI chuan hoa (validateImportData).
+- useEffectiveOrgId cho Staff portal thieu org store.

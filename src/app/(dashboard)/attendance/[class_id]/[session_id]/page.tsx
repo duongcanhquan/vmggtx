@@ -29,6 +29,8 @@ import {
 } from '../../actions'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { BehaviorPanel } from './BehaviorPanel'
+import { AiDraftButton } from '@/components/ai/AiDraftButton'
+import { useEffectiveOrgId } from '@/lib/ai/useEffectiveOrgId'
 
 // ============================================================
 // ĐIỂM DANH + SỔ ĐẦU BÀI ĐIỆN TỬ (/attendance/[class]/[session])
@@ -80,6 +82,7 @@ type PageProps = {
 }
 
 export default function AttendanceSessionPage({ params }: PageProps) {
+  const currentOrgId = useEffectiveOrgId()
   const [roster, setRoster] = useState<SessionRoster | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -378,7 +381,18 @@ export default function AttendanceSessionPage({ params }: PageProps) {
               </fieldset>
 
               <label htmlFor="diary-reminders" className="block text-sm font-medium">
-                Nhắc nhở chung
+                <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                  Nhắc nhở chung
+                  <AiDraftButton
+                    orgId={currentOrgId}
+                    draftMode="contact_book"
+                    label="AI soạn"
+                    contextHint={`Lớp: ${roster?.className ?? ''}. Soạn nhắc nhở chung cho cả lớp sau buổi học.`}
+                    onDraft={(text) =>
+                      setDiary((prev) => ({ ...prev, reminders: text.slice(0, 1000) }))
+                    }
+                  />
+                </span>
                 <textarea
                   id="diary-reminders"
                   rows={2}
@@ -397,13 +411,22 @@ export default function AttendanceSessionPage({ params }: PageProps) {
           {/* ===== Sổ đầu bài điện tử ===== */}
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="bento-card p-5">
-              <label
-                htmlFor="session-note"
-                className="flex items-center gap-2 font-heading text-sm font-bold"
-              >
-                <NotebookPen className="h-4 w-4 text-stone-500" aria-hidden="true" />
-                Nhận xét buổi học / lớp
-              </label>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <label
+                  htmlFor="session-note"
+                  className="flex items-center gap-2 font-heading text-sm font-bold"
+                >
+                  <NotebookPen className="h-4 w-4 text-stone-500" aria-hidden="true" />
+                  Nhận xét buổi học / lớp
+                </label>
+                <AiDraftButton
+                  orgId={currentOrgId}
+                  draftMode="session_note"
+                  label="AI soạn"
+                  contextHint={`Lớp: ${roster?.className ?? ''}. Soạn nhận xét sổ đầu bài nội bộ.`}
+                  onDraft={(text) => setSessionNote(text.slice(0, 1000))}
+                />
+              </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Sổ đầu bài nội bộ — giáo vụ và quản lý cơ sở xem được.
               </p>
@@ -419,13 +442,22 @@ export default function AttendanceSessionPage({ params }: PageProps) {
             </div>
 
             <div className="bento-card-gold p-5">
-              <label
-                htmlFor="parent-note"
-                className="flex items-center gap-2 font-heading text-sm font-bold text-[#573412]"
-              >
-                <MessageSquareText className="h-4 w-4" aria-hidden="true" />
-                Dặn dò phụ huynh
-              </label>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <label
+                  htmlFor="parent-note"
+                  className="flex items-center gap-2 font-heading text-sm font-bold text-[#573412]"
+                >
+                  <MessageSquareText className="h-4 w-4" aria-hidden="true" />
+                  Dặn dò phụ huynh
+                </label>
+                <AiDraftButton
+                  orgId={currentOrgId}
+                  draftMode="contact_book"
+                  label="AI soạn"
+                  contextHint={`Lớp: ${roster?.className ?? ''}. Soạn dặn dò phụ huynh cả lớp sau buổi học.`}
+                  onDraft={(text) => setParentNote(text.slice(0, 1000))}
+                />
+              </div>
               <p className="mt-0.5 text-xs text-[#3c3ac0]/80">
                 Hiển thị trong Sổ Liên Lạc điện tử của phụ huynh cả lớp.
               </p>

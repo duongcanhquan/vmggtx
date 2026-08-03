@@ -19,6 +19,7 @@ import { useOrgStore } from '@/lib/store/useOrgStore'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { OrgStaffTabs } from '@/components/campus-admin/OrgStaffTabs'
+import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
 import { uploadFilesToR2 } from '@/components/lms/uploadFiles'
 import {
   getHrReminders,
@@ -228,6 +229,8 @@ export default function HrPersonnelPage() {
         </div>
         <OrgStaffTabs />
       </div>
+
+      <ModuleAiInline moduleKey="hr" />
 
       {canToggleLock && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">

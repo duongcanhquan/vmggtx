@@ -6,6 +6,8 @@ import { RoleGuard } from '@/components/shared/RoleGuard'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { HrLeaveTabs } from '@/components/campus-admin/HrLeaveTabs'
+import { AiDraftButton } from '@/components/ai/AiDraftButton'
+import { useEffectiveOrgId } from '@/lib/ai/useEffectiveOrgId'
 import {
   cancelLeaveRequest,
   createLeaveRequest,
@@ -38,6 +40,7 @@ const STATUS_CLASS: Record<string, string> = {
 }
 
 export default function MyLeavePage() {
+  const currentOrgId = useEffectiveOrgId()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [loading, setLoading] = useState(true)
@@ -215,7 +218,17 @@ export default function MyLeavePage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Lý do</label>
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                  <label className="block text-xs text-muted-foreground">Lý do</label>
+                  <AiDraftButton
+                    orgId={currentOrgId}
+                    draftMode="leave_reason"
+                    label="AI soạn"
+                    contextHint={`Loại nghỉ: ${LEAVE_TYPE_LABEL[leaveType]}. Từ ${startDate || '…'} đến ${endDate || '…'}.`}
+                    onDraft={(text) => setReason(text.slice(0, 500))}
+                    onError={(message) => setToast({ type: 'error', message })}
+                  />
+                </div>
                 <textarea
                   className={inputClass + ' min-h-[88px] py-2'}
                   value={reason}
