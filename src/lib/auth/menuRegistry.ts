@@ -59,13 +59,13 @@ export interface MenuSection {
 export const MENU_SECTIONS: MenuSection[] = [
   {
     key: 'crm',
-    label: 'Tuyển sinh (CRM)',
+    label: 'Tuyển sinh',
     defaultRoles: [...ACADEMIC, 'admission_staff'],
     prefixes: ['/crm'],
   },
   {
     key: 'announcements',
-    label: 'Thông báo chung',
+    label: 'Gửi thông báo',
     defaultRoles: ACADEMIC,
     prefixes: ['/announcements'],
   },

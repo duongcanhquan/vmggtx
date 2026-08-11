@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 import {
   Loader2,
   LayoutDashboard,
-  BellRing,
   BookOpen,
   Briefcase,
   Building2,
@@ -29,7 +28,6 @@ import {
   AlertTriangle,
   Boxes,
   Calculator,
-  Megaphone,
   Settings,
   BookMarked,
   Star,
@@ -40,6 +38,8 @@ import {
   PenSquare,
   Sparkles,
   SlidersHorizontal,
+  Send,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react'
 import { OrgTreeSelector } from '@/components/shared/OrgTreeSelector'
@@ -124,24 +124,11 @@ const MENU: MenuEntry[] = [
     menuKey: 'students',
   },
   {
-    label: 'Tuyển sinh & Truyền thông',
-    icon: Megaphone,
-    children: [
-      {
-        label: 'Tuyển sinh (CRM)',
-        href: '/crm/leads',
-        icon: Megaphone,
-        roles: [...ACADEMIC, 'admission_staff'],
-        menuKey: 'crm',
-      },
-      {
-        label: 'Thông báo chung',
-        href: '/announcements',
-        icon: BellRing,
-        roles: ACADEMIC,
-        menuKey: 'announcements',
-      },
-    ],
+    label: 'Tuyển sinh',
+    href: '/crm/leads',
+    icon: UserPlus,
+    roles: [...ACADEMIC, 'admission_staff'],
+    menuKey: 'crm',
   },
   {
     label: 'Đào tạo & Học vụ',
@@ -194,6 +181,13 @@ const MENU: MenuEntry[] = [
         icon: ClipboardList,
         roles: ACADEMIC,
         menuKey: 'work_tasks',
+      },
+      {
+        label: 'Gửi thông báo',
+        href: '/announcements',
+        icon: Send,
+        roles: ACADEMIC,
+        menuKey: 'announcements',
       },
     ],
   },

@@ -3,12 +3,12 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-11 - D49 mật độ UI (bỏ AI trùng, PageHeader gọn)
+**Cập nhật lần cuối**: 2026-08-11 - Menu: Tuyển sinh + Gửi thông báo → Đào tạo
 
 ## Snapshot
-- Build: SẠCH (`npm run build` exit 0).
-- **D49**: Bỏ ModuleAiInline (chỉ giữ FAB Hỏi AI); PageHeader 1 hàng; CRM/HV/GV/lớp/TKB/HR/HĐ/Khảo thí gọn hơn.
-- **D48**: Lead drawer + dòng thời gian. **D47**: Sidebar hover-expand.
+- Build: chưa chạy lại sau đổi menu (cần verify trước commit nếu commit).
+- Menu: «Tuyển sinh» (icon UserPlus); «Gửi thông báo» nằm trong Đào tạo & Học vụ.
+- **D49**: PageHeader gọn + bỏ AI trùng. **D48** timeline. **D47** sidebar.
 
 ## Migrations
 - File: `001 → 076` + `999_*`.

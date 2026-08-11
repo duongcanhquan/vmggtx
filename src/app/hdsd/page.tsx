@@ -9,8 +9,8 @@ import {
   HeartHandshake,
   LayoutDashboard,
   Lock,
-  Megaphone,
   MonitorPlay,
+  UserPlus,
   Receipt,
   ShieldCheck,
   Sparkles,
@@ -83,8 +83,8 @@ const FEATURE_GROUPS: {
     ],
   },
   {
-    icon: Megaphone,
-    name: 'Tuyển sinh (CRM)',
+    icon: UserPlus,
+    name: 'Tuyển sinh',
     tagline: 'Không bỏ sót một học viên tiềm năng nào',
     features: [
       'Quản lý nguồn tuyển sinh (leads) theo phễu: mới → tư vấn → nhập học',

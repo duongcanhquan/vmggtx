@@ -70,7 +70,7 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   },
   {
     key: 'crm',
-    label: 'Tuyển sinh (CRM)',
+    label: 'Tuyển sinh',
     group: 'students',
     summary:
       'Pipeline lead đầy đủ hồ sơ (PH, CCCD, sở thích, ngành nghề), AI hỗ trợ tư vấn + RAG tuyển sinh.',
@@ -85,11 +85,11 @@ export const MODULE_CATALOG: ModuleInfo[] = [
   },
   {
     key: 'announcements',
-    label: 'Thông báo chung',
-    group: 'students',
+    label: 'Gửi thông báo',
+    group: 'academic',
     summary: 'Phát thông báo toàn cơ sở tới phụ huynh, học viên, giáo viên.',
     howItWorks:
-      'Quản lý/giáo vụ soạn thông báo, chọn đối tượng nhận (tất cả / PH / HV / GV). Thông báo hiện trong cổng tương ứng và sổ liên lạc điện tử.',
+      'Giáo vụ soạn thông báo trong Đào tạo & Học vụ, chọn đối tượng nhận (tất cả / PH / HV / GV). Thông báo hiện trong cổng tương ứng và sổ liên lạc điện tử.',
     features: [],
   },
   {

@@ -401,3 +401,7 @@
 - Go ModuleAiInline tren CRM/TKB/HR/HD/exam/facilities; drawer CRM bo tab AI.
 - Students/Teachers/Classes + shell padding gon hon.
 
+## 2026-08-11 | Menu Tuyển sinh + Gửi thông báo
+- Nhom «Tuyển sinh & Truyền thông» → leaf «Tuyển sinh» (UserPlus).
+- «Thông báo chung» → «Gửi thông báo», chuyen vao Đào tạo & Học vụ.
+

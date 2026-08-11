@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   BellRing,
   GraduationCap,
-  Megaphone,
   Pin,
   Presentation,
   Send,
@@ -173,9 +172,9 @@ export default function AnnouncementsPage() {
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
       <div>
-        <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight">
-          <Megaphone className="h-6 w-6 text-primary" aria-hidden="true" />
-          Thông báo chung
+        <h1 className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight sm:text-xl">
+          <Send className="h-5 w-5 text-primary" aria-hidden="true" />
+          Gửi thông báo
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Gửi tới phụ huynh, học viên hoặc giáo viên — toàn bộ nhóm, theo lớp, hoặc cá nhân.

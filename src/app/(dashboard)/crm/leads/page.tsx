@@ -16,7 +16,7 @@ import {
   Inbox,
   LayoutList,
   Loader2,
-  Megaphone,
+  UserPlus,
   Phone,
   Plus,
   Save,
@@ -978,8 +978,8 @@ export default function CrmLeadsPage() {
   return (
     <div className="space-y-3">
       <PageHeader
-        title="Tuyển sinh CRM"
-        icon={Megaphone}
+        title="Tuyển sinh"
+        icon={UserPlus}
         actions={
           <>
             <div

@@ -9,8 +9,8 @@ import {
   ListPlus,
   Loader2,
   Lock,
-  Megaphone,
   MessageSquareMore,
+  UserPlus,
   Save,
   Settings as SettingsIcon,
   ShieldCheck,
@@ -46,7 +46,7 @@ const TABS: { id: TabId; label: string; icon: typeof BookOpenCheck }[] = [
   { id: 'communication', label: 'Giao tiếp / SMS', icon: MessageSquareMore },
   { id: 'finance', label: 'Tài chính', icon: Wallet },
   { id: 'identity', label: 'Mã học viên', icon: IdCard },
-  { id: 'crm', label: 'Tuyển sinh', icon: Megaphone },
+  { id: 'crm', label: 'Tuyển sinh', icon: UserPlus },
   { id: 'ai', label: 'Hỗ trợ AI', icon: BrainCircuit },
 ]
 
