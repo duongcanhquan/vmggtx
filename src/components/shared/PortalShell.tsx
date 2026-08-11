@@ -3,22 +3,15 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  Loader2,
-  Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
-  X,
-  type LucideIcon,
-} from 'lucide-react'
+import { Loader2, Menu, X, type LucideIcon } from 'lucide-react'
 import { UserMenu } from '@/components/shared/UserMenu'
 import { OrgBrandMark } from '@/components/shared/OrgBrandMark'
 import { ModuleAskAi } from '@/components/ai/ModuleAskAi'
 
 // ============================================================
 // PortalShell — khung layout Back-Office dùng chung (Admin/Staff).
-// Sidebar dọc kiểu Shadcn: thu gọn được (icon-only), trạng thái
-// collapsed LƯU localStorage theo storageKey; mobile dùng drawer.
+// Sidebar desktop: mặc định icon-rail; hover/focus → menu đầy đủ
+// (overlay, không đẩy nội dung). Mobile dùng drawer.
 // Header có slot bên phải (OrgTreeSelector / badge tên cơ sở).
 // ============================================================
 
@@ -42,8 +35,6 @@ type PortalShellProps = {
   showAskAi?: boolean
   /** Slot bên phải header (OrgTreeSelector, badge cơ sở…) */
   headerRight?: ReactNode
-  /** Key localStorage lưu trạng thái thu gọn sidebar */
-  storageKey: string
   children: ReactNode
 }
 
@@ -145,63 +136,30 @@ export function PortalShell({
   navGroups,
   showAskAi = false,
   headerRight,
-  storageKey,
   children,
 }: PortalShellProps) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [desktopExpanded, setDesktopExpanded] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-
-  // Khôi phục trạng thái thu gọn (đọc trong effect để tránh lệch hydration)
-  useEffect(() => {
-    try {
-      setCollapsed(window.localStorage.getItem(storageKey) === '1')
-    } catch {
-      /* localStorage bị chặn (private mode) — dùng mặc định */
-    }
-  }, [storageKey])
-
-  function toggleCollapsed() {
-    setCollapsed((prev) => {
-      const next = !prev
-      try {
-        window.localStorage.setItem(storageKey, next ? '1' : '0')
-      } catch {
-        /* bỏ qua */
-      }
-      return next
-    })
-  }
+  const collapsed = !desktopExpanded
 
   return (
     <div className="flex min-h-dvh bg-background">
-      {/* ===== Sidebar desktop (thu gọn được) ===== */}
+      {/* ===== Sidebar desktop: rail icon; hover mở rộng overlay ===== */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col transition-[width] duration-200 lg:flex ${SIDEBAR_BG} ${
-          collapsed ? 'w-[76px]' : 'w-64'
+        onMouseEnter={() => setDesktopExpanded(true)}
+        onMouseLeave={() => setDesktopExpanded(false)}
+        onFocusCapture={() => setDesktopExpanded(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setDesktopExpanded(false)
+          }
+        }}
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden transition-[width,box-shadow] duration-200 ease-out lg:flex ${SIDEBAR_BG} ${
+          collapsed ? 'w-[76px]' : 'w-64 shadow-lg'
         }`}
       >
         <Brand portalName={portalName} collapsed={collapsed} />
         <NavLinks navGroups={navGroups} collapsed={collapsed} />
-        <div className="border-t border-white/10 p-3">
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
-            aria-expanded={!collapsed}
-            className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium text-stone-400 transition-colors duration-200 hover:bg-white/5 hover:text-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              collapsed ? 'justify-center' : ''
-            }`}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="h-5 w-5 shrink-0" aria-hidden="true" />
-            ) : (
-              <>
-                <PanelLeftClose className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <span>Thu gọn</span>
-              </>
-            )}
-          </button>
-        </div>
       </aside>
 
       {/* ===== Drawer mobile/tablet ===== */}
@@ -234,12 +192,8 @@ export function PortalShell({
         </div>
       )}
 
-      {/* ===== Header + nội dung ===== */}
-      <div
-        className={`flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ${
-          collapsed ? 'lg:pl-[76px]' : 'lg:pl-64'
-        }`}
-      >
+      {/* ===== Header + nội dung: luôn chừa rail 76px ===== */}
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-[76px]">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-border bg-surface/90 px-4 backdrop-blur sm:px-6">
           <button
             type="button"

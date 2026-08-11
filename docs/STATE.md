@@ -3,19 +3,20 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-03 - AI gate bật/tắt (D46)
+**Cập nhật lần cuối**: 2026-08-11 - D47+D48 review + push
 
 ## Snapshot
 - Build: SẠCH (`npm run build` exit 0).
-- **D46**: Admin cơ sở bật/tắt `ai_assist_enabled`; thiếu API → thông báo liên hệ quản trị.
-- D45 draft AI; D44 FAB Ask AI.
+- **D48**: Popup chi tiết lead = trái thao tác TV + phải dòng thời gian (mốc/chăm sóc/cập nhật + người làm).
+- **D47**: Sidebar icon-rail hover-expand; số tiền KPI không tràn bloc.
+- Fix: classify timeline ưu tiên loại gốc; reset form khi đổi lead; bỏ import lucide thừa.
 
 ## Migrations
 - File: `001 → 076` + `999_*`.
 - ⚠️ Chạy SQL nếu thiếu: **065, 067→076**.
 
 ## Module gần đây
-- D46 AI gate; D45 draft; D44 Ask AI.
+- D47 sidebar hover + money overflow; D46 AI gate.
 
 ## Tồn đọng
 1. User chạy **067→076** (+ 065).

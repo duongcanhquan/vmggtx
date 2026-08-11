@@ -983,10 +983,6 @@ export default function CrmLeadsPage() {
             <Megaphone className="h-7 w-7 text-primary" aria-hidden="true" />
             Tuyển sinh (CRM)
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pipeline lead → chăm sóc → hẹn test → nhập học. Bấm dòng/thẻ để mở hồ sơ đầy đủ.
-            AI từng lead trong drawer; hỏi FAQ chung bằng khối bên dưới hoặc nút nổi góc phải.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div

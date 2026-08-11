@@ -24,7 +24,6 @@ export default function B2BPortalLayout({ children }: { children: React.ReactNod
     <PortalShell
       portalName="Doanh nghiệp đối tác"
       navGroups={B2B_NAV}
-      storageKey="gdtx-sidebar-b2b"
     >
       {children}
     </PortalShell>

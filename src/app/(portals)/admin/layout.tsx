@@ -55,7 +55,6 @@ export default function AdminPortalLayout({ children }: { children: React.ReactN
     <PortalShell
       portalName={isSuper ? 'Super Admin' : 'Admin Portal'}
       navGroups={isSuper ? SUPER_NAV : ADMIN_NAV}
-      storageKey="gdtx-sidebar-admin"
       headerRight={<OrgTreeSelector />}
     >
       {children}

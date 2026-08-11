@@ -117,3 +117,7 @@ M?i quy?t ??nh 1-3 d?ng. Th?m m?i v?o CU?I danh s?ch v?i m? D ti?p theo.
 - **D45** AI soan form: taskType draft_assist + draftMode (announcement/exam_paper/contact_book/…). AiDraftButton dien thang textarea. Import HV goi validateImportData (AI chuan hoa). useEffectiveOrgId fallback profiles tren Staff portal.
 
 - **D46** Admin co so bat/tat ai_assist_enabled (Cai dat → Ho tro AI /settings/ai). Thieu API hoac tat → thong bao «Chức năng AI chưa được kích hoạt, vui lòng liên hệ quản trị viên». assertOrgAiReady tren copilot/tutor/LMS/warnings.
+
+- **D47** Sidebar desktop: mac dinh icon-rail; hover/focus-within mo menu day du dang overlay (khong day layout). Noi dung luon chừa 76px. Mobile van drawer.
+
+- **D48** CRM lead detail: popup 2 cot — trai thao tac tu van vien, phai dong thoi gian (lead_activities + moc tao). Khong can tab Timeline rieng.

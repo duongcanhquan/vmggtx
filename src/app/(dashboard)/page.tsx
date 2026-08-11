@@ -398,11 +398,14 @@ export default function OverviewPage() {
         )
       case 'kpi_revenue':
         return (
-          <div className="bento-card-gold h-full p-6">
+          <div className="bento-card-gold h-full min-w-0 overflow-hidden p-6">
             <span className="bento-icon bg-[#3c3ac0]/10 text-[#3c3ac0]">
               <Wallet className="h-5 w-5" aria-hidden="true" />
             </span>
-            <p className="mt-5 truncate font-heading text-2xl font-bold tabular-nums tracking-tight text-[#573412]">
+            <p
+              title={formatVnd(stats.projectedRevenue)}
+              className="mt-5 min-w-0 max-w-full break-words font-heading text-[clamp(1rem,0.75rem+1.1vw,1.5rem)] font-bold leading-tight tabular-nums tracking-tight text-[#573412]"
+            >
               {formatVnd(stats.projectedRevenue)}
             </p>
             <p className="mt-0.5 text-sm font-medium text-[#6b3f10]">Doanh thu đã thu</p>

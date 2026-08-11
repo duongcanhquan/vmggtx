@@ -31,6 +31,7 @@ import {
 } from './actions'
 import { SOURCE_LABELS } from './constants'
 import { LeadAiAssist } from './LeadAiAssist'
+import { LeadTimeline } from './LeadTimeline'
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -50,16 +51,6 @@ type ActivityInput = z.input<typeof activityFormSchema>
 type ActivityOutput = z.output<typeof activityFormSchema>
 type LeadFormInput = z.input<typeof leadSchema>
 type LeadFormOutput = z.output<typeof leadSchema>
-
-const ACTIVITY_LABELS: Record<string, string> = {
-  call: 'Gọi điện',
-  email: 'Email',
-  meeting: 'Gặp mặt',
-  zalo: 'Zalo',
-  sms: 'SMS',
-  note: 'Ghi chú',
-  status_change: 'Đổi trạng thái',
-}
 
 const PRIORITY_LABELS: Record<string, string> = {
   hot: 'Nóng',
@@ -134,6 +125,53 @@ function toLocalInput(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+function leadToEditValues(lead: LeadCard): LeadFormInput {
+  return {
+    fullName: lead.full_name,
+    phone: lead.phone,
+    email: lead.email ?? '',
+    interestedSubjectId: lead.interested_subject_id ?? '',
+    source: lead.source ?? '',
+    priority: lead.priority || 'warm',
+    dateOfBirth: lead.date_of_birth ?? '',
+    gender: (lead.gender as '' | 'male' | 'female' | 'other') || '',
+    cccd: lead.cccd ?? '',
+    address: lead.address ?? '',
+    currentSchool: lead.current_school ?? '',
+    educationLevel: lead.education_level ?? '',
+    careerInterest: lead.career_interest ?? '',
+    interests: lead.interests ?? '',
+    preferredSchedule: lead.preferred_schedule ?? '',
+    callSummary: lead.call_summary ?? '',
+    strengths: lead.strengths ?? '',
+    weaknesses: lead.weaknesses ?? '',
+    needs: lead.needs ?? '',
+    potentialRating:
+      (lead.potential_rating as '' | 'high' | 'medium' | 'low' | 'unknown') || '',
+    depositAmount:
+      lead.deposit_amount != null ? String(lead.deposit_amount) : '',
+    paymentNotes: lead.payment_notes ?? '',
+    parentName: lead.parent_name ?? '',
+    parentPhone: lead.parent_phone ?? '',
+    parentRelation:
+      (lead.parent_relation as '' | 'father' | 'mother' | 'guardian' | 'other') ||
+      '',
+    parentEmail: lead.parent_email ?? '',
+    parent2Name: lead.parent2_name ?? '',
+    parent2Phone: lead.parent2_phone ?? '',
+    parent2Relation:
+      (lead.parent2_relation as
+        | ''
+        | 'father'
+        | 'mother'
+        | 'guardian'
+        | 'other') || '',
+    nextFollowUpAt: toLocalInput(lead.next_follow_up_at),
+    appointmentAt: toLocalInput(lead.appointment_at),
+    notes: lead.notes ?? '',
+  }
+}
+
 export function LeadDetailDrawer({
   lead: leadProp,
   subjects,
@@ -165,18 +203,37 @@ export function LeadDetailDrawer({
   const [busy, setBusy] = useState(false)
   const readonly = lead.status === 'enrolled'
 
+  const activityForm = useForm<ActivityInput, unknown, ActivityOutput>({
+    resolver: zodResolver(activityFormSchema),
+    defaultValues: {
+      activityType: 'call',
+      description: '',
+      nextFollowUpAt: '',
+    },
+  })
+
+  const editForm = useForm<LeadFormInput, unknown, LeadFormOutput>({
+    resolver: zodResolver(leadSchema),
+    defaultValues: leadToEditValues(leadProp),
+  })
+
   useEffect(() => {
     setDetail(leadProp)
+    setTab('profile')
+    editForm.reset(leadToEditValues(leadProp))
+    activityForm.reset({ activityType: 'call', description: '', nextFollowUpAt: '' })
     let cancelled = false
     ;(async () => {
       const res = await getLeadById(leadProp.id)
       if (cancelled || !res.data) return
       setDetail(res.data)
+      editForm.reset(leadToEditValues(res.data))
     })()
     return () => {
       cancelled = true
     }
-  }, [leadProp])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset form khi đổi lead
+  }, [leadProp.id])
 
   useEffect(() => {
     let cancelled = false
@@ -218,58 +275,6 @@ export function LeadDetailDrawer({
     setLoadingActs(false)
     if (res.error) onToast('error', res.error)
   }
-
-  const activityForm = useForm<ActivityInput, unknown, ActivityOutput>({
-    resolver: zodResolver(activityFormSchema),
-    defaultValues: {
-      activityType: 'call',
-      description: '',
-      nextFollowUpAt: '',
-    },
-  })
-
-  const editForm = useForm<LeadFormInput, unknown, LeadFormOutput>({
-    resolver: zodResolver(leadSchema),
-    defaultValues: {
-      fullName: lead.full_name,
-      phone: lead.phone,
-      email: lead.email ?? '',
-      interestedSubjectId: lead.interested_subject_id ?? '',
-      source: lead.source ?? '',
-      priority: lead.priority || 'warm',
-      dateOfBirth: lead.date_of_birth ?? '',
-      gender: (lead.gender as '' | 'male' | 'female' | 'other') || '',
-      cccd: lead.cccd ?? '',
-      address: lead.address ?? '',
-      currentSchool: lead.current_school ?? '',
-      educationLevel: lead.education_level ?? '',
-      careerInterest: lead.career_interest ?? '',
-      interests: lead.interests ?? '',
-      preferredSchedule: lead.preferred_schedule ?? '',
-      callSummary: lead.call_summary ?? '',
-      strengths: lead.strengths ?? '',
-      weaknesses: lead.weaknesses ?? '',
-      needs: lead.needs ?? '',
-      potentialRating:
-        (lead.potential_rating as '' | 'high' | 'medium' | 'low' | 'unknown') ||
-        '',
-      depositAmount:
-        lead.deposit_amount != null ? String(lead.deposit_amount) : '',
-      paymentNotes: lead.payment_notes ?? '',
-      parentName: lead.parent_name ?? '',
-      parentPhone: lead.parent_phone ?? '',
-      parentRelation:
-        (lead.parent_relation as '' | 'father' | 'mother' | 'guardian' | 'other') || '',
-      parentEmail: lead.parent_email ?? '',
-      parent2Name: lead.parent2_name ?? '',
-      parent2Phone: lead.parent2_phone ?? '',
-      parent2Relation:
-        (lead.parent2_relation as '' | 'father' | 'mother' | 'guardian' | 'other') || '',
-      nextFollowUpAt: toLocalInput(lead.next_follow_up_at),
-      appointmentAt: toLocalInput(lead.appointment_at),
-      notes: lead.notes ?? '',
-    },
-  })
 
   async function onAddActivity(values: ActivityOutput) {
     setBusy(true)
@@ -333,6 +338,9 @@ export function LeadDetailDrawer({
       return
     }
     onToast('success', 'Đã cập nhật lead.')
+    await loadActs()
+    const refreshed = await getLeadById(lead.id)
+    if (refreshed.data) setDetail(refreshed.data)
     onChanged()
   }
 
@@ -345,6 +353,9 @@ export function LeadDetailDrawer({
       return
     }
     onToast('success', 'Đã nhận lead về phụ trách.')
+    await loadActs()
+    const refreshed = await getLeadById(lead.id)
+    if (refreshed.data) setDetail(refreshed.data)
     onChanged()
   }
 
@@ -370,7 +381,9 @@ export function LeadDetailDrawer({
         className="absolute inset-0 bg-foreground/30"
         onClick={onClose}
       />
-      <div className="relative flex h-full w-full max-w-2xl flex-col border-l border-border bg-surface shadow-2xl">
+      <div className="relative flex h-full w-full max-w-6xl flex-col border-l border-border bg-surface shadow-2xl lg:flex-row">
+        {/* ===== Cột trái: thao tác tư vấn viên ===== */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <h2 className="truncate font-heading text-lg font-bold">{lead.full_name}</h2>
@@ -624,44 +637,10 @@ export function LeadDetailDrawer({
                 </form>
               )}
 
-              <div>
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-                  Timeline ({activities.length})
-                </h3>
-                {loadingActs ? (
-                  <p className="text-sm text-muted-foreground">Đang tải…</p>
-                ) : activities.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                    Chưa có nhật ký chăm sóc.
-                  </p>
-                ) : (
-                  <ul className="space-y-3">
-                    {activities.map((act) => (
-                      <li
-                        key={act.id}
-                        className="rounded-xl border border-border bg-background p-3 text-sm"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-bold text-primary">
-                            {ACTIVITY_LABELS[act.activity_type] || act.activity_type}
-                          </span>
-                          <time className="text-xs text-muted-foreground">
-                            {new Date(act.created_at).toLocaleString('vi-VN')}
-                          </time>
-                        </div>
-                        <p className="mt-2 whitespace-pre-wrap text-foreground">
-                          {act.description}
-                        </p>
-                        {act.creator_name && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            — {act.creator_name}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <p className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-3 py-2.5 text-xs text-indigo-800">
+                Mọi nhật ký vừa lưu sẽ hiện ngay trên <strong>Dòng thời gian</strong> bên phải
+                (máy tính) hoặc phía dưới (điện thoại).
+              </p>
             </div>
           )}
 
@@ -1072,6 +1051,17 @@ export function LeadDetailDrawer({
             </button>
           )}
         </footer>
+        </div>
+
+        {/* ===== Cột phải: dòng thời gian (desktop cạnh trái; mobile dưới) ===== */}
+        <div className="flex h-[42vh] min-h-[280px] w-full shrink-0 flex-col border-t border-border lg:h-full lg:w-[380px] lg:border-t-0 xl:w-[400px]">
+          <LeadTimeline
+            activities={activities}
+            loading={loadingActs}
+            leadCreatedAt={lead.created_at}
+            leadName={lead.full_name}
+          />
+        </div>
       </div>
     </div>
   )

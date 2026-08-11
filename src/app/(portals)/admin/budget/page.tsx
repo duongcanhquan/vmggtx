@@ -59,15 +59,18 @@ function StatCard({
   tone: string
 }) {
   return (
-    <div className="bento-card p-4">
+    <div className="bento-card min-w-0 overflow-hidden p-4">
       <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${tone}`}>
         <Icon className="h-5 w-5" aria-hidden="true" />
       </div>
-      <p className="mt-3 truncate font-heading text-xl font-bold tabular-nums sm:text-2xl">
+      <p
+        title={value}
+        className="mt-3 min-w-0 max-w-full break-words font-heading text-[clamp(0.95rem,0.7rem+1vw,1.5rem)] font-bold leading-tight tabular-nums"
+      >
         {value}
       </p>
-      <p className="text-sm text-muted-foreground">{label}</p>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+      <p className="truncate text-sm text-muted-foreground">{label}</p>
+      {hint && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }

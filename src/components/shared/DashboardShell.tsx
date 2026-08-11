@@ -19,13 +19,11 @@ import {
   ClipboardList,
   BookOpenCheck,
   BarChart3,
-  DoorOpen,
   Receipt,
   ShieldCheck,
   Users,
   Menu,
   X,
-  FileSignature,
   GraduationCap,
   Inbox,
   AlertTriangle,
@@ -34,20 +32,14 @@ import {
   Megaphone,
   Settings,
   BookMarked,
-  Layers,
-  Car,
   Star,
   Wallet,
   MonitorPlay,
   Plane,
   FileStack,
   PenSquare,
-  CheckSquare,
-  CalendarCog,
   Sparkles,
   SlidersHorizontal,
-  RefreshCcw,
-  FileSpreadsheet,
   type LucideIcon,
 } from 'lucide-react'
 import { OrgTreeSelector } from '@/components/shared/OrgTreeSelector'
@@ -477,7 +469,14 @@ function leafMatchesPath(leaf: MenuLeaf, pathname: string): number {
   return score
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  collapsed = false,
+}: {
+  onNavigate?: () => void
+  /** Desktop icon-rail: chỉ hiện icon; drawer/mobile luôn false */
+  collapsed?: boolean
+}) {
   const pathname = usePathname()
   const role = useMyRole()
   const menuKeys = useMyMenuKeys()
@@ -591,13 +590,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <Link
         key={leaf.href}
         href={leaf.href}
+        title={collapsed ? leaf.label : undefined}
         onClick={() => {
           if (!isActive) setPendingHref(leaf.href)
           onNavigate?.()
         }}
         aria-current={isActive ? 'page' : undefined}
-        className={`flex cursor-pointer items-center gap-3 rounded-xl text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-          nested ? 'min-h-10 px-3 py-2' : 'min-h-11 px-3.5 py-2.5'
+        className={`flex cursor-pointer items-center rounded-xl text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          collapsed
+            ? 'min-h-11 justify-center px-2 py-2.5'
+            : nested
+              ? 'min-h-10 gap-3 px-3 py-2'
+              : 'min-h-11 gap-3 px-3.5 py-2.5'
         } ${
           isActive
             ? 'border border-[#7e8ef0]/40 bg-gradient-to-r from-[#5d68e8]/30 to-[#925df2]/20 text-white shadow-[0_4px_18px_-6px_rgba(93,104,232,0.55)]'
@@ -608,51 +612,70 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       >
         {isPending ? (
           <Loader2
-            className={`shrink-0 animate-spin text-[#a5b5f7] ${nested ? 'h-4 w-4' : 'h-5 w-5'}`}
+            className={`shrink-0 animate-spin text-[#a5b5f7] ${nested && !collapsed ? 'h-4 w-4' : 'h-5 w-5'}`}
             aria-hidden="true"
           />
         ) : (
-          <Icon className={`shrink-0 ${nested ? 'h-4 w-4' : 'h-5 w-5'}`} aria-hidden="true" />
+          <Icon
+            className={`shrink-0 ${nested && !collapsed ? 'h-4 w-4' : 'h-5 w-5'}`}
+            aria-hidden="true"
+          />
         )}
-        {leaf.label}
+        {!collapsed && <span className="truncate">{leaf.label}</span>}
+        {collapsed && <span className="sr-only">{leaf.label}</span>}
       </Link>
     )
   }
 
   return (
     <>
-      <div className="flex h-16 items-center px-5">
-        <OrgBrandMark size="md" tone="dark" showWordmark />
+      <div
+        className={`flex h-16 items-center ${collapsed ? 'justify-center px-2' : 'px-5'}`}
+      >
+        {collapsed ? (
+          <OrgBrandMark size="md" tone="dark" />
+        ) : (
+          <OrgBrandMark size="md" tone="dark" showWordmark />
+        )}
       </div>
-      <div className="gold-hairline mx-5" aria-hidden="true" />
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Menu chính">
+      {!collapsed && <div className="gold-hairline mx-5" aria-hidden="true" />}
+      <nav
+        className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-3 ${collapsed ? 'px-2' : ''}`}
+        aria-label="Menu chính"
+      >
         {visibleMenu.map((entry) => {
           if (!isGroup(entry)) return renderLeaf(entry, false)
 
           const GroupIcon = entry.icon
           const containsActive = entry.children.some((leaf) => leaf.href === activeHref)
           // Mặc định THU GỌN — bấm nhóm để sổ (nhớ localStorage; nhóm trang hiện tại tự mở)
-          const isOpen = expanded[entry.label] ?? false
+          const isOpen = !collapsed && (expanded[entry.label] ?? false)
           return (
             <div key={entry.label}>
               <button
                 type="button"
                 onClick={() => toggleGroup(entry.label)}
+                title={collapsed ? entry.label : undefined}
                 aria-expanded={isOpen}
-                className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                aria-label={entry.label}
+                className={`flex min-h-11 w-full cursor-pointer items-center rounded-xl text-sm font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3.5 py-2.5'
+                } ${
                   containsActive && !isOpen
                     ? 'text-[#c9b5fc]'
                     : 'text-[#b8c1e8] hover:bg-white/[0.06] hover:text-white'
                 }`}
               >
                 <GroupIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <span className="flex-1 text-left">{entry.label}</span>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-[#7a83b8] transition-transform duration-200 ${
-                    isOpen ? 'rotate-180' : ''
-                  }`}
-                  aria-hidden="true"
-                />
+                {!collapsed && <span className="flex-1 truncate text-left">{entry.label}</span>}
+                {!collapsed && (
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-[#7a83b8] transition-transform duration-200 ${
+                      isOpen ? 'rotate-180' : ''
+                    }`}
+                    aria-hidden="true"
+                  />
+                )}
               </button>
               {isOpen && (
                 <div className="ml-4 space-y-0.5 border-l border-white/10 pl-2 pt-0.5">
@@ -671,16 +694,33 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 const SIDEBAR_BG =
   'bg-[radial-gradient(120%_80%_at_100%_0%,rgba(146,93,242,0.22),transparent_55%),linear-gradient(170deg,#232457_0%,#1c1b4b_55%,#12122e_100%)]'
 
+const SIDEBAR_RAIL = 'w-[76px]'
+const SIDEBAR_FULL = 'w-64'
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  /** Desktop: mặc định icon-rail; hover/focus-within → menu đầy đủ (overlay, không đẩy nội dung) */
+  const [desktopExpanded, setDesktopExpanded] = useState(false)
 
   return (
     <div className="flex min-h-dvh">
-      {/* Sidebar desktop (>= lg) */}
+      {/* Sidebar desktop (>= lg): rail icon; hover mở rộng đè lên nội dung */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden w-64 flex-col lg:flex ${SIDEBAR_BG}`}
+        onMouseEnter={() => setDesktopExpanded(true)}
+        onMouseLeave={() => setDesktopExpanded(false)}
+        onFocusCapture={() => setDesktopExpanded(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setDesktopExpanded(false)
+          }
+        }}
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden transition-[width,box-shadow] duration-200 ease-out lg:flex ${SIDEBAR_BG} ${
+          desktopExpanded
+            ? `${SIDEBAR_FULL} shadow-lg`
+            : SIDEBAR_RAIL
+        }`}
       >
-        <SidebarContent />
+        <SidebarContent collapsed={!desktopExpanded} />
       </aside>
 
       {/* Drawer mobile/tablet */}
@@ -708,8 +748,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Vùng phải: header + nội dung */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
+      {/* Vùng phải: luôn chừa rail icon → diện tích trang tối đa */}
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-[76px]">
         <header className="glass-strong sticky top-0 z-20 flex h-16 items-center justify-between gap-3 rounded-none border-x-0 border-t-0 px-4 sm:px-6">
           <button
             type="button"

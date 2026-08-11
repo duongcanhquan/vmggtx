@@ -1099,7 +1099,7 @@ export async function updateLead(formData: FormData): Promise<ActionResult> {
       orgId: existing.org_id,
       userId: user.id,
       type: 'note',
-      description: 'Cap nhat thong tin lead.',
+      description: 'Cập nhật thông tin trên hồ sơ lead.',
     })
 
     revalidatePath('/crm/leads')

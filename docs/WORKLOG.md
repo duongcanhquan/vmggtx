@@ -378,3 +378,21 @@
 - orgConfig.ai_assist_enabled; tab Cai dat Ho tro AI + toggle /settings/ai.
 - assertOrgAiReady: tat hoac thieu API key ? thong bao lien he quan tri.
 - Copilot/tutor/LMS/warnings + AskAiPanel/AiDraftButton.
+
+## 2026-08-11 | Sidebar hover-expand + so tien trong bloc (D47)
+- DashboardShell + PortalShell: mac dinh icon-rail 76px; hover/focus mo full overlay.
+- Noi dung luon pl-[76px] — dien tich trang toi da.
+- ReportKpiTile / budget / revenue / payroll / overview: so tien clamp + break-words.
+
+## 2026-08-11 | CRM: bo mo ta pipeline duoi tieu de
+- Xoa doan huong dan Pipeline lead / AI drawer / FAQ tren /crm/leads.
+
+## 2026-08-11 | CRM drawer dong thoi gian (D48)
+- LeadDetailDrawer max-w-6xl: trai tab TV, phai LeadTimeline.
+- Timeline: mau theo loai, group theo ngay, actor initials, mốc tạo lead.
+- updateLead ghi nhat ky tieng Viet; reload timeline sau save/claim.
+
+## 2026-08-11 | Review fix + commit D47-D48
+- Build sach; fix classify timeline; reset edit form khi doi lead.
+- DashboardShell bo import lucide thua.
+

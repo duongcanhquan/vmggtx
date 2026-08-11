@@ -245,11 +245,14 @@ export default function FinancePayrollPage() {
                     {totalHours}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-gradient-to-br from-primary to-secondary p-5 text-primary-foreground shadow-sm">
+                <div className="min-w-0 overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-secondary p-5 text-primary-foreground shadow-sm">
                   <p className="text-sm font-medium text-indigo-100">
                     Tổng chi lương kỳ {ranPeriod}
                   </p>
-                  <p className="mt-1 font-heading text-3xl font-bold tabular-nums">
+                  <p
+                    title={CURRENCY.format(totalNetPay)}
+                    className="mt-1 min-w-0 max-w-full break-words font-heading text-[clamp(1rem,0.75rem+1.2vw,1.875rem)] font-bold leading-tight tabular-nums"
+                  >
                     {CURRENCY.format(totalNetPay)}
                   </p>
                 </div>
