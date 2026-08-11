@@ -30,7 +30,7 @@ import {
   type PaymentMethod,
 } from './actions'
 import { FunLoader } from '@/components/shared/FunLoader'
-import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { AiDraftButton } from '@/components/ai/AiDraftButton'
 
 // ============================================================
@@ -788,49 +788,42 @@ export default function InvoicesPage() {
   )
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            Học phí &amp; Công nợ
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Dòng đỏ nhạt là công nợ quá hạn.
-          </p>
-        </div>
-        {currentOrgId && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void handleRemind()}
-              disabled={reminding}
-              title="Đẩy thông báo nhắc học phí tới Cổng Học viên & Sổ Liên Lạc Phụ huynh"
-              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {reminding ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <BellRing className="h-4 w-4" aria-hidden="true" />
-              )}
-              {reminding ? 'Đang gửi nhắc…' : 'Nhắc học phí'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <FilePlus2 className="h-4 w-4" aria-hidden="true" />
-              Tạo hóa đơn
-            </button>
-          </div>
-        )}
-      </div>
-
-      <ModuleAiInline moduleKey="finance" />
+    <div className="space-y-3">
+      <PageHeader
+        title="Học phí & Công nợ"
+        actions={
+          currentOrgId ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleRemind()}
+                disabled={reminding}
+                title="Đẩy thông báo nhắc học phí tới Cổng Học viên & Sổ Liên Lạc Phụ huynh"
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+              >
+                {reminding ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <BellRing className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {reminding ? 'Đang gửi…' : 'Nhắc học phí'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreate(true)}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+              >
+                <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Tạo hóa đơn
+              </button>
+            </>
+          ) : undefined
+        }
+      />
 
       {/* ===== Thẻ tổng hợp công nợ ===== */}
       {!loading && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: 'Tổng phải thu', value: CURRENCY.format(summary.total), tone: 'text-foreground' },
             { label: 'Đã thu', value: CURRENCY.format(summary.collected), tone: 'text-emerald-700' },
@@ -841,11 +834,11 @@ export default function InvoicesPage() {
               tone: 'text-rose-600',
             },
           ].map((card) => (
-            <div key={card.label} className="rounded-2xl border border-border bg-surface p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div key={card.label} className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface px-3 py-2.5">
+              <p className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 {card.label}
               </p>
-              <p className={`mt-1 font-heading text-lg font-bold ${card.tone}`}>{card.value}</p>
+              <p className={`mt-0.5 break-words font-heading text-base font-bold tabular-nums leading-tight ${card.tone}`}>{card.value}</p>
             </div>
           ))}
         </div>

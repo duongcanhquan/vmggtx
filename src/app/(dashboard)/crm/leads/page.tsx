@@ -44,7 +44,7 @@ import { SOURCE_LABELS } from './constants'
 import { buildFunnelFromLeads } from './funnelStats'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { LeadDetailDrawer } from './LeadDetailDrawer'
-import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
+import { PageHeader } from '@/components/shared/PageHeader'
 
 const COLUMNS: {
   status: LeadStatus
@@ -976,108 +976,104 @@ export default function CrmLeadsPage() {
   const overdueCount = leads.filter((l) => l.is_overdue).length
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            <Megaphone className="h-7 w-7 text-primary" aria-hidden="true" />
-            Tuyển sinh (CRM)
-          </h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            role="group"
-            aria-label="Chế độ hiển thị"
-            className="inline-flex rounded-xl border border-border bg-surface p-1"
-          >
+    <div className="space-y-3">
+      <PageHeader
+        title="Tuyển sinh CRM"
+        icon={Megaphone}
+        actions={
+          <>
+            <div
+              role="group"
+              aria-label="Chế độ hiển thị"
+              className="inline-flex rounded-lg border border-border bg-surface p-0.5"
+            >
+              <button
+                type="button"
+                aria-pressed={viewMode === 'table'}
+                onClick={() => setViewMode('table')}
+                className={`inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-md px-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+                  viewMode === 'table'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <LayoutList className="h-3.5 w-3.5" aria-hidden="true" />
+                Dòng
+              </button>
+              <button
+                type="button"
+                aria-pressed={viewMode === 'kanban'}
+                onClick={() => setViewMode('kanban')}
+                className={`inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-md px-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+                  viewMode === 'kanban'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <Columns3 className="h-3.5 w-3.5" aria-hidden="true" />
+                Kanban
+              </button>
+            </div>
             <button
               type="button"
-              aria-pressed={viewMode === 'table'}
-              onClick={() => setViewMode('table')}
-              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors ${
-                viewMode === 'table'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              onClick={() => setShowReport((prev) => !prev)}
+              aria-pressed={showReport}
+              className={`inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm ${
+                showReport
+                  ? 'border-primary/40 bg-primary/10 text-primary'
+                  : 'border-border bg-surface text-foreground hover:bg-muted'
               }`}
             >
-              <LayoutList className="h-4 w-4" aria-hidden="true" />
-              Dòng
+              <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
+              Báo cáo
             </button>
             <button
               type="button"
-              aria-pressed={viewMode === 'kanban'}
-              onClick={() => setViewMode('kanban')}
-              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors ${
-                viewMode === 'kanban'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
+              onClick={() => setNewLeadOpen(true)}
+              className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
             >
-              <Columns3 className="h-4 w-4" aria-hidden="true" />
-              Kanban
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Thêm Lead
             </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowReport((prev) => !prev)}
-            aria-pressed={showReport}
-            className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              showReport
-                ? 'border-primary/40 bg-primary/10 text-primary'
-                : 'border-border bg-surface text-foreground hover:bg-muted'
-            }`}
-          >
-            <BarChart3 className="h-4 w-4" aria-hidden="true" />
-            Báo cáo
-          </button>
-          <button
-            type="button"
-            onClick={() => setNewLeadOpen(true)}
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Thêm Lead
-          </button>
-        </div>
-      </div>
-
-      <ModuleAiInline moduleKey="admissions" defaultOpen />
+          </>
+        }
+      />
 
       {loadError && (
         <p
           role="alert"
-          className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           {loadError}
         </p>
       )}
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="relative min-w-0 flex-1">
           <Search
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
           <input
             type="search"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Tìm tên, SĐT, email, phụ huynh, ghi chú…"
+            placeholder="Tìm tên, SĐT, email, phụ huynh…"
             aria-label="Tìm kiếm lead"
-            className="min-h-11 w-full rounded-xl border border-border bg-surface pl-10 pr-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
-        <div className="relative sm:w-52">
+        <div className="relative sm:w-44">
           <UserRoundCog
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
           <select
             value={counselorFilter}
             onChange={(e) => setCounselorFilter(e.target.value)}
             aria-label="Lọc theo người tuyển sinh"
-            className="min-h-11 w-full cursor-pointer rounded-xl border border-border bg-surface pl-10 pr-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-9 w-full cursor-pointer rounded-lg border border-border bg-surface pl-9 pr-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="all">Tất cả phụ trách</option>
             <option value="none">Chưa phân công</option>
@@ -1092,7 +1088,7 @@ export default function CrmLeadsPage() {
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value)}
           aria-label="Lọc nguồn"
-          className="min-h-11 cursor-pointer rounded-xl border border-border bg-surface px-3 text-sm sm:w-40"
+          className="min-h-9 cursor-pointer rounded-lg border border-border bg-surface px-2.5 text-sm sm:w-36"
         >
           <option value="all">Mọi nguồn</option>
           <option value="unknown">Chưa ghi nguồn</option>
@@ -1106,7 +1102,7 @@ export default function CrmLeadsPage() {
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
           aria-label="Lọc độ nóng"
-          className="min-h-11 cursor-pointer rounded-xl border border-border bg-surface px-3 text-sm sm:w-36"
+          className="min-h-9 cursor-pointer rounded-lg border border-border bg-surface px-2.5 text-sm sm:w-32"
         >
           <option value="all">Mọi độ nóng</option>
           {priorities.map((p) => (
@@ -1119,13 +1115,13 @@ export default function CrmLeadsPage() {
           type="button"
           onClick={() => setOverdueOnly((v) => !v)}
           aria-pressed={overdueOnly}
-          className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-semibold ${
+          className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 text-sm font-semibold ${
             overdueOnly
               ? 'border-destructive/40 bg-destructive/10 text-destructive'
               : 'border-border bg-surface hover:bg-muted'
           }`}
         >
-          <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+          <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
           Quá hạn{overdueCount > 0 ? ` (${overdueCount})` : ''}
         </button>
       </div>

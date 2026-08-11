@@ -6,6 +6,7 @@ import { Plus, BookOpen, AlertCircle, Building2, Sparkles, MonitorPlay } from 'l
 import { useCampusStore } from '@/lib/store/useCampusStore'
 import { getClasses, type ClassRow } from './actions'
 import { AcademicFlowTabs } from '@/components/academic/AcademicFlowTabs'
+import { PageHeader } from '@/components/shared/PageHeader'
 
 function formatDate(value: string | null) {
   if (!value) return '—'
@@ -39,52 +40,41 @@ export default function ClassesPage() {
   }, [selectedCampusId])
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            Học phần (lớp môn)
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Mỗi học phần gắn một môn + GV. Nên tạo từ{' '}
-            <Link href="/classes/groups" className="font-semibold text-primary hover:underline">
-              Lớp hành chính
-            </Link>{' '}
-            để đồng bộ sĩ số; «Tạo lớp mới» chỉ dùng khi học phần độc lập / ghép.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <AcademicFlowTabs />
-          <div className="flex flex-wrap items-center justify-end gap-2">
-          <Link
-            href="/academic/lms"
-            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-          >
-            <MonitorPlay className="h-4 w-4" aria-hidden="true" />
-            LMS Online
-          </Link>
-          <Link
-            href="/academic/schedule"
-            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-          >
-            Xếp lịch / TKB
-          </Link>
-          <Link
-            href="/classes/groups"
-            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Từ lớp hành chính
-          </Link>
-          <Link
-            href="/classes/new"
-            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-          >
-            Tạo học phần độc lập
-          </Link>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-3">
+      <PageHeader
+        title="Học phần"
+        actions={
+          <>
+            <AcademicFlowTabs />
+            <Link
+              href="/academic/lms"
+              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs font-semibold hover:bg-muted sm:text-sm"
+            >
+              <MonitorPlay className="h-3.5 w-3.5" aria-hidden="true" />
+              LMS
+            </Link>
+            <Link
+              href="/academic/schedule"
+              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs font-semibold hover:bg-muted sm:text-sm"
+            >
+              TKB
+            </Link>
+            <Link
+              href="/classes/groups"
+              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Lớp HC
+            </Link>
+            <Link
+              href="/classes/new"
+              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs font-semibold hover:bg-muted sm:text-sm"
+            >
+              Độc lập
+            </Link>
+          </>
+        }
+      />
 
       {/* Chưa chọn cơ sở */}
       {!selectedCampusId && (

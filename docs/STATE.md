@@ -3,13 +3,12 @@
 > **Giao thức**: Agent đọc file này ĐẦU MỖI PHIÊN. Cập nhật CUỐI MỖI PHIÊN (trước commit).
 > Giữ file này DƯỚI 120 dòng - chi tiết lịch sử để ở `WORKLOG.md`, kiến trúc ở `ARCHITECTURE.md`.
 
-**Cập nhật lần cuối**: 2026-08-11 - D47+D48 review + push
+**Cập nhật lần cuối**: 2026-08-11 - D49 mật độ UI (bỏ AI trùng, PageHeader gọn)
 
 ## Snapshot
 - Build: SẠCH (`npm run build` exit 0).
-- **D48**: Popup chi tiết lead = trái thao tác TV + phải dòng thời gian (mốc/chăm sóc/cập nhật + người làm).
-- **D47**: Sidebar icon-rail hover-expand; số tiền KPI không tràn bloc.
-- Fix: classify timeline ưu tiên loại gốc; reset form khi đổi lead; bỏ import lucide thừa.
+- **D49**: Bỏ ModuleAiInline (chỉ giữ FAB Hỏi AI); PageHeader 1 hàng; CRM/HV/GV/lớp/TKB/HR/HĐ/Khảo thí gọn hơn.
+- **D48**: Lead drawer + dòng thời gian. **D47**: Sidebar hover-expand.
 
 ## Migrations
 - File: `001 → 076` + `999_*`.

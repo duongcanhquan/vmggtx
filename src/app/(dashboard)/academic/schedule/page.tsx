@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import {
   CalendarOff,
   CalendarRange,
@@ -18,7 +17,7 @@ import { useOrgStore } from '@/lib/store/useOrgStore'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { ScheduleOpsTabs } from '@/components/academic/ScheduleOpsTabs'
-import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { findConflictIds } from '@/lib/schedule/conflicts'
 import {
   localDateKey,
@@ -75,25 +74,12 @@ export default function AcademicSchedulePage() {
   const [toast, setToast] = useState<ToastData | null>(null)
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            <CalendarRange className="h-7 w-7 text-primary" aria-hidden="true" />
-            Xếp lịch / TKB
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ngày nghỉ · lưới kéo-thả · xếp tự động theo quy tắc. Gán chủ nhiệm xem{' '}
-            <Link href="/teachers" className="font-medium text-primary hover:underline">
-              Hồ sơ giảng viên
-            </Link>
-            .
-          </p>
-        </div>
-        <ScheduleOpsTabs />
-      </div>
-
-      <ModuleAiInline moduleKey="training" />
+    <div className="space-y-3">
+      <PageHeader
+        title="Xếp lịch / TKB"
+        icon={CalendarRange}
+        actions={<ScheduleOpsTabs />}
+      />
 
       <div
         role="tablist"

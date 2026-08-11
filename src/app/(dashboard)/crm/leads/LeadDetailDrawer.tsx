@@ -30,7 +30,6 @@ import {
   type Option,
 } from './actions'
 import { SOURCE_LABELS } from './constants'
-import { LeadAiAssist } from './LeadAiAssist'
 import { LeadTimeline } from './LeadTimeline'
 
 const inputClass =
@@ -191,9 +190,7 @@ export function LeadDetailDrawer({
   onChanged: () => void
   onToast: (type: 'success' | 'error', message: string) => void
 }) {
-  const [tab, setTab] = useState<
-    'profile' | 'care' | 'edit' | 'payment' | 'ai'
-  >('profile')
+  const [tab, setTab] = useState<'profile' | 'care' | 'edit' | 'payment'>('profile')
   const [detail, setDetail] = useState<LeadCard>(leadProp)
   const lead = detail
   const [activities, setActivities] = useState<LeadActivityRow[]>([])
@@ -428,7 +425,6 @@ export function LeadDetailDrawer({
               ['care', 'Chăm sóc'],
               ['edit', 'Chỉnh sửa'],
               ['payment', 'Đóng tiền'],
-              ['ai', 'AI'],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -637,10 +633,6 @@ export function LeadDetailDrawer({
                 </form>
               )}
 
-              <p className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-3 py-2.5 text-xs text-indigo-800">
-                Mọi nhật ký vừa lưu sẽ hiện ngay trên <strong>Dòng thời gian</strong> bên phải
-                (máy tính) hoặc phía dưới (điện thoại).
-              </p>
             </div>
           )}
 
@@ -1024,7 +1016,6 @@ export function LeadDetailDrawer({
             </div>
           )}
 
-          {tab === 'ai' && <LeadAiAssist orgId={lead.org_id} leadId={lead.id} />}
         </div>
 
         <footer className="flex flex-wrap gap-2 border-t border-border px-5 py-3">

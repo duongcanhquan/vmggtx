@@ -121,3 +121,5 @@ M?i quy?t ??nh 1-3 d?ng. Th?m m?i v?o CU?I danh s?ch v?i m? D ti?p theo.
 - **D47** Sidebar desktop: mac dinh icon-rail; hover/focus-within mo menu day du dang overlay (khong day layout). Noi dung luon chừa 76px. Mobile van drawer.
 
 - **D48** CRM lead detail: popup 2 cot — trai thao tac tu van vien, phai dong thoi gian (lead_activities + moc tao). Khong can tab Timeline rieng.
+
+- **D49** Mat do UI: khong lap AI tren trang (chi FAB ModuleAskAi). Header trang dung PageHeader (tieu de nho + actions 1 hang); uu tien dien tich danh sach.

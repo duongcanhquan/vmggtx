@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { PageHeader } from '@/components/shared/PageHeader'
 import {
   assignClassesToTeacher,
   getAssignableClasses,
@@ -70,44 +71,35 @@ export default function TeachersPage() {
   }, [teachers, search])
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            <GraduationCap className="h-7 w-7 text-primary" aria-hidden="true" />
-            Hồ sơ Giảng viên
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Danh bạ giảng viên và phân công lớp chủ nhiệm. Xếp buổi dạy tại{' '}
-            <Link href="/academic/schedule" className="font-medium text-primary hover:underline">
-              Xếp lịch / TKB
+    <div className="space-y-3">
+      <PageHeader
+        title="Giảng viên"
+        icon={GraduationCap}
+        actions={
+          <>
+            <Link
+              href="/academic/schedule"
+              className="inline-flex min-h-9 items-center rounded-lg border border-border bg-surface px-2.5 text-xs font-semibold hover:bg-muted sm:text-sm"
+            >
+              TKB
             </Link>
-            .
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/academic/schedule"
-            className="inline-flex min-h-11 items-center rounded-xl border border-border bg-surface px-4 text-sm font-semibold hover:bg-muted"
-          >
-            Xếp lịch / TKB
-          </Link>
-          <div className="relative w-full sm:w-72">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm tên, email, cơ sở…"
-            aria-label="Tìm giảng viên"
-            className="min-h-11 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          </div>
-        </div>
-      </div>
+            <div className="relative w-40 sm:w-56">
+              <Search
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Tìm GV…"
+                aria-label="Tìm giảng viên"
+                className="min-h-9 w-full rounded-lg border border-border bg-surface pl-8 pr-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+          </>
+        }
+      />
 
       {loading && <FunLoader label="Đang tải danh bạ giảng viên…" />}
 

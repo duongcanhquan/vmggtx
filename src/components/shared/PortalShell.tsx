@@ -210,7 +210,7 @@ export function PortalShell({
         </header>
 
         {/* Full-width: tận dụng toàn bộ màn hình desktop, không lề trống */}
-        <main className="w-full flex-1 p-4 sm:p-6 xl:px-8">
+        <main className="w-full flex-1 p-3 sm:p-4 xl:px-6">
           {children}
         </main>
         {showAskAi ? <ModuleAskAi /> : null}

@@ -19,7 +19,7 @@ import { useOrgStore } from '@/lib/store/useOrgStore'
 import { FunLoader } from '@/components/shared/FunLoader'
 import { Toast, type ToastData } from '@/components/shared/Toast'
 import { OrgStaffTabs } from '@/components/campus-admin/OrgStaffTabs'
-import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { uploadFilesToR2 } from '@/components/lms/uploadFiles'
 import {
   getHrReminders,
@@ -216,21 +216,8 @@ export default function HrPersonnelPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            Hồ sơ & giấy tờ nhân sự
-          </h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Dữ liệu bảo mật: họ tên, CCCD, địa chỉ, ngày sinh, email + giấy tờ đính kèm. Giao
-            Trưởng phòng nhân sự (chức danh/mẫu menu) hoặc Quản lý cơ sở; admin có thể khóa quyền.
-          </p>
-        </div>
-        <OrgStaffTabs />
-      </div>
-
-      <ModuleAiInline moduleKey="hr" />
+    <div className="space-y-3">
+      <PageHeader title="Hồ sơ & giấy tờ NS" actions={<OrgStaffTabs />} />
 
       {canToggleLock && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">

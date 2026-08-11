@@ -15,7 +15,7 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import { ExamOpsTabs } from '@/components/shared/ExamOpsTabs'
-import { ModuleAiInline } from '@/components/ai/ModuleAiInline'
+import { PageHeader } from '@/components/shared/PageHeader'
 
 const STEPS = [
   {
@@ -71,18 +71,8 @@ const QUICK = [
 
 export default function ExamOfficePage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-foreground">Trung tâm Khảo thí</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Module riêng biệt khỏi Đào tạo / Học vụ. Kiểm soát toàn bộ vòng đời thi cử: đề → lịch →
-          điểm → công bố → xuất báo cáo → lộ trình học tập.
-        </p>
-      </div>
-
-      <ExamOpsTabs />
-
-      <ModuleAiInline moduleKey="exams" />
+    <div className="space-y-3">
+      <PageHeader title="Trung tâm Khảo thí" actions={<ExamOpsTabs />} />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {STEPS.map((item) => {

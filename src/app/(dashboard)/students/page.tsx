@@ -29,6 +29,7 @@ import {
   type EnrollmentPanel,
 } from './[id]/enrollment-actions'
 import { FunLoader } from '@/components/shared/FunLoader'
+import { PageHeader } from '@/components/shared/PageHeader'
 
 // ============================================================
 // Quản lý Học sinh (/students) - SmartTable + StudentForm động.
@@ -209,38 +210,35 @@ export default function StudentsPage() {
   )
 
   return (
-    <div className="space-y-6">
-      {/* ===== Header + Tabs mục "Học sinh" ===== */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-3">
-          <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            Quản lý Học sinh
-          </h1>
-          <SectionTabs
-            tabs={[
-              { label: 'Danh sách học sinh', href: '/students' },
-              { label: 'Import Excel/CSV', href: '/students/import' },
-            ]}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/students/import"
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 py-2.5 text-sm font-semibold text-foreground transition-colors duration-200 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Upload className="h-4 w-4" aria-hidden="true" />
-            Import từ Excel
-          </Link>
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity duration-200 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Thêm học sinh
-          </button>
-        </div>
-      </div>
+    <div className="space-y-3">
+      <PageHeader
+        title="Học sinh"
+        actions={
+          <>
+            <SectionTabs
+              tabs={[
+                { label: 'Danh sách', href: '/students' },
+                { label: 'Import', href: '/students/import' },
+              ]}
+            />
+            <Link
+              href="/students/import"
+              className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+            >
+              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+              Import
+            </Link>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Thêm
+            </button>
+          </>
+        }
+      />
 
       {loadError && (
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">

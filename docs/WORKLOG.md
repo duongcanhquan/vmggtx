@@ -396,3 +396,8 @@
 - Build sach; fix classify timeline; reset edit form khi doi lead.
 - DashboardShell bo import lucide thua.
 
+## 2026-08-11 | Mat do UI D49 (bot AI trung + header gon)
+- PageHeader shared; CRM 1 hang tieu de + Dòng/Kanban/Bao cao/Them Lead.
+- Go ModuleAiInline tren CRM/TKB/HR/HD/exam/facilities; drawer CRM bo tab AI.
+- Students/Teachers/Classes + shell padding gon hon.
+
