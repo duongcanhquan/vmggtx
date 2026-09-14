@@ -405,3 +405,8 @@
 - Nhom «Tuyển sinh & Truyền thông» → leaf «Tuyển sinh» (UserPlus).
 - «Thông báo chung» → «Gửi thông báo», chuyen vao Đào tạo & Học vụ.
 
+## 2026-09-14 | Fix Vercel MIDDLEWARE_INVOCATION_TIMEOUT
+- Middleware: timeout 2.5s cho getSession/RPC/profiles; skip Auth khi khong co cookie.
+- Timeout access-state khong cache (fail-open, thu lai lan sau).
+- Chống 504 GATEWAY_TIMEOUT khi Supabase Auth/DB chậm trên Edge.
+

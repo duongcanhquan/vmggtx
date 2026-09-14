@@ -14,6 +14,45 @@ import { isReservedOrgSlug } from '@/lib/utils/reservedSlugs'
 import { isSuperAdminAllowedPath } from '@/lib/auth/portalIsolation'
 
 // ============================================================
+// TIMEOUT CỨNG CHO EDGE MIDDLEWARE (Vercel ~25s → 504 MIDDLEWARE_INVOCATION_TIMEOUT)
+// Mọi gọi Supabase Auth/RPC phải kết thúc sớm; quá hạn → fail-open / coi như chưa login
+// thay vì treo đến khi Vercel cắt.
+// ============================================================
+
+const EXTERNAL_TIMEOUT_MS = 2_500
+
+function withTimeout<T>(
+  promise: PromiseLike<T>,
+  ms: number,
+  fallback: T
+): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(fallback)
+      }
+    )
+  })
+}
+
+/** Cookie phiên Supabase (sb-*-auth-token[.N]) — không có thì khỏi gọi Auth. */
+function hasSupabaseAuthCookie(request: NextRequest): boolean {
+  return request.cookies
+    .getAll()
+    .some(
+      (c) =>
+        c.name.includes('-auth-token') ||
+        (c.name.startsWith('sb-') && c.value.length > 0)
+    )
+}
+
+// ============================================================
 // CACHE TRẠNG THÁI TRUY CẬP (license + menu + module flags)
 // - 1 RPC get_my_access_state (047) thay cho 3 RPC tuần tự cũ.
 // - Cache trong BỘ NHỚ server (per isolate) TTL 60s: các cú click
@@ -56,8 +95,13 @@ async function getAccessState(
   if (cached && cached.expires > Date.now()) return cached.state
 
   let state = ACCESS_STATE_OK
+  let shouldCache = false
   try {
-    const { data, error } = await supabase.rpc('get_my_access_state')
+    const { data, error } = await withTimeout(
+      Promise.resolve(supabase.rpc('get_my_access_state')),
+      EXTERNAL_TIMEOUT_MS,
+      { data: null, error: null }
+    )
     if (!error && data && typeof data === 'object') {
       const raw = data as {
         license_ok?: unknown
@@ -81,23 +125,32 @@ async function getAccessState(
           ? (raw.off_features as string[])
           : [],
       }
+      shouldCache = true
     } else if (error) {
       // 047 chưa chạy -> fallback giữ enforcement license cũ (1 RPC),
       // menu/module fail-open như trước.
       state = { ...ACCESS_STATE_OK, licenseOk: await checkLicenseOnly(supabase) }
+      shouldCache = true
     }
+    // timeout (data/error đều null): fail-open, không cache
   } catch {
-    /* fail-open */
+    return ACCESS_STATE_OK
   }
 
-  if (ACCESS_CACHE.size >= ACCESS_CACHE_MAX) ACCESS_CACHE.clear()
-  ACCESS_CACHE.set(userId, { state, expires: Date.now() + ACCESS_TTL_MS })
+  if (shouldCache) {
+    if (ACCESS_CACHE.size >= ACCESS_CACHE_MAX) ACCESS_CACHE.clear()
+    ACCESS_CACHE.set(userId, { state, expires: Date.now() + ACCESS_TTL_MS })
+  }
   return state
 }
 
 async function checkLicenseOnly(supabase: SupabaseRpcClient): Promise<boolean> {
   try {
-    const { data, error } = await supabase.rpc('get_my_license')
+    const { data, error } = await withTimeout(
+      Promise.resolve(supabase.rpc('get_my_license')),
+      EXTERNAL_TIMEOUT_MS,
+      { data: null, error: null }
+    )
     if (error || !data || typeof data !== 'object') return true
     const license = data as { status?: string; valid_until?: string | null }
     if (license.status === 'suspended') return false
@@ -600,9 +653,20 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  // Không có cookie phiên → bỏ qua Auth (tránh treo Edge khi Supabase chậm).
+  // Có cookie → getSession có timeout cứng; quá hạn coi như chưa login.
+  type MwSession = Awaited<
+    ReturnType<typeof supabase.auth.getSession>
+  >['data']['session']
+  let session: MwSession = null
+  if (hasSupabaseAuthCookie(request)) {
+    const sessionResult = await withTimeout(
+      supabase.auth.getSession(),
+      EXTERNAL_TIMEOUT_MS,
+      { data: { session: null }, error: null }
+    )
+    session = sessionResult.data.session
+  }
 
   // ---- Trích xuất role (JWT claims → profiles). KHÔNG tin cookie role_hint
   // (có thể giả mạo) — D37. Hook JWT bật thì không tốn query.
@@ -611,13 +675,23 @@ export async function middleware(request: NextRequest) {
     let role: Role | null = readClaimsFromAccessToken(session.access_token).role
     if (role) return role
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .is('deleted_at', null)
-      .maybeSingle()
-    return isRole(profile?.role) ? profile.role : null
+    const profileRes = await withTimeout<{
+      data: { role: string | null } | null
+      error: unknown
+    }>(
+      supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .is('deleted_at', null)
+        .maybeSingle() as PromiseLike<{
+        data: { role: string | null } | null
+        error: unknown
+      }>,
+      EXTERNAL_TIMEOUT_MS,
+      { data: null, error: null }
+    )
+    return isRole(profileRes.data?.role) ? profileRes.data.role : null
   }
 
   // ===== 1. Public paths =====
@@ -639,7 +713,11 @@ export async function middleware(request: NextRequest) {
       // KHÔNG redirect (tránh ERR_TOO_MANY_REDIRECTS) — xóa cookie
       // phiên hỏng rồi cho ở lại trang login.
       try {
-        await supabase.auth.signOut({ scope: 'local' })
+        await withTimeout(
+          supabase.auth.signOut({ scope: 'local' }),
+          EXTERNAL_TIMEOUT_MS,
+          undefined
+        )
       } catch {
         /* refresh token đã chết — bỏ qua */
       }
