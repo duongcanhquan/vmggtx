@@ -89,7 +89,8 @@ async function getAncestorNames(
 }
 
 /**
- * Tra cứu cơ sở công khai theo slug (RPC 045; fallback admin nếu RPC chưa chạy).
+ * Tra cứu cơ sở/nhánh công khai theo slug (RPC 045; fallback admin nếu RPC
+ * chưa chạy hoặc chỉ trả type=campus trong khi slug thuộc nhánh).
  */
 export async function getPublicCampusBySlug(
   slug: string
@@ -127,7 +128,7 @@ export async function getPublicCampusBySlug(
       }
     }
 
-    // Fallback khi chưa chạy migration 045 / RPC thiếu
+    // Fallback khi chưa chạy migration 045 / RPC thiếu / RPC chỉ type=campus
     if (rpcError && !/does not exist|schema cache|PGRST202/i.test(rpcError.message)) {
       return { campus: null, error: `Không tra cứu được cơ sở: ${rpcError.message}` }
     }
@@ -135,8 +136,8 @@ export async function getPublicCampusBySlug(
     const { data, error } = await admin
       .from('organizations')
       .select('id, name, slug, logo_url, logo_key')
-      .eq('type', 'campus')
       .eq('slug', parsed.data)
+      .in('type', ['campus', 'branch'])
       .is('deleted_at', null)
       .maybeSingle()
 
@@ -150,7 +151,12 @@ export async function getPublicCampusBySlug(
       }
       return { campus: null, error: `Không tra cứu được cơ sở: ${error.message}` }
     }
-    if (!data?.slug) return { campus: null }
+    if (!data?.slug) {
+      return {
+        campus: null,
+        error: `Không có đơn vị nào với mã «${parsed.data}». Kiểm tra lại đường dẫn hoặc tạo/seed đơn vị trên Supabase.`,
+      }
+    }
     const parentNames = await getAncestorNames(admin, data.id)
     const row = data as {
       id: string
