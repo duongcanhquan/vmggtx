@@ -55,6 +55,10 @@ export default async function CampusLoginPage({ params, searchParams }: Props) {
             </Link>
           </li>
           <li>
+            Vercel → Settings → Environment Variables: thêm{' '}
+            <code className="rounded bg-white/70 px-1">SUPABASE_SERVICE_ROLE_KEY</code>
+          </li>
+          <li>
             Ví dụ đúng:{' '}
             <code className="rounded bg-white/70 px-1">/viet-my/login</code>
           </li>

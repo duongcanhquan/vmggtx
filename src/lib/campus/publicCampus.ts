@@ -1,15 +1,32 @@
 'use server'
 
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { resolveLogoSrc } from '@/lib/branding/orgBrand'
 import { getDescendantOrgIds } from '@/lib/utils/orgScope'
 import { orgSlugSchema } from '@/lib/utils/orgSlug'
+import {
+  getSupabaseAnonKey,
+  getSupabaseServiceKey,
+  getSupabaseUrl,
+} from '@/lib/supabase/env'
 import type { ActionResult } from '@/lib/validation/schemas'
+
+/** Client anon không cookie — đủ gọi RPC công khai get_public_campus_by_slug. */
+function createPublicAnonClient() {
+  return createSupabaseJsClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
+
+type OrgQueryClient = {
+  from: ReturnType<typeof createAdminClient>['from']
+}
 
 /** Logo của campus hoặc tổ tiên gần nhất có logo */
 async function resolveCampusLogoUrl(
-  admin: ReturnType<typeof createAdminClient>,
+  db: OrgQueryClient,
   orgId: string,
   seedUrl?: string | null,
   seedKey?: string | null
@@ -29,7 +46,7 @@ async function resolveCampusLogoUrl(
   }
   let cursorId: string | null = orgId
   for (let i = 0; i < 8 && cursorId; i++) {
-    const { data } = await admin
+    const { data } = await db
       .from('organizations')
       .select('id, parent_id, logo_url, logo_key')
       .eq('id', cursorId)
@@ -63,18 +80,18 @@ export type PublicCampus = {
  * thông tin vô nghĩa với người dùng cuối.
  */
 async function getAncestorNames(
-  admin: ReturnType<typeof createAdminClient>,
+  db: OrgQueryClient,
   orgId: string
 ): Promise<string[]> {
   const names: string[] = []
-  const { data: self } = await admin
+  const { data: self } = await db
     .from('organizations')
     .select('parent_id')
     .eq('id', orgId)
     .maybeSingle()
   let nextId: string | null = self?.parent_id ?? null
   for (let i = 0; i < 4 && nextId; i++) {
-    const { data: parent } = await admin
+    const { data: parent } = await db
       .from('organizations')
       .select('name, parent_id')
       .eq('id', nextId)
@@ -89,8 +106,9 @@ async function getAncestorNames(
 }
 
 /**
- * Tra cứu cơ sở/nhánh công khai theo slug (RPC 045; fallback admin nếu RPC
- * chưa chạy hoặc chỉ trả type=campus trong khi slug thuộc nhánh).
+ * Tra cứu cơ sở/nhánh công khai theo slug.
+ * Dùng RPC 045 qua ANON key (không cần service role) — cổng /{slug}/login
+ * vẫn mở được khi Vercel thiếu SUPABASE_SERVICE_ROLE_KEY.
  */
 export async function getPublicCampusBySlug(
   slug: string
@@ -101,13 +119,12 @@ export async function getPublicCampusBySlug(
   }
 
   try {
-    const admin = createAdminClient()
-
-    // Ưu tiên RPC công khai (anon cũng gọi được sau khi chạy 045)
-    const { data: rpcRows, error: rpcError } = await admin.rpc(
+    const anon = createPublicAnonClient()
+    const { data: rpcRows, error: rpcError } = await anon.rpc(
       'get_public_campus_by_slug',
       { p_slug: parsed.data }
     )
+
     if (!rpcError && Array.isArray(rpcRows) && rpcRows[0]) {
       const row = rpcRows[0] as {
         id: string
@@ -115,8 +132,17 @@ export async function getPublicCampusBySlug(
         slug: string
         logo_url?: string | null
       }
-      const parentNames = await getAncestorNames(admin, row.id)
-      const logoUrl = await resolveCampusLogoUrl(admin, row.id, row.logo_url, null)
+      let parentNames: string[] | undefined
+      let logoUrl: string | null | undefined = row.logo_url ?? null
+      if (getSupabaseServiceKey()) {
+        try {
+          const admin = createAdminClient()
+          parentNames = await getAncestorNames(admin, row.id)
+          logoUrl = await resolveCampusLogoUrl(admin, row.id, row.logo_url, null)
+        } catch {
+          /* enrich tùy chọn — không chặn cổng login */
+        }
+      }
       return {
         campus: {
           id: row.id,
@@ -128,11 +154,28 @@ export async function getPublicCampusBySlug(
       }
     }
 
-    // Fallback khi chưa chạy migration 045 / RPC thiếu / RPC chỉ type=campus
-    if (rpcError && !/does not exist|schema cache|PGRST202/i.test(rpcError.message)) {
+    const rpcMissing =
+      !!rpcError && /does not exist|schema cache|PGRST202/i.test(rpcError.message)
+    if (rpcError && !rpcMissing) {
       return { campus: null, error: `Không tra cứu được cơ sở: ${rpcError.message}` }
     }
 
+    // Fallback admin: nhánh (branch), hoặc khi chưa có RPC 045
+    if (!getSupabaseServiceKey()) {
+      if (rpcMissing) {
+        return {
+          campus: null,
+          error:
+            'Chưa chạy migration 045_org_slugs.sql trên database. Hãy chạy trong Supabase SQL Editor.',
+        }
+      }
+      return {
+        campus: null,
+        error: `Không có đơn vị nào với mã «${parsed.data}». Hãy seed/tạo đơn vị, hoặc thêm SUPABASE_SERVICE_ROLE_KEY trên Vercel rồi thử lại.`,
+      }
+    }
+
+    const admin = createAdminClient()
     const { data, error } = await admin
       .from('organizations')
       .select('id, name, slug, logo_url, logo_key')
@@ -212,6 +255,13 @@ export async function getPublicBranchChain(
   if (!campus) return { data: null, error }
 
   try {
+    if (!getSupabaseServiceKey()) {
+      return {
+        data: null,
+        error:
+          'Cần SUPABASE_SERVICE_ROLE_KEY trên Vercel để mở đường dẫn nhánh lồng nhau.',
+      }
+    }
     const admin = createAdminClient()
     const chain: { id: string; name: string; slug: string }[] = []
     let parentId = campus.id
