@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test:supabase": "node --env-file=.env test-connection.mjs",
     "seed": "tsx scripts/seed.ts",
+    "reset:passwords": "tsx scripts/reset-passwords.ts",
     "gen:types": "supabase gen types typescript --linked > src/types/supabase.ts"
   },
   "dependencies": {
