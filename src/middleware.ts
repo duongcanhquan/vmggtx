@@ -21,21 +21,38 @@ import { isSuperAdminAllowedPath } from '@/lib/auth/portalIsolation'
 
 const EXTERNAL_TIMEOUT_MS = 2_500
 
+/**
+ * Race với timeout. Luôn nuốt reject muộn của promise gốc để work bị
+ * bỏ sau timeout không làm crash Edge isolate (MIDDLEWARE_INVOCATION_FAILED).
+ */
 function withTimeout<T>(
   promise: PromiseLike<T>,
   ms: number,
   fallback: T
 ): Promise<T> {
+  const pending = Promise.resolve(promise)
+  // Giữ microtask handler sống suốt đời promise — kể cả sau khi đã timeout.
+  pending.then(
+    () => undefined,
+    () => undefined
+  )
+
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(fallback), ms)
-    Promise.resolve(promise).then(
+    let settled = false
+    const finish = (value: T) => {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
+    const timer = setTimeout(() => finish(fallback), ms)
+    pending.then(
       (value) => {
         clearTimeout(timer)
-        resolve(value)
+        finish(value)
       },
       () => {
         clearTimeout(timer)
-        resolve(fallback)
+        finish(fallback)
       }
     )
   })
@@ -45,11 +62,7 @@ function withTimeout<T>(
 function hasSupabaseAuthCookie(request: NextRequest): boolean {
   return request.cookies
     .getAll()
-    .some(
-      (c) =>
-        c.name.includes('-auth-token') ||
-        (c.name.startsWith('sb-') && c.value.length > 0)
-    )
+    .some((c) => c.name.includes('-auth-token'))
 }
 
 // ============================================================
@@ -591,6 +604,23 @@ function redirectTo(
 }
 
 export async function middleware(request: NextRequest) {
+  try {
+    return await handleMiddleware(request)
+  } catch (error) {
+    // Không để exception trần biến thành 500 MIDDLEWARE_INVOCATION_FAILED
+    console.error('[middleware] unhandled:', error)
+    try {
+      if (isPublicPath(request.nextUrl.pathname)) {
+        return NextResponse.next({ request })
+      }
+      return redirectTo(request, '/login')
+    } catch {
+      return NextResponse.next({ request })
+    }
+  }
+}
+
+async function handleMiddleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Legacy /coso/{slug}/… → /{slug}/… (giữ query)
@@ -626,21 +656,29 @@ export async function middleware(request: NextRequest) {
 
   // Static / API AI chat không đi qua matcher này (xem config)
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+  // Thiếu env trên Edge → đừng gọi createServerClient (sẽ throw).
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[middleware] missing NEXT_PUBLIC_SUPABASE_URL/KEY')
+    if (isPublicPath(pathname)) return NextResponse.next({ request })
+    return redirectTo(request, '/login')
+  }
+
   let response = NextResponse.next({ request })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    // Hỗ trợ cả hệ key cũ (anon) lẫn mới (publishable)
-    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(
-          cookiesToSet: { name: string; value: string; options: CookieOptions }[]
-        ) {
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(
+        cookiesToSet: { name: string; value: string; options: CookieOptions }[]
+      ) {
+        try {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
@@ -648,10 +686,12 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
-        },
+        } catch {
+          /* setAll muộn sau khi response đã trả — bỏ qua */
+        }
       },
-    }
-  )
+    },
+  })
 
   // Không có cookie phiên → bỏ qua Auth (tránh treo Edge khi Supabase chậm).
   // Có cookie → getSession có timeout cứng; quá hạn coi như chưa login.
@@ -665,7 +705,7 @@ export async function middleware(request: NextRequest) {
       EXTERNAL_TIMEOUT_MS,
       { data: { session: null }, error: null }
     )
-    session = sessionResult.data.session
+    session = sessionResult?.data?.session ?? null
   }
 
   // ---- Trích xuất role (JWT claims → profiles). KHÔNG tin cookie role_hint
